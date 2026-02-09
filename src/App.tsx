@@ -53,6 +53,15 @@ function App() {
   }, [adminLoggedIn, currentPathWithSearch, isAdminProtectedRoute, pathname])
 
   useEffect(() => {
+    const shouldLockBodyScroll = route.name === 'admin-dashboard' || route.name === 'admin-maps'
+    document.body.style.overflow = shouldLockBodyScroll ? 'hidden' : ''
+
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [route.name])
+
+  useEffect(() => {
     if (route.name !== 'admin-login' || !adminLoggedIn) {
       return
     }

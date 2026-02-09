@@ -1,36 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
-import { FiCrosshair, FiMap } from 'react-icons/fi'
+import { FiArrowRight, FiCrosshair, FiMap } from 'react-icons/fi'
 import { fetchMapPresets, refreshMapPresets } from '../api/maps'
 import type { TarkovMapPreset } from '../constants/maps'
 
 interface HomePageProps {
   onCreateInstance: (mapId: string) => void
-}
-
-const bannerModules = import.meta.glob('../assets/images/Banner_*.png', {
-  eager: true,
-  import: 'default',
-}) as Record<string, string>
-
-const normalizeId = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '_')
-
-const bannerAliasByMapId: Record<string, string> = {
-  labs: 'theLab',
-  'ground-zero': 'ground_zero',
-}
-
-const bannerByMapId = Object.entries(bannerModules).reduce<Record<string, string>>((acc, [path, src]) => {
-  const filename = path.split('/').pop() ?? ''
-  const rawId = filename.replace(/^Banner_/i, '').replace(/\.png$/i, '')
-  acc[normalizeId(rawId)] = src
-  return acc
-}, {})
-
-const getMapBanner = (mapId: string) => {
-  const mappedId = bannerAliasByMapId[mapId] ?? mapId
-  return bannerByMapId[normalizeId(mappedId)] ?? null
 }
 
 export function HomePage({ onCreateInstance }: HomePageProps) {
@@ -98,7 +74,7 @@ export function HomePage({ onCreateInstance }: HomePageProps) {
         {!loading && !errorMessage && mapPresets.length > 0 && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {mapPresets.map((preset, index) => {
-              const bannerSrc = getMapBanner(preset.id)
+              const bannerSrc = preset.bannerUrl
 
               return (
                 <motion.article
@@ -112,7 +88,7 @@ export function HomePage({ onCreateInstance }: HomePageProps) {
                   <button
                     type="button"
                     onClick={() => onCreateInstance(preset.id)}
-                    className="block w-full text-left"
+                    className="group block w-full text-left"
                   >
                     <div
                       className="h-40 border-b border-emerald-300/25 bg-cover bg-center"
@@ -129,7 +105,10 @@ export function HomePage({ onCreateInstance }: HomePageProps) {
                         </h2>
                         <FiMap className="text-emerald-300" />
                       </div>
-                      <span className="btn-outline">{t('home.createInstance')}</span>
+                      <span className="inline-flex items-center gap-2 rounded-xl bg-emerald-300 px-3 py-2 text-sm font-bold text-emerald-950 shadow-[0_8px_20px_rgba(110,231,183,0.28)] transition group-hover:bg-emerald-200">
+                        {t('home.createInstance')}
+                        <FiArrowRight className="transition group-hover:translate-x-0.5" />
+                      </span>
                     </div>
                   </button>
                 </motion.article>

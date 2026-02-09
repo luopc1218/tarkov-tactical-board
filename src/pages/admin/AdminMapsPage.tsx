@@ -196,14 +196,14 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
         </div>
       }
     >
-      <div className="space-y-4">
+      <div className="flex h-full min-h-0 flex-col gap-4">
         {errorMessage && (
           <p className="rounded-xl bg-rose-950/45 px-4 py-3 text-sm text-rose-200">{errorMessage}</p>
         )}
 
-        <div className="overflow-x-auto rounded-xl border border-emerald-200/20">
+        <div className="scrollbar-tactical min-h-0 flex-1 overflow-auto rounded-xl border border-emerald-200/20">
           <table className="w-full min-w-[980px] text-left text-sm">
-            <thead className="bg-emerald-900/25 text-emerald-100">
+            <thead className="sticky top-0 z-10 bg-emerald-900/95 text-emerald-100 backdrop-blur">
               <tr>
                 <th className="px-4 py-3">ID</th>
                 <th className="px-4 py-3">{t('admin.banner')}</th>
@@ -280,62 +280,93 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
 
       {modalOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-6">
-          <div className="w-full max-w-xl rounded-2xl border border-emerald-200/20 bg-[#102018] p-6 shadow-2xl">
+          <div className="w-full max-w-3xl rounded-2xl border border-emerald-200/20 bg-[#102018] p-6 shadow-2xl">
             <h2 className="text-xl font-semibold text-white">
               {editingMap ? t('admin.editMap') : t('admin.createMap')}
             </h2>
             <p className="mt-1 text-sm text-emerald-50/70">{t('admin.mapFormHint')}</p>
 
-            <div className="mt-5 grid gap-3">
-              <input
-                value={form.code}
-                onChange={(event) => setForm((prev) => ({ ...prev, code: event.target.value }))}
-                placeholder={t('admin.mapCode')}
-                className="rounded-xl border border-emerald-200/20 bg-black/25 px-3 py-2.5 text-sm text-white placeholder:text-emerald-50/40 outline-none"
-              />
-              <input
-                value={form.nameZh}
-                onChange={(event) => setForm((prev) => ({ ...prev, nameZh: event.target.value }))}
-                placeholder={t('admin.mapNameZh')}
-                className="rounded-xl border border-emerald-200/20 bg-black/25 px-3 py-2.5 text-sm text-white placeholder:text-emerald-50/40 outline-none"
-              />
-              <input
-                value={form.nameEn}
-                onChange={(event) => setForm((prev) => ({ ...prev, nameEn: event.target.value }))}
-                placeholder={t('admin.mapNameEn')}
-                className="rounded-xl border border-emerald-200/20 bg-black/25 px-3 py-2.5 text-sm text-white placeholder:text-emerald-50/40 outline-none"
-              />
-
-              <div className="rounded-xl border border-emerald-200/20 bg-black/20 p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-xs font-medium text-emerald-100/80">{t('admin.bannerUpload')}</p>
-                  <label className="btn-outline h-8 cursor-pointer rounded-lg px-3 text-xs">
-                    {uploadingTarget === 'banner' ? t('common.loading') : t('admin.upload')}
-                    <input
-                      type="file"
-                      accept="image/png"
-                      className="hidden"
-                      onChange={(event) => void handleUpload('banner', event)}
-                    />
-                  </label>
-                </div>
-                <p className="text-xs text-emerald-50/70 break-all">{form.bannerObjectName || '-'}</p>
+            <div className="mt-5 grid gap-4">
+              <div className="grid gap-3 md:grid-cols-3">
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-emerald-100/80">{t('admin.mapCode')}</span>
+                  <input
+                    value={form.code}
+                    onChange={(event) => setForm((prev) => ({ ...prev, code: event.target.value }))}
+                    placeholder={t('admin.mapCode')}
+                    className="w-full rounded-xl border border-emerald-200/20 bg-black/25 px-3 py-2.5 text-sm text-white placeholder:text-emerald-50/40 outline-none"
+                  />
+                </label>
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-emerald-100/80">{t('admin.mapNameZh')}</span>
+                  <input
+                    value={form.nameZh}
+                    onChange={(event) => setForm((prev) => ({ ...prev, nameZh: event.target.value }))}
+                    placeholder={t('admin.mapNameZh')}
+                    className="w-full rounded-xl border border-emerald-200/20 bg-black/25 px-3 py-2.5 text-sm text-white placeholder:text-emerald-50/40 outline-none"
+                  />
+                </label>
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-emerald-100/80">{t('admin.mapNameEn')}</span>
+                  <input
+                    value={form.nameEn}
+                    onChange={(event) => setForm((prev) => ({ ...prev, nameEn: event.target.value }))}
+                    placeholder={t('admin.mapNameEn')}
+                    className="w-full rounded-xl border border-emerald-200/20 bg-black/25 px-3 py-2.5 text-sm text-white placeholder:text-emerald-50/40 outline-none"
+                  />
+                </label>
               </div>
 
-              <div className="rounded-xl border border-emerald-200/20 bg-black/20 p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-xs font-medium text-emerald-100/80">{t('admin.mapUpload')}</p>
-                  <label className="btn-outline h-8 cursor-pointer rounded-lg px-3 text-xs">
-                    {uploadingTarget === 'map' ? t('common.loading') : t('admin.upload')}
-                    <input
-                      type="file"
-                      accept="image/png"
-                      className="hidden"
-                      onChange={(event) => void handleUpload('map', event)}
-                    />
-                  </label>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-xl border border-emerald-200/20 bg-black/20 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-xs font-medium text-emerald-100/80">{t('admin.bannerUpload')}</p>
+                    <label className="btn-outline inline-flex h-8 cursor-pointer items-center justify-center rounded-lg px-3 text-xs">
+                      {uploadingTarget === 'banner' ? t('common.loading') : t('admin.upload')}
+                      <input
+                        type="file"
+                        accept="image/png"
+                        className="hidden"
+                        onChange={(event) => void handleUpload('banner', event)}
+                      />
+                    </label>
+                  </div>
+                  <p className="text-xs text-emerald-50/70 break-all">{form.bannerObjectName || '-'}</p>
+                  {form.bannerObjectName && (
+                    <div className="mt-2 h-24 overflow-hidden rounded-lg border border-emerald-200/15 bg-black/30">
+                      <img
+                        src={buildFileDownloadUrl(form.bannerObjectName)}
+                        alt="banner preview"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-emerald-50/70 break-all">{form.mapObjectName || '-'}</p>
+
+                <div className="rounded-xl border border-emerald-200/20 bg-black/20 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-xs font-medium text-emerald-100/80">{t('admin.mapUpload')}</p>
+                    <label className="btn-outline inline-flex h-8 cursor-pointer items-center justify-center rounded-lg px-3 text-xs">
+                      {uploadingTarget === 'map' ? t('common.loading') : t('admin.upload')}
+                      <input
+                        type="file"
+                        accept="image/png"
+                        className="hidden"
+                        onChange={(event) => void handleUpload('map', event)}
+                      />
+                    </label>
+                  </div>
+                  <p className="text-xs text-emerald-50/70 break-all">{form.mapObjectName || '-'}</p>
+                  {form.mapObjectName && (
+                    <div className="mt-2 h-24 overflow-hidden rounded-lg border border-emerald-200/15 bg-black/30">
+                      <img
+                        src={buildFileDownloadUrl(form.mapObjectName)}
+                        alt="map preview"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

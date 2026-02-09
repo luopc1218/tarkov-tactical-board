@@ -35,8 +35,8 @@ export function AdminShell({
   const { t } = useTranslation()
 
   return (
-    <main className="app-page min-w-[1200px] px-6 pb-6 pt-6">
-      <div className="mx-auto mb-4 flex max-w-[1400px] items-end justify-between">
+    <main className="app-page flex h-screen min-w-[1200px] flex-col overflow-hidden px-6 pb-6 pt-6">
+      <div className="mb-4 flex w-full shrink-0 items-center justify-between">
         <div className="w-64 pl-1">
           <p className="text-xs font-semibold tracking-[0.14em] text-emerald-300">ADMIN</p>
           <p className="mt-1 text-sm text-emerald-50/70">Tarkov Tactical Board</p>
@@ -44,10 +44,8 @@ export function AdminShell({
         <LanguageSwitcher inline />
       </div>
 
-      <div className="mx-auto flex max-w-[1400px] gap-6">
-        <aside className="panel w-64 shrink-0 p-4">
-          <div className="mb-5 border-b border-emerald-200/15 pb-4" />
-
+      <div className="flex min-h-0 w-full flex-1 gap-6">
+        <aside className="panel flex w-64 shrink-0 flex-col overflow-hidden p-4">
           <nav className="space-y-2">
             <button
               type="button"
@@ -68,14 +66,14 @@ export function AdminShell({
           <button
             type="button"
             onClick={onLogout}
-            className="mt-8 inline-flex h-10 items-center rounded-full border border-rose-300/45 px-5 text-sm font-semibold text-rose-100 transition hover:bg-rose-400/15"
+            className="mt-auto inline-flex h-10 items-center rounded-full border border-rose-300/45 px-5 text-sm font-semibold text-rose-100 transition hover:bg-rose-400/15"
           >
             {t('admin.logout')}
           </button>
         </aside>
 
-        <section className="min-w-0 flex-1 space-y-4">
-          <header className="panel p-5">
+        <section className="min-w-0 flex min-h-0 flex-1 flex-col gap-4">
+          <header className="panel shrink-0 p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-bold text-white">{title}</h1>
@@ -85,7 +83,7 @@ export function AdminShell({
             </div>
           </header>
 
-          <div className="panel p-5">{children}</div>
+          <div className="panel min-h-0 flex-1 overflow-hidden p-5">{children}</div>
         </section>
       </div>
     </main>

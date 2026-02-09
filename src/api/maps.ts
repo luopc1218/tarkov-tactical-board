@@ -1,19 +1,24 @@
 import type { TarkovMapPreset } from '../constants/maps'
+import { buildFileDownloadUrl } from './files'
 import { http } from '../lib/http'
 
 interface MapApiItem {
-  id?: string
-  mapId?: string
-  key?: string
-  slug?: string
-  code?: string
-  mapCode?: string
-  map_code?: string
-  map_id?: string
-  value?: string
+  id?: string | number
+  mapId?: string | number
+  key?: string | number
+  slug?: string | number
+  code?: string | number
+  mapCode?: string | number
+  map_code?: string | number
+  map_id?: string | number
+  value?: string | number
   name?: string
   mapName?: string
   map_name?: string
+  nameZh?: string
+  nameEn?: string
+  name_zh?: string
+  name_en?: string
   title?: string
   displayName?: string
   label?: string
@@ -21,6 +26,12 @@ interface MapApiItem {
   cnName?: string
   zhName?: string
   enName?: string
+  bannerUrl?: string
+  banner_url?: string
+  bannerObjectName?: string
+  banner_object_name?: string
+  bannerPath?: string
+  banner_path?: string
 }
 
 interface MapApiContainer {
@@ -83,36 +94,59 @@ const extractMapItems = (payload: unknown): MapApiItem[] => {
 }
 
 const normalizeMapPreset = (item: MapApiItem): TarkovMapPreset | null => {
-  const rawId =
-    item.id ??
-    item.mapId ??
-    item.map_id ??
-    item.key ??
-    item.slug ??
-    item.code ??
-    item.mapCode ??
-    item.map_code ??
-    item.value
-  const rawName =
-    item.name ??
-    item.mapName ??
-    item.map_name ??
-    item.title ??
-    item.displayName ??
-    item.display_name ??
-    item.label ??
-    item.cnName ??
-    item.zhName ??
-    item.enName
+  const readFirstNonEmptyString = (values: Array<string | number | undefined>) => {
+    for (const value of values) {
+      if (typeof value === 'string' && value.trim()) {
+        return value.trim()
+      }
+    }
+    return ''
+  }
 
-  const id = typeof rawId === 'string' && rawId.trim() ? toKebabCase(rawId) : ''
-  const name = typeof rawName === 'string' && rawName.trim() ? rawName.trim() : id
+  const rawId = readFirstNonEmptyString([
+    item.code,
+    item.mapCode,
+    item.map_code,
+    item.slug,
+    item.key,
+    item.value,
+    item.mapId,
+    item.map_id,
+    item.id,
+  ])
+  const rawName = readFirstNonEmptyString([
+    item.nameZh,
+    item.name_zh,
+    item.zhName,
+    item.cnName,
+    item.name,
+    item.mapName,
+    item.map_name,
+    item.displayName,
+    item.display_name,
+    item.label,
+    item.title,
+    item.nameEn,
+    item.name_en,
+    item.enName,
+  ])
+
+  const id = rawId ? toKebabCase(rawId) : ''
+  const name = rawName || id
+  const rawBannerUrl = item.bannerUrl ?? item.banner_url
+  const rawBannerObjectName =
+    item.bannerObjectName ?? item.banner_object_name ?? item.bannerPath ?? item.banner_path
+  const bannerUrl =
+    (typeof rawBannerUrl === 'string' && rawBannerUrl.trim()) ||
+    (typeof rawBannerObjectName === 'string' && rawBannerObjectName.trim()
+      ? buildFileDownloadUrl(rawBannerObjectName.trim())
+      : undefined)
 
   if (!id || !name) {
     return null
   }
 
-  return { id, name }
+  return { id, name, bannerUrl }
 }
 
 export const fetchMapPresets = async (): Promise<TarkovMapPreset[]> => {
@@ -135,7 +169,7 @@ export const fetchMapPresets = async (): Promise<TarkovMapPreset[]> => {
       // If backend returns objects but unknown keys, keep readable fallback to avoid blank UI.
       if (normalized.length === 0 && mapItems.length > 0) {
         const fallback = mapItems
-          .map((item, index) => {
+          .map<TarkovMapPreset | null>((item, index) => {
             const firstString = Object.values(item).find(
               (value) => typeof value === 'string' && value.trim().length > 0,
             ) as string | undefined
@@ -143,10 +177,25 @@ export const fetchMapPresets = async (): Promise<TarkovMapPreset[]> => {
               return null
             }
 
-            return {
+            const rawBannerObjectName =
+              item.bannerObjectName ?? item.banner_object_name ?? item.bannerPath ?? item.banner_path
+            const rawBannerUrl = item.bannerUrl ?? item.banner_url
+            const bannerUrl =
+              (typeof rawBannerUrl === 'string' && rawBannerUrl.trim()) ||
+              (typeof rawBannerObjectName === 'string' && rawBannerObjectName.trim()
+                ? buildFileDownloadUrl(rawBannerObjectName.trim())
+                : undefined)
+
+            const preset: TarkovMapPreset = {
               id: toKebabCase(firstString || `map-${index + 1}`),
               name: firstString.trim(),
             }
+
+            if (bannerUrl) {
+              preset.bannerUrl = bannerUrl
+            }
+
+            return preset
           })
           .filter((item): item is TarkovMapPreset => item !== null)
 
@@ -161,7 +210,7 @@ export const fetchMapPresets = async (): Promise<TarkovMapPreset[]> => {
       mapPresetsInFlight = null
     })
 
-  return mapPresetsInFlight
+  return mapPresetsInFlight!
 }
 
 export const refreshMapPresets = async (): Promise<TarkovMapPreset[]> => {

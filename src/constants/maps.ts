@@ -1,6 +1,7 @@
 export interface TarkovMapPreset {
   id: string
   name: string
+  bannerUrl?: string
 }
 
 export const TARKOV_MAP_PRESETS: TarkovMapPreset[] = [
