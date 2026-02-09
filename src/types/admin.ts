@@ -27,3 +27,13 @@ export interface AdminMapUpsertRequest {
   bannerObjectName: string
   mapObjectName: string
 }
+
+export interface AdminWhiteboardInstance {
+  instanceId: string
+  mapId: number
+  createdAt: string
+  updatedAt: string
+  expireAt: string
+  active: boolean
+  hasState: boolean
+}

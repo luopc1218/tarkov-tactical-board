@@ -28,9 +28,14 @@ interface Viewport {
   scale: number
 }
 
+interface LocalPoint {
+  x: number
+  y: number
+}
+
 const DEFAULT_CANVAS_WIDTH = 1920
 const DEFAULT_CANVAS_HEIGHT = 1080
-const MIN_SCALE = 0.2
+const MIN_SCALE = 0.05
 const MAX_SCALE = 8
 const WHITEBOARD_STROKE_TOPIC = 'stroke.add'
 const WHITEBOARD_CLEAR_TOPIC = 'board.clear'
@@ -48,6 +53,11 @@ const buildPathData = (points: Point[]) => {
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+const distanceBetween = (a: LocalPoint, b: LocalPoint) => Math.hypot(a.x - b.x, a.y - b.y)
+const midpointBetween = (a: LocalPoint, b: LocalPoint): LocalPoint => ({
+  x: (a.x + b.x) / 2,
+  y: (a.y + b.y) / 2,
+})
 
 const resolveWsUrl = (wsPath: string) => {
   if (/^wss?:\/\//i.test(wsPath)) {
@@ -117,6 +127,34 @@ const readStrokesFromState = (state: unknown): Stroke[] => {
     .filter((item): item is Stroke => item !== null)
 }
 
+const copyText = async (value: string): Promise<boolean> => {
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(value)
+      return true
+    } catch {
+      // Fallback below.
+    }
+  }
+
+  try {
+    const textArea = document.createElement('textarea')
+    textArea.value = value
+    textArea.setAttribute('readonly', 'true')
+    textArea.style.position = 'fixed'
+    textArea.style.top = '-9999px'
+    textArea.style.left = '-9999px'
+    document.body.appendChild(textArea)
+    textArea.focus()
+    textArea.select()
+    const copied = document.execCommand('copy')
+    document.body.removeChild(textArea)
+    return copied
+  } catch {
+    return false
+  }
+}
+
 export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps) {
   const { t } = useTranslation()
   const [instance, setInstance] = useState<MapInstance | null>(null)
@@ -131,12 +169,20 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   const [brushColor, setBrushColor] = useState('#ff3b30')
   const [brushWidth, setBrushWidth] = useState(16)
   const [copied, setCopied] = useState(false)
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const localStrokeIdsRef = useRef(new Set<string>())
-  const pointerModeRef = useRef<'draw' | 'pan' | null>(null)
+  const pointerModeRef = useRef<'draw' | 'pan' | 'pinch' | null>(null)
   const activePointerIdRef = useRef<number | null>(null)
   const panAnchorRef = useRef<{ x: number; y: number; startX: number; startY: number } | null>(null)
+  const activeTouchPointsRef = useRef<Map<number, LocalPoint>>(new Map())
+  const pinchRef = useRef<{
+    worldX: number
+    worldY: number
+    startDistance: number
+    startScale: number
+  } | null>(null)
   const stateHydratedRef = useRef(false)
 
   useEffect(() => {
@@ -308,7 +354,47 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     return { x, y }
   }
 
+  const toLocalPoint = (clientX: number, clientY: number): LocalPoint | null => {
+    const element = containerRef.current
+    if (!element) {
+      return null
+    }
+    const rect = element.getBoundingClientRect()
+    return { x: clientX - rect.left, y: clientY - rect.top }
+  }
+
   const onPointerDown: React.PointerEventHandler<HTMLDivElement> = (event) => {
+    const isTouch = event.pointerType === 'touch'
+    if (isTouch) {
+      const localPoint = toLocalPoint(event.clientX, event.clientY)
+      if (localPoint) {
+        activeTouchPointsRef.current.set(event.pointerId, localPoint)
+      }
+    }
+
+    if (isTouch && activeTouchPointsRef.current.size >= 2) {
+      if (currentStroke) {
+        setCurrentStroke(null)
+      }
+      const [first, second] = Array.from(activeTouchPointsRef.current.values())
+      if (first && second) {
+        const center = midpointBetween(first, second)
+        const startDistance = distanceBetween(first, second)
+        const safeDistance = startDistance > 0 ? startDistance : 1
+        pinchRef.current = {
+          worldX: (center.x - viewport.x) / viewport.scale,
+          worldY: (center.y - viewport.y) / viewport.scale,
+          startDistance: safeDistance,
+          startScale: viewport.scale,
+        }
+        pointerModeRef.current = 'pinch'
+      }
+      activePointerIdRef.current = null
+      panAnchorRef.current = null
+      event.currentTarget.setPointerCapture(event.pointerId)
+      return
+    }
+
     const isPan = event.button === 1 || event.button === 2 || event.shiftKey
     pointerModeRef.current = isPan ? 'pan' : 'draw'
     activePointerIdRef.current = event.pointerId
@@ -332,6 +418,36 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   }
 
   const onPointerMove: React.PointerEventHandler<HTMLDivElement> = (event) => {
+    if (event.pointerType === 'touch') {
+      const localPoint = toLocalPoint(event.clientX, event.clientY)
+      if (localPoint) {
+        activeTouchPointsRef.current.set(event.pointerId, localPoint)
+      }
+    }
+
+    if (pointerModeRef.current === 'pinch' && activeTouchPointsRef.current.size >= 2 && pinchRef.current) {
+      const pinch = pinchRef.current
+      if (!pinch) {
+        return
+      }
+      const [first, second] = Array.from(activeTouchPointsRef.current.values())
+      if (!first || !second) {
+        return
+      }
+      const center = midpointBetween(first, second)
+      const distance = distanceBetween(first, second)
+
+      setViewport(() => {
+        const normalizedScale = clamp((distance / pinch.startDistance) * pinch.startScale, MIN_SCALE, MAX_SCALE)
+        return {
+          scale: normalizedScale,
+          x: center.x - pinch.worldX * normalizedScale,
+          y: center.y - pinch.worldY * normalizedScale,
+        }
+      })
+      return
+    }
+
     if (activePointerIdRef.current !== event.pointerId) {
       return
     }
@@ -368,6 +484,20 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   }
 
   const onPointerUp: React.PointerEventHandler<HTMLDivElement> = (event) => {
+    activeTouchPointsRef.current.delete(event.pointerId)
+
+    if (pointerModeRef.current === 'pinch') {
+      if (activeTouchPointsRef.current.size < 2) {
+        pointerModeRef.current = null
+        pinchRef.current = null
+        activePointerIdRef.current = null
+      }
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      }
+      return
+    }
+
     if (activePointerIdRef.current !== event.pointerId) {
       return
     }
@@ -417,6 +547,33 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     }
   }, [handleWheel, loading])
 
+  const fitViewportToContent = useCallback((width: number, height: number) => {
+    const element = containerRef.current
+    if (!element || width <= 0 || height <= 0) {
+      return
+    }
+
+    const containerWidth = element.clientWidth
+    const containerHeight = element.clientHeight
+    if (containerWidth <= 0 || containerHeight <= 0) {
+      return
+    }
+
+    const nextScale = clamp(
+      Math.min(containerWidth / width, containerHeight / height),
+      MIN_SCALE,
+      MAX_SCALE,
+    )
+    const nextX = (containerWidth - width * nextScale) / 2
+    const nextY = (containerHeight - height * nextScale) / 2
+
+    setViewport({
+      x: nextX,
+      y: nextY,
+      scale: nextScale,
+    })
+  }, [])
+
   const clearBoard = () => {
     setStrokes([])
     setCurrentStroke(null)
@@ -444,7 +601,11 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
       return
     }
     try {
-      await navigator.clipboard.writeText(value)
+      const ok = await copyText(value)
+      if (!ok) {
+        setCopied(false)
+        return
+      }
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1600)
     } catch {
@@ -484,7 +645,20 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   return (
     <main className="app-page box-border h-screen overflow-hidden px-2 pb-2 pt-14 md:px-3 md:pb-3 md:pt-16">
       <section className="mx-auto flex h-full w-full max-w-none flex-col gap-2">
-        <div className="panel flex flex-wrap items-center gap-3 px-3 py-2 text-sm text-emerald-50/85">
+        <div className="panel flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-emerald-50/85 md:hidden">
+          <span className="truncate">
+            {t('mapInstance.instanceId')}: {instance?.id ?? instanceId}
+          </span>
+          <button
+            type="button"
+            onClick={() => setMobileDrawerOpen(true)}
+            className="btn-base min-h-8 rounded-xl border border-emerald-300/45 bg-emerald-400/15 px-3 py-1 text-xs text-emerald-50"
+          >
+            {t('mapInstance.tools')}
+          </button>
+        </div>
+
+        <div className="panel hidden flex-wrap items-center gap-3 px-3 py-2 text-sm text-emerald-50/85 md:flex">
           <span className="inline-flex items-center gap-2">
             <span>{t('mapInstance.instanceId')}: {instance?.id ?? instanceId}</span>
             <button
@@ -527,7 +701,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
           </div>
           <button
             type="button"
-            onClick={() => setViewport({ x: 0, y: 0, scale: 1 })}
+            onClick={() => fitViewportToContent(contentSize.width, contentSize.height)}
             className="btn-base rounded-xl border border-cyan-300/45 bg-cyan-400/15 px-3 py-2 text-cyan-100 hover:bg-cyan-300/25"
           >
             {t('mapInstance.resetView')}
@@ -554,6 +728,106 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
           >
             {t('mapInstance.backToMaps')}
           </button>
+        </div>
+
+        <div className={`fixed inset-0 z-40 md:hidden ${mobileDrawerOpen ? '' : 'pointer-events-none'}`}>
+          <button
+            type="button"
+            aria-label={t('mapInstance.closeTools')}
+            onClick={() => setMobileDrawerOpen(false)}
+            className={`absolute inset-0 bg-black/45 transition-opacity ${mobileDrawerOpen ? 'opacity-100' : 'opacity-0'}`}
+          />
+          <div
+            className={`absolute inset-x-0 bottom-0 rounded-t-3xl border border-emerald-300/35 bg-[#0a1712] px-4 pb-5 pt-4 transition-transform duration-200 ${mobileDrawerOpen ? 'translate-y-0' : 'translate-y-full'}`}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-semibold text-emerald-50">{t('mapInstance.tools')}</p>
+              <button
+                type="button"
+                onClick={() => setMobileDrawerOpen(false)}
+                className="btn-base min-h-8 rounded-lg border border-emerald-300/45 bg-emerald-400/15 px-2.5 py-1 text-xs text-emerald-50"
+              >
+                {t('mapInstance.closeTools')}
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs text-emerald-100/85">
+              <p>{t('mapInstance.instanceId')}: {instance?.id ?? instanceId}</p>
+              <p>{t('mapInstance.mapId')}: {instance?.mapId ?? '-'}</p>
+              <p>{t('mapInstance.zoom')}: {Math.round(viewport.scale * 100)}%</p>
+              <p>{t('mapInstance.wsStatus')}: {wsConnected ? t('mapInstance.connected') : t('mapInstance.disconnected')}</p>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => void copyInstanceId()}
+                className="btn-base min-h-9 rounded-xl border border-sky-300/45 bg-sky-400/15 px-3 py-2 text-xs text-sky-100"
+              >
+                {copied ? t('mapInstance.copied') : t('mapInstance.copyId')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  fitViewportToContent(contentSize.width, contentSize.height)
+                  setMobileDrawerOpen(false)
+                }}
+                className="btn-base min-h-9 rounded-xl border border-cyan-300/45 bg-cyan-400/15 px-3 py-2 text-xs text-cyan-100"
+              >
+                {t('mapInstance.resetView')}
+              </button>
+              <button
+                type="button"
+                onClick={clearBoard}
+                className="btn-base min-h-9 rounded-xl border border-amber-300/45 bg-amber-400/15 px-3 py-2 text-xs text-amber-100"
+              >
+                {t('mapInstance.clearBoard')}
+              </button>
+              <button
+                type="button"
+                onClick={undoLastStroke}
+                disabled={strokes.length === 0}
+                className="btn-base min-h-9 rounded-xl border border-violet-300/45 bg-violet-400/15 px-3 py-2 text-xs text-violet-100 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {t('mapInstance.undoLastStroke')}
+              </button>
+            </div>
+
+            <div className="mt-3 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-xl border border-emerald-300/35 bg-emerald-950/45 px-3 py-2">
+              <span className="text-xs text-emerald-100/80">{t('mapInstance.brushColor')}</span>
+              <input
+                type="color"
+                value={brushColor}
+                onChange={(event) => setBrushColor(event.target.value)}
+                className="h-8 w-full rounded border border-emerald-200/30 bg-transparent p-0"
+                aria-label={t('mapInstance.brushColor')}
+              />
+              <span />
+            </div>
+
+            <div className="mt-2 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-xl border border-emerald-300/35 bg-emerald-950/45 px-3 py-2">
+              <span className="text-xs text-emerald-100/80">{t('mapInstance.brushWidth')}</span>
+              <input
+                type="range"
+                min={12}
+                max={48}
+                step={1}
+                value={brushWidth}
+                onChange={(event) => setBrushWidth(Number(event.target.value))}
+                className="w-full accent-emerald-300"
+                aria-label={t('mapInstance.brushWidth')}
+              />
+              <span className="w-6 text-right text-xs text-emerald-50">{brushWidth}</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={onBackHome}
+              className="btn-base mt-3 min-h-9 w-full rounded-xl border border-emerald-300/45 bg-emerald-400/15 px-3 py-2 text-xs text-emerald-50"
+            >
+              {t('mapInstance.backToMaps')}
+            </button>
+          </div>
         </div>
 
         {loading && (
@@ -587,10 +861,13 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
                   draggable={false}
                   onLoad={(event) => {
                     const image = event.currentTarget
+                    const nextWidth = image.naturalWidth || DEFAULT_CANVAS_WIDTH
+                    const nextHeight = image.naturalHeight || DEFAULT_CANVAS_HEIGHT
                     setContentSize({
-                      width: image.naturalWidth || DEFAULT_CANVAS_WIDTH,
-                      height: image.naturalHeight || DEFAULT_CANVAS_HEIGHT,
+                      width: nextWidth,
+                      height: nextHeight,
                     })
+                    fitViewportToContent(nextWidth, nextHeight)
                   }}
                 />
               ) : (

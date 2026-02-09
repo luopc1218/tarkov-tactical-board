@@ -4,6 +4,7 @@ import { createWhiteboardInstance } from './api/whiteboard'
 import { LanguageSwitcher } from './components/LanguageSwitcher'
 import { isAdminAuthenticated, setAdminAuthenticated } from './features/admin-auth'
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
+import { AdminInstancesPage } from './pages/admin/AdminInstancesPage'
 import { AdminLoginPage } from './pages/admin/AdminLoginPage'
 import { AdminMapsPage } from './pages/admin/AdminMapsPage'
 import { HomePage } from './pages/HomePage'
@@ -35,7 +36,8 @@ function App() {
 
   const route = useMemo(() => resolveRoute(pathname), [pathname])
   const currentPathWithSearch = useMemo(() => `${pathname}${search}`, [pathname, search])
-  const isAdminProtectedRoute = route.name === 'admin-dashboard' || route.name === 'admin-maps'
+  const isAdminProtectedRoute =
+    route.name === 'admin-dashboard' || route.name === 'admin-maps' || route.name === 'admin-instances'
   const showFloatingLanguageSwitcher = !isAdminProtectedRoute
 
   useEffect(() => {
@@ -51,7 +53,8 @@ function App() {
   }, [adminLoggedIn, currentPathWithSearch, isAdminProtectedRoute, pathname])
 
   useEffect(() => {
-    const shouldLockBodyScroll = route.name === 'admin-dashboard' || route.name === 'admin-maps'
+    const shouldLockBodyScroll =
+      route.name === 'admin-dashboard' || route.name === 'admin-maps' || route.name === 'admin-instances'
     document.body.style.overflow = shouldLockBodyScroll ? 'hidden' : ''
 
     return () => {
@@ -126,6 +129,8 @@ function App() {
     ) : null
   } else if (route.name === 'admin-maps') {
     content = adminLoggedIn ? <AdminMapsPage onNavigate={navigateTo} onLogout={handleAdminLogout} /> : null
+  } else if (route.name === 'admin-instances') {
+    content = adminLoggedIn ? <AdminInstancesPage onNavigate={navigateTo} onLogout={handleAdminLogout} /> : null
   } else if (route.name === 'admin-not-found') {
     content = (
       <NotFoundPage

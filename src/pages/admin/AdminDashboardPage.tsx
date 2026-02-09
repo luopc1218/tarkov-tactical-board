@@ -18,9 +18,22 @@ export function AdminDashboardPage({ onNavigate, onLogout }: AdminDashboardPageP
       onNavigate={onNavigate}
       onLogout={onLogout}
       headerActions={
-        <button type="button" onClick={() => onNavigate(ROUTES.adminMaps)} className="btn-outline h-10 rounded-xl px-4">
-          {t('admin.mapManagement')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onNavigate(ROUTES.adminMaps)}
+            className="btn-outline h-10 rounded-xl px-4"
+          >
+            {t('admin.mapManagement')}
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate(ROUTES.adminInstances)}
+            className="btn-outline h-10 rounded-xl px-4"
+          >
+            {t('admin.instanceManagement')}
+          </button>
+        </div>
       }
     >
       <div className="grid gap-3 lg:grid-cols-2">

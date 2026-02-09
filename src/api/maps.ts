@@ -158,17 +158,19 @@ const normalizeMapPreset = (item: MapApiItem): TarkovMapPreset | null => {
   const rawBannerObjectName =
     item.bannerObjectName ?? item.banner_object_name ?? item.bannerPath ?? item.banner_path
   const bannerUrl =
-    (typeof rawBannerUrl === 'string' && rawBannerUrl.trim()) ||
-    (typeof rawBannerObjectName === 'string' && rawBannerObjectName.trim()
+    typeof rawBannerObjectName === 'string' && rawBannerObjectName.trim()
       ? buildFileDownloadUrl(rawBannerObjectName.trim())
-      : undefined)
+      : typeof rawBannerUrl === 'string' && rawBannerUrl.trim()
+        ? rawBannerUrl.trim()
+        : undefined
   const rawMapUrl = item.mapUrl ?? item.map_url
   const rawMapObjectName = item.mapObjectName ?? item.map_object_name ?? item.mapPath ?? item.map_path
   const mapUrl =
-    (typeof rawMapUrl === 'string' && rawMapUrl.trim()) ||
-    (typeof rawMapObjectName === 'string' && rawMapObjectName.trim()
+    typeof rawMapObjectName === 'string' && rawMapObjectName.trim()
       ? buildFileDownloadUrl(rawMapObjectName.trim())
-      : undefined)
+      : typeof rawMapUrl === 'string' && rawMapUrl.trim()
+        ? rawMapUrl.trim()
+        : undefined
 
   if (!id || !name || mapId === null) {
     return null
@@ -209,17 +211,19 @@ export const fetchMapPresets = async (): Promise<TarkovMapPreset[]> => {
               item.bannerObjectName ?? item.banner_object_name ?? item.bannerPath ?? item.banner_path
             const rawBannerUrl = item.bannerUrl ?? item.banner_url
             const bannerUrl =
-              (typeof rawBannerUrl === 'string' && rawBannerUrl.trim()) ||
-              (typeof rawBannerObjectName === 'string' && rawBannerObjectName.trim()
+              typeof rawBannerObjectName === 'string' && rawBannerObjectName.trim()
                 ? buildFileDownloadUrl(rawBannerObjectName.trim())
-                : undefined)
+                : typeof rawBannerUrl === 'string' && rawBannerUrl.trim()
+                  ? rawBannerUrl.trim()
+                  : undefined
             const rawMapObjectName = item.mapObjectName ?? item.map_object_name ?? item.mapPath ?? item.map_path
             const rawMapUrl = item.mapUrl ?? item.map_url
             const mapUrl =
-              (typeof rawMapUrl === 'string' && rawMapUrl.trim()) ||
-              (typeof rawMapObjectName === 'string' && rawMapObjectName.trim()
+              typeof rawMapObjectName === 'string' && rawMapObjectName.trim()
                 ? buildFileDownloadUrl(rawMapObjectName.trim())
-                : undefined)
+                : typeof rawMapUrl === 'string' && rawMapUrl.trim()
+                  ? rawMapUrl.trim()
+                  : undefined
 
             const fallbackMapId = Number(item.id ?? item.mapId ?? item.map_id)
             if (!Number.isFinite(fallbackMapId) || fallbackMapId <= 0) {
