@@ -6,14 +6,17 @@ import { fetchMapPresets, refreshMapPresets } from '../api/maps'
 import type { TarkovMapPreset } from '../constants/maps'
 
 interface HomePageProps {
-  onCreateInstance: (mapId: string) => void
+  onCreateInstance: (mapId: number) => Promise<void>
+  onJoinInstance: (instanceId: string) => Promise<void>
 }
 
-export function HomePage({ onCreateInstance }: HomePageProps) {
+export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
   const { t } = useTranslation()
   const [mapPresets, setMapPresets] = useState<TarkovMapPreset[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [creatingMapId, setCreatingMapId] = useState<string | null>(null)
+  const [instanceIdInput, setInstanceIdInput] = useState('')
 
   const loadMapPresets = useCallback(
     async (forceRefresh = false) => {
@@ -47,6 +50,35 @@ export function HomePage({ onCreateInstance }: HomePageProps) {
             {t('home.title')}
           </h1>
           <p className="max-w-3xl text-emerald-50/80">{t('home.subtitle')}</p>
+        </div>
+
+        <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-emerald-300/30 bg-emerald-950/35 p-4 md:flex-row md:items-center">
+          <span className="text-sm font-semibold text-emerald-100">{t('home.joinByInstance')}</span>
+          <input
+            value={instanceIdInput}
+            onChange={(event) => setInstanceIdInput(event.target.value)}
+            placeholder={t('home.instanceIdPlaceholder')}
+            className="h-10 flex-1 rounded-xl border border-emerald-300/35 bg-black/20 px-3 text-sm text-emerald-50 outline-none placeholder:text-emerald-100/45 focus:border-emerald-200/60"
+          />
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={async () => {
+              const nextId = instanceIdInput.trim()
+              if (!nextId) {
+                setErrorMessage(t('home.instanceIdRequired'))
+                return
+              }
+              try {
+                setErrorMessage(null)
+                await onJoinInstance(nextId)
+              } catch (error) {
+                setErrorMessage(error instanceof Error ? error.message : t('home.loadError'))
+              }
+            }}
+          >
+            {t('home.enterInstance')}
+          </button>
         </div>
 
         {loading && (
@@ -87,7 +119,18 @@ export function HomePage({ onCreateInstance }: HomePageProps) {
                 >
                   <button
                     type="button"
-                    onClick={() => onCreateInstance(preset.id)}
+                    onClick={async () => {
+                      try {
+                        setErrorMessage(null)
+                        setCreatingMapId(preset.id)
+                        await onCreateInstance(preset.mapId)
+                      } catch (error) {
+                        setErrorMessage(error instanceof Error ? error.message : t('home.loadError'))
+                      } finally {
+                        setCreatingMapId(null)
+                      }
+                    }}
+                    disabled={creatingMapId !== null}
                     className="group block w-full text-left"
                   >
                     <div
@@ -106,7 +149,7 @@ export function HomePage({ onCreateInstance }: HomePageProps) {
                         <FiMap className="text-emerald-300" />
                       </div>
                       <span className="inline-flex items-center gap-2 rounded-xl bg-emerald-300 px-3 py-2 text-sm font-bold text-emerald-950 shadow-[0_8px_20px_rgba(110,231,183,0.28)] transition group-hover:bg-emerald-200">
-                        {t('home.createInstance')}
+                        {creatingMapId === preset.id ? t('common.loading') : t('home.createInstance')}
                         <FiArrowRight className="transition group-hover:translate-x-0.5" />
                       </span>
                     </div>

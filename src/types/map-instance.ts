@@ -1,5 +1,6 @@
 export interface MapInstance {
   id: string
-  mapId: string
-  createdAt: number
+  wsPath: string
+  createdAt?: string
+  mapId?: number
 }

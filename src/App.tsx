@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { loginAdmin } from './api/admin-auth'
+import { createWhiteboardInstance } from './api/whiteboard'
 import { LanguageSwitcher } from './components/LanguageSwitcher'
 import { isAdminAuthenticated, setAdminAuthenticated } from './features/admin-auth'
-import { createMapInstance } from './features/map-instance'
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
 import { AdminLoginPage } from './pages/admin/AdminLoginPage'
 import { AdminMapsPage } from './pages/admin/AdminMapsPage'
@@ -10,7 +10,6 @@ import { HomePage } from './pages/HomePage'
 import { MapInstancePage } from './pages/MapInstancePage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { buildMapInstancePath, resolveRoute, ROUTES } from './router/routes'
-import type { MapInstance } from './types/map-instance'
 
 const navigateTo = (path: string) => {
   window.history.pushState(null, '', path)
@@ -20,7 +19,6 @@ const navigateTo = (path: string) => {
 function App() {
   const [pathname, setPathname] = useState(window.location.pathname)
   const [search, setSearch] = useState(window.location.search)
-  const [instances, setInstances] = useState<Record<string, MapInstance>>({})
   const [adminLoggedIn, setAdminLoggedIn] = useState(() => isAdminAuthenticated())
   const [adminLoginLoading, setAdminLoginLoading] = useState(false)
   const [adminLoginError, setAdminLoginError] = useState<string | null>(null)
@@ -69,14 +67,13 @@ function App() {
     navigateTo(ROUTES.adminDashboard)
   }, [adminLoggedIn, route.name])
 
-  const handleCreateInstance = (mapId: string) => {
-    const instance = createMapInstance(mapId)
-
-    setInstances((prev) => ({
-      ...prev,
-      [instance.id]: instance,
-    }))
+  const handleCreateInstance = async (mapId: number) => {
+    const instance = await createWhiteboardInstance(mapId)
     navigateTo(buildMapInstancePath(instance.id))
+  }
+
+  const handleJoinInstance = async (instanceId: string) => {
+    navigateTo(buildMapInstancePath(instanceId.trim()))
   }
 
   const handleAdminLogin = async (payload: { username: string; password: string }) => {
@@ -112,14 +109,9 @@ function App() {
   let content: React.ReactNode = null
 
   if (route.name === 'home') {
-    content = <HomePage onCreateInstance={handleCreateInstance} />
+    content = <HomePage onCreateInstance={handleCreateInstance} onJoinInstance={handleJoinInstance} />
   } else if (route.name === 'map-instance') {
-    content = (
-      <MapInstancePage
-        instance={instances[route.instanceId] ?? null}
-        onBackHome={() => navigateTo(ROUTES.home)}
-      />
-    )
+    content = <MapInstancePage instanceId={route.instanceId} onBackHome={() => navigateTo(ROUTES.home)} />
   } else if (route.name === 'admin-login') {
     content = (
       <AdminLoginPage
