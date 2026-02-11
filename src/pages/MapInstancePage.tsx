@@ -33,12 +33,28 @@ interface LocalPoint {
   y: number
 }
 
+interface RemoteCursor {
+  clientId: string
+  x: number
+  y: number
+  label: string
+  color: string
+  updatedAt: number
+}
+
 const DEFAULT_CANVAS_WIDTH = 1920
 const DEFAULT_CANVAS_HEIGHT = 1080
 const MIN_SCALE = 0.05
 const MAX_SCALE = 8
 const WHITEBOARD_STROKE_TOPIC = 'stroke.add'
+const WHITEBOARD_STROKE_START_TOPIC = 'stroke.start'
+const WHITEBOARD_STROKE_APPEND_TOPIC = 'stroke.append'
+const WHITEBOARD_STROKE_END_TOPIC = 'stroke.end'
 const WHITEBOARD_CLEAR_TOPIC = 'board.clear'
+const WHITEBOARD_UNDO_TOPIC = 'stroke.undo'
+const WHITEBOARD_CURSOR_MOVE_TOPIC = 'cursor.move'
+const WHITEBOARD_CURSOR_LEAVE_TOPIC = 'cursor.leave'
+const STROKE_APPEND_INTERVAL_MS = 40
 
 const buildPathData = (points: Point[]) => {
   if (points.length === 0) {
@@ -58,6 +74,15 @@ const midpointBetween = (a: LocalPoint, b: LocalPoint): LocalPoint => ({
   x: (a.x + b.x) / 2,
   y: (a.y + b.y) / 2,
 })
+
+const colorFromId = (value: string) => {
+  let hash = 0
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) | 0
+  }
+  const hue = Math.abs(hash) % 360
+  return `hsl(${hue} 90% 62%)`
+}
 
 const resolveWsUrl = (wsPath: string) => {
   if (/^wss?:\/\//i.test(wsPath)) {
@@ -127,6 +152,95 @@ const readStrokesFromState = (state: unknown): Stroke[] => {
     .filter((item): item is Stroke => item !== null)
 }
 
+const readCursorPayload = (payload: unknown): RemoteCursor | null => {
+  if (!payload || typeof payload !== 'object') {
+    return null
+  }
+
+  const source = payload as {
+    clientId?: unknown
+    x?: unknown
+    y?: unknown
+    label?: unknown
+    color?: unknown
+  }
+  const clientId = typeof source.clientId === 'string' ? source.clientId.trim() : ''
+  const x = Number(source.x)
+  const y = Number(source.y)
+  if (!clientId || !Number.isFinite(x) || !Number.isFinite(y)) {
+    return null
+  }
+
+  return {
+    clientId,
+    x,
+    y,
+    label: typeof source.label === 'string' && source.label.trim() ? source.label.trim() : `User-${clientId.slice(0, 4)}`,
+    color: typeof source.color === 'string' && source.color.trim() ? source.color.trim() : colorFromId(clientId),
+    updatedAt: Date.now(),
+  }
+}
+
+const readUndoPayload = (payload: unknown): { strokeId: string; clientId?: string } | null => {
+  if (!payload || typeof payload !== 'object') {
+    return null
+  }
+  const source = payload as { strokeId?: unknown; clientId?: unknown }
+  const strokeId = typeof source.strokeId === 'string' ? source.strokeId.trim() : ''
+  if (!strokeId) {
+    return null
+  }
+  return {
+    strokeId,
+    clientId: typeof source.clientId === 'string' ? source.clientId : undefined,
+  }
+}
+
+const readStrokeStreamPayload = (payload: unknown): {
+  strokeId: string
+  clientId?: string
+  point?: Point
+  points?: Point[]
+  color?: string
+  width?: number
+} | null => {
+  if (!payload || typeof payload !== 'object') {
+    return null
+  }
+  const source = payload as Record<string, unknown>
+  const strokeId = typeof source.strokeId === 'string' ? source.strokeId.trim() : ''
+  if (!strokeId) {
+    return null
+  }
+
+  const parsePoint = (value: unknown): Point | null => {
+    if (!value || typeof value !== 'object') {
+      return null
+    }
+    const x = Number((value as Record<string, unknown>).x)
+    const y = Number((value as Record<string, unknown>).y)
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      return null
+    }
+    return { x, y }
+  }
+
+  const point = parsePoint(source.point)
+  const points = Array.isArray(source.points)
+    ? source.points.map(parsePoint).filter((item): item is Point => item !== null)
+    : undefined
+  const widthRaw = Number(source.width)
+
+  return {
+    strokeId,
+    clientId: typeof source.clientId === 'string' ? source.clientId : undefined,
+    point: point ?? undefined,
+    points: points && points.length > 0 ? points : undefined,
+    color: typeof source.color === 'string' ? source.color : undefined,
+    width: Number.isFinite(widthRaw) ? widthRaw : undefined,
+  }
+}
+
 const copyText = async (value: string): Promise<boolean> => {
   if (navigator.clipboard && window.isSecureContext) {
     try {
@@ -168,11 +282,16 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   const [contentSize, setContentSize] = useState({ width: DEFAULT_CANVAS_WIDTH, height: DEFAULT_CANVAS_HEIGHT })
   const [brushColor, setBrushColor] = useState('#ff3b30')
   const [brushWidth, setBrushWidth] = useState(16)
+  const [cursorScale, setCursorScale] = useState(1.8)
   const [copied, setCopied] = useState(false)
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
+  const [remoteCursors, setRemoteCursors] = useState<Record<string, RemoteCursor>>({})
+  const [remoteInProgressStrokes, setRemoteInProgressStrokes] = useState<Record<string, Stroke>>({})
   const containerRef = useRef<HTMLDivElement | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const localStrokeIdsRef = useRef(new Set<string>())
+  const localClientIdRef = useRef(`c-${Math.random().toString(36).slice(2, 10)}`)
+  const lastCursorSentAtRef = useRef(0)
   const pointerModeRef = useRef<'draw' | 'pan' | 'pinch' | null>(null)
   const activePointerIdRef = useRef<number | null>(null)
   const panAnchorRef = useRef<{ x: number; y: number; startX: number; startY: number } | null>(null)
@@ -184,6 +303,13 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     startScale: number
   } | null>(null)
   const stateHydratedRef = useRef(false)
+  const currentStrokeRef = useRef<Stroke | null>(null)
+  const pendingAppendPointsRef = useRef<Point[]>([])
+  const appendTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    currentStrokeRef.current = currentStroke
+  }, [currentStroke])
 
   useEffect(() => {
     if (!instanceId) {
@@ -271,16 +397,131 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
           payload?: unknown
           data?: unknown
         }
+        const actualPayload = payload.payload ?? payload.data ?? payload
+
+        if (payload.type === WHITEBOARD_CURSOR_LEAVE_TOPIC) {
+          const leave = readCursorPayload(actualPayload)
+          if (!leave || leave.clientId === localClientIdRef.current) {
+            return
+          }
+          setRemoteCursors((prev) => {
+            const next = { ...prev }
+            delete next[leave.clientId]
+            return next
+          })
+          return
+        }
+
+        if (payload.type === WHITEBOARD_CURSOR_MOVE_TOPIC) {
+          const cursor = readCursorPayload(actualPayload)
+          if (!cursor || cursor.clientId === localClientIdRef.current) {
+            return
+          }
+          setRemoteCursors((prev) => ({ ...prev, [cursor.clientId]: cursor }))
+          return
+        }
+
+        if (payload.type === WHITEBOARD_STROKE_START_TOPIC) {
+          const stream = readStrokeStreamPayload(actualPayload)
+          if (!stream || stream.clientId === localClientIdRef.current) {
+            return
+          }
+          const firstPoint = stream.point ?? stream.points?.[0]
+          if (!firstPoint) {
+            return
+          }
+          setRemoteInProgressStrokes((prev) => ({
+            ...prev,
+            [stream.strokeId]: {
+              id: stream.strokeId,
+              points: [firstPoint],
+              color: stream.color || '#22d3ee',
+              width: stream.width || 3,
+            },
+          }))
+          return
+        }
+
+        if (payload.type === WHITEBOARD_STROKE_APPEND_TOPIC) {
+          const stream = readStrokeStreamPayload(actualPayload)
+          if (!stream || stream.clientId === localClientIdRef.current) {
+            return
+          }
+          const nextPoints = stream.points ?? (stream.point ? [stream.point] : [])
+          if (nextPoints.length === 0) {
+            return
+          }
+          setRemoteInProgressStrokes((prev) => {
+            const target = prev[stream.strokeId]
+            if (!target) {
+              return {
+                ...prev,
+                [stream.strokeId]: {
+                  id: stream.strokeId,
+                  points: nextPoints,
+                  color: stream.color || '#22d3ee',
+                  width: stream.width || 3,
+                },
+              }
+            }
+            return {
+              ...prev,
+              [stream.strokeId]: {
+                ...target,
+                points: [...target.points, ...nextPoints],
+              },
+            }
+          })
+          return
+        }
+
+        if (payload.type === WHITEBOARD_STROKE_END_TOPIC) {
+          const stream = readStrokeStreamPayload(actualPayload)
+          if (!stream || stream.clientId === localClientIdRef.current) {
+            return
+          }
+          setRemoteInProgressStrokes((prev) => {
+            const target = prev[stream.strokeId]
+            if (!target) {
+              return prev
+            }
+            setStrokes((current) => (current.some((item) => item.id === target.id) ? current : [...current, target]))
+            const next = { ...prev }
+            delete next[stream.strokeId]
+            return next
+          })
+          return
+        }
+
+        if (payload.type === WHITEBOARD_UNDO_TOPIC) {
+          const undo = readUndoPayload(actualPayload)
+          if (!undo || undo.clientId === localClientIdRef.current) {
+            return
+          }
+          setStrokes((prev) => prev.filter((item) => item.id !== undo.strokeId))
+          localStrokeIdsRef.current.delete(undo.strokeId)
+          return
+        }
+
         if (payload.type === WHITEBOARD_CLEAR_TOPIC) {
           setStrokes([])
           setCurrentStroke(null)
+          setRemoteInProgressStrokes({})
           localStrokeIdsRef.current.clear()
           return
         }
-        const remoteStroke = readStrokePayload(payload.payload ?? payload.data ?? payload)
+        const remoteStroke = readStrokePayload(actualPayload)
         if (!remoteStroke || localStrokeIdsRef.current.has(remoteStroke.id)) {
           return
         }
+        setRemoteInProgressStrokes((prev) => {
+          if (!prev[remoteStroke.id]) {
+            return prev
+          }
+          const next = { ...prev }
+          delete next[remoteStroke.id]
+          return next
+        })
         setStrokes((prev) => (prev.some((item) => item.id === remoteStroke.id) ? prev : [...prev, remoteStroke]))
       } catch {
         // Ignore non-JSON messages.
@@ -291,8 +532,25 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
       ws.close()
       wsRef.current = null
       setWsConnected(false)
+      setRemoteCursors({})
+      setRemoteInProgressStrokes({})
     }
   }, [instance?.wsPath])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setRemoteCursors((prev) => {
+        const now = Date.now()
+        const nextEntries = Object.values(prev).filter((item) => now - item.updatedAt <= 6000)
+        if (nextEntries.length === Object.keys(prev).length) {
+          return prev
+        }
+        return Object.fromEntries(nextEntries.map((item) => [item.clientId, item]))
+      })
+    }, 2000)
+
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     if (!instance?.id) {
@@ -342,6 +600,49 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     }
     ws.send(JSON.stringify(message))
   }
+
+  const clearAppendTimer = useCallback(() => {
+    if (appendTimerRef.current !== null) {
+      window.clearTimeout(appendTimerRef.current)
+      appendTimerRef.current = null
+    }
+  }, [])
+
+  const flushStrokeAppend = useCallback(() => {
+    const stroke = currentStrokeRef.current
+    if (!stroke) {
+      pendingAppendPointsRef.current = []
+      clearAppendTimer()
+      return
+    }
+    const points = pendingAppendPointsRef.current
+    if (points.length === 0) {
+      clearAppendTimer()
+      return
+    }
+
+    pendingAppendPointsRef.current = []
+    clearAppendTimer()
+    sendWsMessage({
+      type: WHITEBOARD_STROKE_APPEND_TOPIC,
+      payload: {
+        strokeId: stroke.id,
+        points,
+        clientId: localClientIdRef.current,
+        color: stroke.color,
+        width: stroke.width,
+      },
+    })
+  }, [clearAppendTimer])
+
+  const scheduleStrokeAppend = useCallback(() => {
+    if (appendTimerRef.current !== null) {
+      return
+    }
+    appendTimerRef.current = window.setTimeout(() => {
+      flushStrokeAppend()
+    }, STROKE_APPEND_INTERVAL_MS)
+  }, [flushStrokeAppend])
 
   const toWorldPoint = (clientX: number, clientY: number): Point | null => {
     const element = containerRef.current
@@ -406,11 +707,22 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
       if (!point) {
         return
       }
+      const strokeId = `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
       setCurrentStroke({
-        id: `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        id: strokeId,
         points: [point],
         color: brushColor,
         width: brushWidth,
+      })
+      sendWsMessage({
+        type: WHITEBOARD_STROKE_START_TOPIC,
+        payload: {
+          strokeId,
+          point,
+          color: brushColor,
+          width: brushWidth,
+          clientId: localClientIdRef.current,
+        },
       })
     }
 
@@ -418,6 +730,24 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   }
 
   const onPointerMove: React.PointerEventHandler<HTMLDivElement> = (event) => {
+    const worldPointForCursor = toWorldPoint(event.clientX, event.clientY)
+    if (worldPointForCursor) {
+      const now = Date.now()
+      if (now - lastCursorSentAtRef.current > 40) {
+        lastCursorSentAtRef.current = now
+        sendWsMessage({
+          type: WHITEBOARD_CURSOR_MOVE_TOPIC,
+          payload: {
+            clientId: localClientIdRef.current,
+            x: worldPointForCursor.x,
+            y: worldPointForCursor.y,
+            label: localClientIdRef.current.slice(0, 4).toUpperCase(),
+            color: colorFromId(localClientIdRef.current),
+          },
+        })
+      }
+    }
+
     if (event.pointerType === 'touch') {
       const localPoint = toLocalPoint(event.clientX, event.clientY)
       if (localPoint) {
@@ -469,17 +799,27 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     if (!point) {
       return
     }
+    pendingAppendPointsRef.current.push(point)
+    scheduleStrokeAppend()
     setCurrentStroke((prev) => (prev ? { ...prev, points: [...prev.points, point] } : prev))
   }
 
   const finishStroke = () => {
-    if (!currentStroke || currentStroke.points.length < 1) {
+    const stroke = currentStrokeRef.current
+    if (!stroke || stroke.points.length < 1) {
       setCurrentStroke(null)
+      pendingAppendPointsRef.current = []
+      clearAppendTimer()
       return
     }
-    localStrokeIdsRef.current.add(currentStroke.id)
-    setStrokes((prev) => [...prev, currentStroke])
-    sendWsMessage({ type: WHITEBOARD_STROKE_TOPIC, payload: currentStroke })
+    flushStrokeAppend()
+    localStrokeIdsRef.current.add(stroke.id)
+    setStrokes((prev) => [...prev, stroke])
+    sendWsMessage({
+      type: WHITEBOARD_STROKE_END_TOPIC,
+      payload: { strokeId: stroke.id, clientId: localClientIdRef.current },
+    })
+    sendWsMessage({ type: WHITEBOARD_STROKE_TOPIC, payload: stroke })
     setCurrentStroke(null)
   }
 
@@ -491,6 +831,8 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
         pointerModeRef.current = null
         pinchRef.current = null
         activePointerIdRef.current = null
+        pendingAppendPointsRef.current = []
+        clearAppendTimer()
       }
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId)
@@ -510,6 +852,13 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
     }
+  }
+
+  const onPointerLeave: React.PointerEventHandler<HTMLDivElement> = () => {
+    sendWsMessage({
+      type: WHITEBOARD_CURSOR_LEAVE_TOPIC,
+      payload: { clientId: localClientIdRef.current, x: 0, y: 0 },
+    })
   }
 
   const handleWheel = useCallback((event: WheelEvent) => {
@@ -577,21 +926,24 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   const clearBoard = () => {
     setStrokes([])
     setCurrentStroke(null)
+    setRemoteInProgressStrokes({})
     localStrokeIdsRef.current.clear()
     sendWsMessage({ type: WHITEBOARD_CLEAR_TOPIC, payload: {} })
   }
 
   const undoLastStroke = () => {
-    setStrokes((prev) => {
-      if (prev.length === 0) {
-        return prev
-      }
-      const next = prev.slice(0, -1)
-      const removed = prev[prev.length - 1]
-      if (removed?.id) {
-        localStrokeIdsRef.current.delete(removed.id)
-      }
-      return next
+    const removed = strokes[strokes.length - 1]
+    if (!removed) {
+      return
+    }
+    setStrokes((prev) => prev.slice(0, -1))
+    localStrokeIdsRef.current.delete(removed.id)
+    sendWsMessage({
+      type: WHITEBOARD_UNDO_TOPIC,
+      payload: {
+        strokeId: removed.id,
+        clientId: localClientIdRef.current,
+      },
     })
   }
 
@@ -627,6 +979,83 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
       />
     ))
   }, [currentStroke, strokes])
+
+  const renderedRemoteInProgressStrokes = useMemo(() => {
+    return Object.values(remoteInProgressStrokes).map((stroke) => (
+      <path
+        key={stroke.id}
+        d={buildPathData(stroke.points)}
+        fill="none"
+        stroke={stroke.color}
+        strokeWidth={stroke.width}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeOpacity={0.82}
+      />
+    ))
+  }, [remoteInProgressStrokes])
+
+  const renderedRemoteCursors = useMemo(() => {
+    const baseRadius = 7 * cursorScale
+    const ringRadius = baseRadius + 4
+    return Object.values(remoteCursors).map((cursor) => (
+      <g key={cursor.clientId}>
+        <circle
+          cx={cursor.x}
+          cy={cursor.y}
+          r={ringRadius}
+          fill="none"
+          stroke="rgba(255,255,255,0.96)"
+          strokeWidth={2.6}
+        />
+        <circle
+          cx={cursor.x}
+          cy={cursor.y}
+          r={ringRadius + 2}
+          fill="none"
+          stroke="rgba(0,0,0,0.65)"
+          strokeWidth={1.4}
+        />
+        <line
+          x1={cursor.x - ringRadius - 5}
+          y1={cursor.y}
+          x2={cursor.x + ringRadius + 5}
+          y2={cursor.y}
+          stroke="rgba(255,255,255,0.72)"
+          strokeWidth={1.5}
+        />
+        <line
+          x1={cursor.x}
+          y1={cursor.y - ringRadius - 5}
+          x2={cursor.x}
+          y2={cursor.y + ringRadius + 5}
+          stroke="rgba(255,255,255,0.72)"
+          strokeWidth={1.5}
+        />
+        <circle cx={cursor.x} cy={cursor.y} r={baseRadius} fill={cursor.color} fillOpacity={0.95} stroke="rgba(0,0,0,0.72)" strokeWidth={2.1} />
+        <rect
+          x={cursor.x + 12}
+          y={cursor.y - 22}
+          rx={6}
+          ry={6}
+          width={Math.max(56, cursor.label.length * 9)}
+          height={20}
+          fill="rgba(0,0,0,0.66)"
+          stroke={cursor.color}
+          strokeWidth={1.1}
+        />
+        <text
+          x={cursor.x + 10}
+          y={cursor.y - 8}
+          fontSize={14}
+          fontWeight={700}
+          fill="#f8fafc"
+        >
+          {cursor.label}
+        </text>
+      </g>
+    ))
+  }, [cursorScale, remoteCursors])
 
   if (!instanceId || (!loading && !instance)) {
     return (
@@ -698,6 +1127,20 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
               aria-label={t('mapInstance.brushWidth')}
             />
             <span className="w-5 text-right text-xs text-emerald-50">{brushWidth}</span>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-300/35 bg-emerald-950/45 px-3 py-1.5">
+            <span className="text-xs text-emerald-100/80">{t('mapInstance.cursorSize')}</span>
+            <input
+              type="range"
+              min={1}
+              max={2.6}
+              step={0.1}
+              value={cursorScale}
+              onChange={(event) => setCursorScale(Number(event.target.value))}
+              className="w-24 accent-emerald-300"
+              aria-label={t('mapInstance.cursorSize')}
+            />
+            <span className="w-8 text-right text-xs text-emerald-50">{cursorScale.toFixed(1)}x</span>
           </div>
           <button
             type="button"
@@ -820,6 +1263,21 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
               <span className="w-6 text-right text-xs text-emerald-50">{brushWidth}</span>
             </div>
 
+            <div className="mt-2 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-xl border border-emerald-300/35 bg-emerald-950/45 px-3 py-2">
+              <span className="text-xs text-emerald-100/80">{t('mapInstance.cursorSize')}</span>
+              <input
+                type="range"
+                min={1}
+                max={2.6}
+                step={0.1}
+                value={cursorScale}
+                onChange={(event) => setCursorScale(Number(event.target.value))}
+                className="w-full accent-emerald-300"
+                aria-label={t('mapInstance.cursorSize')}
+              />
+              <span className="w-10 text-right text-xs text-emerald-50">{cursorScale.toFixed(1)}x</span>
+            </div>
+
             <button
               type="button"
               onClick={onBackHome}
@@ -843,6 +1301,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
+            onPointerLeave={onPointerLeave}
           >
             <div
               className="absolute left-0 top-0"
@@ -881,6 +1340,8 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
                 preserveAspectRatio="none"
               >
                 {renderedStrokes}
+                {renderedRemoteInProgressStrokes}
+                {renderedRemoteCursors}
               </svg>
             </div>
           </div>
