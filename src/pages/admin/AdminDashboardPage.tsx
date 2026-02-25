@@ -33,6 +33,13 @@ export function AdminDashboardPage({ onNavigate, onLogout }: AdminDashboardPageP
           >
             {t('admin.instanceManagement')}
           </button>
+          <button
+            type="button"
+            onClick={() => onNavigate(ROUTES.adminPassword)}
+            className="btn-outline h-10 rounded-xl px-4"
+          >
+            {t('admin.changePassword')}
+          </button>
         </div>
       }
     >

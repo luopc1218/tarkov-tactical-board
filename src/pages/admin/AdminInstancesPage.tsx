@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import dayjs from 'dayjs'
 import { useTranslation } from 'react-i18next'
 import {
   deleteAdminWhiteboardInstance,
@@ -20,6 +21,19 @@ export function AdminInstancesPage({ onNavigate, onLogout }: AdminInstancesPageP
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+
+  const formatDateTime = (value?: string | null) => {
+    if (!value) {
+      return '-'
+    }
+
+    const parsed = dayjs(value)
+    if (!parsed.isValid()) {
+      return value
+    }
+
+    return parsed.format('YYYY-MM-DD HH:mm:ss')
+  }
 
   const loadInstances = useCallback(async () => {
     try {
@@ -129,9 +143,9 @@ export function AdminInstancesPage({ onNavigate, onLogout }: AdminInstancesPageP
                       </span>
                     </td>
                     <td className="px-4 py-3 text-emerald-50/85">{item.hasState ? t('admin.yes') : t('admin.no')}</td>
-                    <td className="px-4 py-3 text-emerald-50/85">{item.createdAt || '-'}</td>
-                    <td className="px-4 py-3 text-emerald-50/85">{item.updatedAt || '-'}</td>
-                    <td className="px-4 py-3 text-emerald-50/85">{item.expireAt || '-'}</td>
+                    <td className="px-4 py-3 text-emerald-50/85">{formatDateTime(item.createdAt)}</td>
+                    <td className="px-4 py-3 text-emerald-50/85">{formatDateTime(item.updatedAt)}</td>
+                    <td className="px-4 py-3 text-emerald-50/85">{formatDateTime(item.expireAt)}</td>
                     <td className="px-4 py-3">
                       <button
                         type="button"

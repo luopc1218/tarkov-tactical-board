@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { LanguageSwitcher } from '../../components/LanguageSwitcher'
 import { ROUTES } from '../../router/routes'
 
-type AdminNavKey = 'dashboard' | 'maps' | 'instances'
+type AdminNavKey = 'dashboard' | 'maps' | 'instances' | 'password'
 
 interface AdminShellProps {
   current: AdminNavKey
@@ -67,6 +67,13 @@ export function AdminShell({
               className={navStyle(current === 'instances')}
             >
               {t('admin.instanceManagement')}
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate(ROUTES.adminPassword)}
+              className={navStyle(current === 'password')}
+            >
+              {t('admin.changePassword')}
             </button>
           </nav>
 

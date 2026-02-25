@@ -2,6 +2,8 @@ export interface TarkovMapPreset {
   mapId: number
   id: string
   name: string
+  nameZh?: string
+  nameEn?: string
   bannerUrl?: string
   mapUrl?: string
 }

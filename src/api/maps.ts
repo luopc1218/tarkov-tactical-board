@@ -134,11 +134,11 @@ const normalizeMapPreset = (item: MapApiItem): TarkovMapPreset | null => {
     item.map_id,
     item.id,
   ])
+  const rawNameZh = readFirstNonEmptyString([item.nameZh, item.name_zh, item.zhName, item.cnName])
+  const rawNameEn = readFirstNonEmptyString([item.nameEn, item.name_en, item.enName])
   const rawName = readFirstNonEmptyString([
-    item.nameZh,
-    item.name_zh,
-    item.zhName,
-    item.cnName,
+    rawNameZh,
+    rawNameEn,
     item.name,
     item.mapName,
     item.map_name,
@@ -146,9 +146,6 @@ const normalizeMapPreset = (item: MapApiItem): TarkovMapPreset | null => {
     item.display_name,
     item.label,
     item.title,
-    item.nameEn,
-    item.name_en,
-    item.enName,
   ])
 
   const id = rawId ? toKebabCase(rawId) : ''
@@ -176,7 +173,15 @@ const normalizeMapPreset = (item: MapApiItem): TarkovMapPreset | null => {
     return null
   }
 
-  return { mapId, id, name, bannerUrl, mapUrl }
+  return {
+    mapId,
+    id,
+    name,
+    nameZh: rawNameZh || undefined,
+    nameEn: rawNameEn || undefined,
+    bannerUrl,
+    mapUrl,
+  }
 }
 
 export const fetchMapPresets = async (): Promise<TarkovMapPreset[]> => {
@@ -230,10 +235,29 @@ export const fetchMapPresets = async (): Promise<TarkovMapPreset[]> => {
               return null
             }
 
+            const fallbackNameZh =
+              typeof item.nameZh === 'string' && item.nameZh.trim()
+                ? item.nameZh.trim()
+                : typeof item.name_zh === 'string' && item.name_zh.trim()
+                  ? item.name_zh.trim()
+                  : typeof item.zhName === 'string' && item.zhName.trim()
+                    ? item.zhName.trim()
+                    : undefined
+            const fallbackNameEn =
+              typeof item.nameEn === 'string' && item.nameEn.trim()
+                ? item.nameEn.trim()
+                : typeof item.name_en === 'string' && item.name_en.trim()
+                  ? item.name_en.trim()
+                  : typeof item.enName === 'string' && item.enName.trim()
+                    ? item.enName.trim()
+                    : undefined
+
             const preset: TarkovMapPreset = {
               mapId: fallbackMapId,
               id: toKebabCase(firstString || `map-${index + 1}`),
               name: firstString.trim(),
+              nameZh: fallbackNameZh,
+              nameEn: fallbackNameEn,
             }
 
             if (bannerUrl) {

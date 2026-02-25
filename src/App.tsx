@@ -7,6 +7,7 @@ import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
 import { AdminInstancesPage } from './pages/admin/AdminInstancesPage'
 import { AdminLoginPage } from './pages/admin/AdminLoginPage'
 import { AdminMapsPage } from './pages/admin/AdminMapsPage'
+import { AdminPasswordPage } from './pages/admin/AdminPasswordPage'
 import { HomePage } from './pages/HomePage'
 import { MapInstancePage } from './pages/MapInstancePage'
 import { NotFoundPage } from './pages/NotFoundPage'
@@ -37,7 +38,10 @@ function App() {
   const route = useMemo(() => resolveRoute(pathname), [pathname])
   const currentPathWithSearch = useMemo(() => `${pathname}${search}`, [pathname, search])
   const isAdminProtectedRoute =
-    route.name === 'admin-dashboard' || route.name === 'admin-maps' || route.name === 'admin-instances'
+    route.name === 'admin-dashboard' ||
+    route.name === 'admin-maps' ||
+    route.name === 'admin-instances' ||
+    route.name === 'admin-password'
   const showFloatingLanguageSwitcher = !isAdminProtectedRoute
 
   useEffect(() => {
@@ -54,7 +58,10 @@ function App() {
 
   useEffect(() => {
     const shouldLockBodyScroll =
-      route.name === 'admin-dashboard' || route.name === 'admin-maps' || route.name === 'admin-instances'
+      route.name === 'admin-dashboard' ||
+      route.name === 'admin-maps' ||
+      route.name === 'admin-instances' ||
+      route.name === 'admin-password'
     document.body.style.overflow = shouldLockBodyScroll ? 'hidden' : ''
 
     return () => {
@@ -131,6 +138,8 @@ function App() {
     content = adminLoggedIn ? <AdminMapsPage onNavigate={navigateTo} onLogout={handleAdminLogout} /> : null
   } else if (route.name === 'admin-instances') {
     content = adminLoggedIn ? <AdminInstancesPage onNavigate={navigateTo} onLogout={handleAdminLogout} /> : null
+  } else if (route.name === 'admin-password') {
+    content = adminLoggedIn ? <AdminPasswordPage onNavigate={navigateTo} onLogout={handleAdminLogout} /> : null
   } else if (route.name === 'admin-not-found') {
     content = (
       <NotFoundPage

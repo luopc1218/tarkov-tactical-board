@@ -4,6 +4,7 @@ export const ROUTES = {
   adminDashboard: '/admin/dashboard',
   adminMaps: '/admin/maps',
   adminInstances: '/admin/instances',
+  adminPassword: '/admin/password',
 } as const
 
 const MAP_INSTANCE_PATH_REGEX = /^\/instances\/([^/]+)$/
@@ -18,6 +19,7 @@ export type AppRoute =
   | { name: 'admin-dashboard' }
   | { name: 'admin-maps' }
   | { name: 'admin-instances' }
+  | { name: 'admin-password' }
   | { name: 'admin-not-found' }
   | { name: 'not-found' }
 
@@ -49,6 +51,9 @@ export const resolveRoute = (pathname: string): AppRoute => {
     }
     if (section === 'instances') {
       return { name: 'admin-instances' }
+    }
+    if (section === 'password') {
+      return { name: 'admin-password' }
     }
 
     return { name: 'admin-not-found' }

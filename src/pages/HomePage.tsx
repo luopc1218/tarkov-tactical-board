@@ -16,7 +16,7 @@ interface HomePageProps {
 }
 
 export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [mapPresets, setMapPresets] = useState<TarkovMapPreset[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -42,6 +42,15 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
   useEffect(() => {
     void loadMapPresets()
   }, [loadMapPresets])
+
+  const renderMapName = (preset: TarkovMapPreset) => {
+    const zh = preset.nameZh?.trim()
+    const en = preset.nameEn?.trim()
+    if (i18n.language.startsWith('zh')) {
+      return zh || en || preset.name
+    }
+    return en || zh || preset.name
+  }
 
   return (
     <main
@@ -151,7 +160,7 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
                   <div className="space-y-4 p-4 pt-3">
                     <div className="flex items-center justify-between">
                       <h2 className="text-xl font-bold text-white">
-                        {t(`maps.${preset.id}`, { defaultValue: preset.name })}
+                        {renderMapName(preset)}
                       </h2>
                       <FiMap className="text-emerald-300" />
                     </div>

@@ -37,3 +37,12 @@ export interface AdminWhiteboardInstance {
   active: boolean
   hasState: boolean
 }
+
+export interface ChangePasswordRequest {
+  oldPassword: string
+  newPassword: string
+}
+
+export interface ChangePasswordResponse {
+  message?: string
+}
