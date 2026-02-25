@@ -1,0 +1,10 @@
+services:
+  tarkov_frontend:
+    container_name: tarkov_frontend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tarkov-tactical-board-frontend:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18081:80"

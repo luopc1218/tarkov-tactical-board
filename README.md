@@ -120,6 +120,63 @@ VITE_API_BASE_URL=/api
 - `npm run format`：Prettier 格式化
 - `npm run format:check`：检查格式
 
+## Docker Compose 部署（前端）
+
+### 文件说明
+
+- `Dockerfile`：多阶段构建，产出静态文件并由 Nginx 提供服务
+- `docker-compose.frontend.yml`：前端容器编排，映射 `127.0.0.1:18081 -> 80`
+- `deploy/rebuild-frontend.sh`：一键打包并重启前端容器
+
+### 一键打包并重启
+
+```bash
+chmod +x deploy/rebuild-frontend.sh
+./deploy/rebuild-frontend.sh
+```
+
+### 宿主机 Nginx 对接示例（与后端同源）
+
+说明：后端保持 `127.0.0.1:18080`，前端容器为 `127.0.0.1:18081`。
+
+```nginx
+server {
+    listen 80;
+    server_name your.domain.example;
+
+    client_max_body_size 100M;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:18080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /ws {
+        proxy_pass http://127.0.0.1:18080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:18081;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
 ## 目录结构（简化）
 
 ```text
