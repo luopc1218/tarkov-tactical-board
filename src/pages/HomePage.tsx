@@ -18,7 +18,8 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
   const { t, i18n } = useTranslation()
   const [mapPresets, setMapPresets] = useState<TarkovMapPreset[]>([])
   const [loading, setLoading] = useState(true)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [joinErrorMessage, setJoinErrorMessage] = useState<string | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [creatingMapId, setCreatingMapId] = useState<string | null>(null)
   const [instanceIdInput, setInstanceIdInput] = useState('')
 
@@ -26,16 +27,16 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
     async (forceRefresh = false) => {
       try {
         setLoading(true)
-        setErrorMessage(null)
+        setLoadFailed(false)
         const data = forceRefresh ? await refreshMapPresets() : await fetchMapPresets()
         setMapPresets(data)
-      } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : t('home.loadError'))
+      } catch {
+        setLoadFailed(true)
       } finally {
         setLoading(false)
       }
     },
-    [t],
+    [],
   )
 
   useEffect(() => {
@@ -94,14 +95,13 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
               onClick={async () => {
                 const nextId = instanceIdInput.trim()
                 if (!nextId) {
-                  setErrorMessage(t('home.instanceIdRequired'))
+                  setJoinErrorMessage(t('home.instanceIdRequired'))
                   return
                 }
                 try {
-                  setErrorMessage(null)
+                  setJoinErrorMessage(null)
                   await onJoinInstance(nextId)
-                } catch (error) {
-                  setErrorMessage(error instanceof Error ? error.message : t('home.loadError'))
+                } catch {
                 }
               }}
             >
@@ -109,6 +109,11 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
               {t('home.enterInstance')}
             </button>
           </div>
+          {joinErrorMessage && (
+            <p className="mt-3 rounded-xl border border-rose-300/35 bg-rose-950/40 px-4 py-2 text-sm text-rose-200">
+              {joinErrorMessage}
+            </p>
+          )}
         </div>
 
         {loading && (
@@ -118,9 +123,8 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
           </div>
         )}
 
-        {!loading && errorMessage && (
+        {!loading && loadFailed && (
           <div className="space-y-3">
-            <p className="rounded-xl border border-rose-300/35 bg-rose-950/40 px-4 py-3 text-rose-200">{errorMessage}</p>
             <button
               type="button"
               onClick={() => void loadMapPresets(true)}
@@ -132,13 +136,13 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
           </div>
         )}
 
-        {!loading && !errorMessage && mapPresets.length === 0 && (
+        {!loading && !loadFailed && mapPresets.length === 0 && (
           <p className="rounded-xl border border-emerald-300/30 bg-emerald-950/35 px-4 py-3 text-emerald-100">
             {t('home.emptyMaps')}
           </p>
         )}
 
-        {!loading && !errorMessage && mapPresets.length > 0 && (
+        {!loading && !loadFailed && mapPresets.length > 0 && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {mapPresets.map((preset, index) => {
               const bannerSrc = preset.bannerUrl
@@ -172,11 +176,10 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
                       type="button"
                       onClick={async () => {
                         try {
-                          setErrorMessage(null)
+                          setJoinErrorMessage(null)
                           setCreatingMapId(preset.id)
                           await onCreateInstance(preset.mapId)
-                        } catch (error) {
-                          setErrorMessage(error instanceof Error ? error.message : t('home.loadError'))
+                        } catch {
                         } finally {
                           setCreatingMapId(null)
                         }

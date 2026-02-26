@@ -14,15 +14,14 @@ const EMPTY_FORM: AdminMapUpsertRequest = {
   code: '',
   nameZh: '',
   nameEn: '',
-  bannerObjectName: '',
-  mapObjectName: '',
+  bannerPath: '',
+  mapPath: '',
 }
 
 export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
   const { t } = useTranslation()
   const [maps, setMaps] = useState<AdminMap[]>([])
   const [loading, setLoading] = useState(true)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editingMap, setEditingMap] = useState<AdminMap | null>(null)
@@ -36,23 +35,21 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
       form.code.trim() &&
         form.nameZh.trim() &&
         form.nameEn.trim() &&
-        (form.bannerObjectName ?? '').trim() &&
-        (form.mapObjectName ?? '').trim(),
+        (form.bannerPath ?? '').trim() &&
+        (form.mapPath ?? '').trim(),
     )
   }, [form])
 
   const loadMaps = useCallback(async () => {
     try {
       setLoading(true)
-      setErrorMessage(null)
       const data = await listAdminMaps()
       setMaps(data)
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t('admin.mapsLoadError'))
+    } catch {
     } finally {
       setLoading(false)
     }
-  }, [t])
+  }, [])
 
   useEffect(() => {
     void loadMaps()
@@ -70,8 +67,8 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
       code: item.code ?? '',
       nameZh: item.nameZh ?? '',
       nameEn: item.nameEn ?? '',
-      bannerObjectName: item.bannerObjectName ?? item.bannerUrl ?? '',
-      mapObjectName: item.mapObjectName ?? item.mapUrl ?? '',
+      bannerPath: item.bannerPath ?? item.bannerUrl ?? '',
+      mapPath: item.mapPath ?? item.mapUrl ?? '',
     })
     setModalOpen(true)
   }
@@ -92,13 +89,12 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
       code: form.code.trim(),
       nameZh: form.nameZh.trim(),
       nameEn: form.nameEn.trim(),
-      bannerObjectName: form.bannerObjectName.trim(),
-      mapObjectName: form.mapObjectName.trim(),
+      bannerPath: form.bannerPath.trim(),
+      mapPath: form.mapPath.trim(),
     }
 
     try {
       setSaving(true)
-      setErrorMessage(null)
 
       if (editingMap) {
         const updated = await updateAdminMap(editingMap.id, payload)
@@ -109,14 +105,7 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
       }
 
       closeModal()
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : editingMap
-            ? t('admin.mapsUpdateError')
-            : t('admin.mapsCreateError'),
-      )
+    } catch {
       setSaving(false)
     }
   }
@@ -124,11 +113,9 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
   const handleDelete = async (id: number) => {
     try {
       setDeletingId(id)
-      setErrorMessage(null)
       await deleteAdminMap(id)
       setMaps((prev) => prev.filter((item) => item.id !== id))
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t('admin.mapsDeleteError'))
+    } catch {
     } finally {
       setDeletingId(null)
     }
@@ -170,10 +157,6 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
       }
     >
       <div className="flex h-full min-h-0 flex-col gap-4">
-        {errorMessage && (
-          <p className="rounded-xl bg-rose-950/45 px-4 py-3 text-sm text-rose-200">{errorMessage}</p>
-        )}
-
         <div className="scrollbar-tactical min-h-0 flex-1 overflow-auto rounded-xl border border-emerald-200/20">
           <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="sticky top-0 z-10 bg-emerald-900/95 text-emerald-100 backdrop-blur">
@@ -205,7 +188,7 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
 
               {!loading &&
                 maps.map((item) => {
-                  const bannerPreview = resolveImagePath(item.bannerUrl || item.bannerObjectName)
+                  const bannerPreview = resolveImagePath(item.bannerUrl || item.bannerPath)
 
                   return (
                     <tr key={item.id} className="border-t border-emerald-200/15">
@@ -294,45 +277,27 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
                 <div className="rounded-xl border border-emerald-200/20 bg-black/20 p-3">
                   <p className="text-xs font-medium text-emerald-100/80">Banner Path</p>
                   <input
-                    value={form.bannerObjectName}
+                    value={form.bannerPath}
                     onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                      setForm((prev) => ({ ...prev, bannerObjectName: event.target.value }))
+                      setForm((prev) => ({ ...prev, bannerPath: event.target.value }))
                     }
                     placeholder="assets/images/tarkov-maps/banner/Banner_customs.png"
                     className="mt-2 w-full rounded-lg border border-emerald-200/20 bg-black/25 px-3 py-2 text-xs text-white placeholder:text-emerald-50/40 outline-none"
                   />
-                  <p className="text-xs text-emerald-50/70 break-all">{form.bannerObjectName || '-'}</p>
-                  {form.bannerObjectName && (
-                    <div className="mt-2 h-24 overflow-hidden rounded-lg border border-emerald-200/15 bg-black/30">
-                      <img
-                        src={resolveImagePath(form.bannerObjectName)}
-                        alt="banner preview"
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  )}
+                  <p className="text-xs text-emerald-50/70 break-all">{form.bannerPath || '-'}</p>
                 </div>
 
                 <div className="rounded-xl border border-emerald-200/20 bg-black/20 p-3">
                   <p className="text-xs font-medium text-emerald-100/80">Map Path</p>
                   <input
-                    value={form.mapObjectName}
+                    value={form.mapPath}
                     onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                      setForm((prev) => ({ ...prev, mapObjectName: event.target.value }))
+                      setForm((prev) => ({ ...prev, mapPath: event.target.value }))
                     }
                     placeholder="assets/images/tarkov-maps/Customs.png"
                     className="mt-2 w-full rounded-lg border border-emerald-200/20 bg-black/25 px-3 py-2 text-xs text-white placeholder:text-emerald-50/40 outline-none"
                   />
-                  <p className="text-xs text-emerald-50/70 break-all">{form.mapObjectName || '-'}</p>
-                  {form.mapObjectName && (
-                    <div className="mt-2 h-24 overflow-hidden rounded-lg border border-emerald-200/15 bg-black/30">
-                      <img
-                        src={resolveImagePath(form.mapObjectName)}
-                        alt="map preview"
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  )}
+                  <p className="text-xs text-emerald-50/70 break-all">{form.mapPath || '-'}</p>
                 </div>
               </div>
             </div>

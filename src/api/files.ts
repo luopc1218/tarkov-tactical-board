@@ -3,6 +3,9 @@ const localImageAssetMap = import.meta.glob('/src/assets/**/*.{png,jpg,jpeg,webp
   import: 'default',
 }) as Record<string, string>
 const localImageAssetEntries = Object.entries(localImageAssetMap)
+const exactPathAliasMap: Record<string, string> = {
+  'src/assets/images/tarkov-maps/Ground_Zero.png': '/src/assets/images/tarkov-maps/Ground Zero.png',
+}
 
 const normalizeAssetKey = (value: string) => {
   const normalizedRaw = value
@@ -61,6 +64,11 @@ export const resolveImagePath = (value?: string | null) => {
   const normalizedAssetKey = normalizeAssetKey(trimmed)
   if (normalizedAssetKey && localImageAssetMap[normalizedAssetKey]) {
     return localImageAssetMap[normalizedAssetKey]
+  }
+  const aliasKey = normalizedAssetKey.replace(/^\/+/, '')
+  const aliasTarget = exactPathAliasMap[aliasKey]
+  if (aliasTarget && localImageAssetMap[aliasTarget]) {
+    return localImageAssetMap[aliasTarget]
   }
 
   if (trimmed.startsWith('/assets/')) {

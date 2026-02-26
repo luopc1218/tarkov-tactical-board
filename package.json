@@ -19,6 +19,7 @@
   "build": {
     "appId": "site.tarkov.tacticalboard.desktop",
     "productName": "Tarkov Tactical Board",
+    "icon": "build/icon.png",
     "files": [
       "dist/**/*",
       "electron/**/*",
@@ -26,16 +27,19 @@
     ],
     "asar": true,
     "mac": {
+      "icon": "build/icon.png",
       "target": [
         "dmg"
       ]
     },
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         "nsis"
       ]
     },
     "linux": {
+      "icon": "build/icon.png",
       "target": [
         "AppImage"
       ]

@@ -18,7 +18,6 @@ export function AdminInstancesPage({ onNavigate, onLogout }: AdminInstancesPageP
   const [instances, setInstances] = useState<AdminWhiteboardInstance[]>([])
   const [loading, setLoading] = useState(true)
   const [includeExpired, setIncludeExpired] = useState(true)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
@@ -38,15 +37,13 @@ export function AdminInstancesPage({ onNavigate, onLogout }: AdminInstancesPageP
   const loadInstances = useCallback(async () => {
     try {
       setLoading(true)
-      setErrorMessage(null)
       const data = await listAdminWhiteboardInstances(includeExpired)
       setInstances(data)
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t('admin.instancesLoadError'))
+    } catch {
     } finally {
       setLoading(false)
     }
-  }, [includeExpired, t])
+  }, [includeExpired])
 
   useEffect(() => {
     void loadInstances()
@@ -55,11 +52,9 @@ export function AdminInstancesPage({ onNavigate, onLogout }: AdminInstancesPageP
   const handleDelete = async (instanceId: string) => {
     try {
       setDeletingId(instanceId)
-      setErrorMessage(null)
       await deleteAdminWhiteboardInstance(instanceId)
       setInstances((prev) => prev.filter((item) => item.instanceId !== instanceId))
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t('admin.instancesDeleteError'))
+    } catch {
     } finally {
       setDeletingId(null)
       setPendingDeleteId(null)
@@ -91,10 +86,6 @@ export function AdminInstancesPage({ onNavigate, onLogout }: AdminInstancesPageP
       }
     >
       <div className="flex h-full min-h-0 flex-col gap-4">
-        {errorMessage && (
-          <p className="rounded-xl bg-rose-950/45 px-4 py-3 text-sm text-rose-200">{errorMessage}</p>
-        )}
-
         <div className="scrollbar-tactical min-h-0 flex-1 overflow-auto rounded-xl border border-emerald-200/20">
           <table className="w-full min-w-[1120px] text-left text-sm">
             <thead className="sticky top-0 z-10 bg-emerald-900/95 text-emerald-100 backdrop-blur">

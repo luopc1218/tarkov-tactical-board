@@ -54,18 +54,18 @@ const normalizeAdminMap = (item: AdminMapApiItem): AdminMap | null => {
 
   const bannerUrl = readString(item.bannerUrl, item.banner_url, item.bannerPath, item.banner_path)
   const mapUrl = readString(item.mapUrl, item.map_url, item.mapPath, item.map_path)
-  const bannerObjectName = readString(
-    item.bannerObjectName,
-    item.banner_object_name,
+  const bannerPath = readString(
     item.bannerPath,
     item.banner_path,
+    item.bannerObjectName,
+    item.banner_object_name,
     bannerUrl,
   )
-  const mapObjectName = readString(
-    item.mapObjectName,
-    item.map_object_name,
+  const mapPath = readString(
     item.mapPath,
     item.map_path,
+    item.mapObjectName,
+    item.map_object_name,
     mapUrl,
   )
 
@@ -74,9 +74,9 @@ const normalizeAdminMap = (item: AdminMapApiItem): AdminMap | null => {
     code: readString(item.code),
     nameZh: readString(item.nameZh, item.name_zh),
     nameEn: readString(item.nameEn, item.name_en),
-    bannerObjectName,
+    bannerPath,
     bannerUrl,
-    mapObjectName,
+    mapPath,
     mapUrl,
   }
 }
@@ -111,23 +111,39 @@ export const listAdminMaps = () => {
 }
 
 export const createAdminMap = (payload: AdminMapUpsertRequest) => {
-  return http.post<AdminMapApiItem>('/admin/maps', payload).then((item) => {
-    const normalized = normalizeAdminMap(item)
-    if (!normalized) {
-      throw new Error('Invalid map payload from server')
-    }
-    return normalized
-  })
+  return http
+    .post<AdminMapApiItem>('/admin/maps', {
+      code: payload.code,
+      nameZh: payload.nameZh,
+      nameEn: payload.nameEn,
+      bannerPath: payload.bannerPath,
+      mapPath: payload.mapPath,
+    })
+    .then((item) => {
+      const normalized = normalizeAdminMap(item)
+      if (!normalized) {
+        throw new Error('Invalid map payload from server')
+      }
+      return normalized
+    })
 }
 
 export const updateAdminMap = (id: number, payload: AdminMapUpsertRequest) => {
-  return http.put<AdminMapApiItem>(`/admin/maps/${id}`, payload).then((item) => {
-    const normalized = normalizeAdminMap(item)
-    if (!normalized) {
-      throw new Error('Invalid map payload from server')
-    }
-    return normalized
-  })
+  return http
+    .put<AdminMapApiItem>(`/admin/maps/${id}`, {
+      code: payload.code,
+      nameZh: payload.nameZh,
+      nameEn: payload.nameEn,
+      bannerPath: payload.bannerPath,
+      mapPath: payload.mapPath,
+    })
+    .then((item) => {
+      const normalized = normalizeAdminMap(item)
+      if (!normalized) {
+        throw new Error('Invalid map payload from server')
+      }
+      return normalized
+    })
 }
 
 export const deleteAdminMap = (id: number) => {

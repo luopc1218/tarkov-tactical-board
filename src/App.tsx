@@ -27,8 +27,8 @@ function App() {
   const [search, setSearch] = useState(window.location.search)
   const [adminLoggedIn, setAdminLoggedIn] = useState(() => isAdminAuthenticated())
   const [adminLoginLoading, setAdminLoginLoading] = useState(false)
-  const [adminLoginError, setAdminLoginError] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
   const shouldShowSettingsEntry = true
 
   useEffect(() => {
@@ -58,6 +58,33 @@ function App() {
     window.addEventListener('keydown', onShortcut)
     return () => window.removeEventListener('keydown', onShortcut)
   }, [shouldShowSettingsEntry])
+
+  useEffect(() => {
+    let timer: number | null = null
+    const onHttpError = (event: Event) => {
+      const customEvent = event as CustomEvent<{ message?: string }>
+      const message = customEvent.detail?.message?.trim()
+      if (!message) {
+        return
+      }
+      setToastMessage(message)
+      if (timer !== null) {
+        window.clearTimeout(timer)
+      }
+      timer = window.setTimeout(() => {
+        setToastMessage(null)
+        timer = null
+      }, 3200)
+    }
+
+    window.addEventListener('http-error', onHttpError as EventListener)
+    return () => {
+      window.removeEventListener('http-error', onHttpError as EventListener)
+      if (timer !== null) {
+        window.clearTimeout(timer)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (!shouldShowSettingsEntry) {
@@ -126,7 +153,6 @@ function App() {
   const handleAdminLogin = async (payload: { username: string; password: string }) => {
     try {
       setAdminLoginLoading(true)
-      setAdminLoginError(null)
 
       const response = await loginAdmin(payload)
       setAdminAuthenticated(true, {
@@ -139,8 +165,7 @@ function App() {
       const redirect = new URLSearchParams(search).get('redirect')
       const safeRedirect = redirect && redirect.startsWith('/admin') ? redirect : ROUTES.adminDashboard
       navigateTo(safeRedirect)
-    } catch (error) {
-      setAdminLoginError(error instanceof Error ? error.message : 'Login failed')
+    } catch {
     } finally {
       setAdminLoginLoading(false)
     }
@@ -149,7 +174,6 @@ function App() {
   const handleAdminLogout = () => {
     setAdminAuthenticated(false)
     setAdminLoggedIn(false)
-    setAdminLoginError(null)
     navigateTo(ROUTES.adminLogin)
   }
 
@@ -160,13 +184,7 @@ function App() {
   } else if (route.name === 'map-instance') {
     content = <MapInstancePage instanceId={route.instanceId} onBackHome={() => navigateTo(ROUTES.home)} />
   } else if (route.name === 'admin-login') {
-    content = (
-      <AdminLoginPage
-        onLogin={handleAdminLogin}
-        loading={adminLoginLoading}
-        errorMessage={adminLoginError}
-      />
-    )
+    content = <AdminLoginPage onLogin={handleAdminLogin} loading={adminLoginLoading} />
   } else if (route.name === 'admin-dashboard') {
     content = adminLoggedIn ? (
       <AdminDashboardPage onNavigate={navigateTo} onLogout={handleAdminLogout} />
@@ -216,6 +234,11 @@ function App() {
       )}
       {content}
       {settingsOpen && <ApiSettingsDialog onClose={() => setSettingsOpen(false)} />}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-[80] max-w-md rounded-xl border border-rose-300/40 bg-rose-950/95 px-4 py-3 text-sm text-rose-100 shadow-[0_18px_36px_rgba(0,0,0,0.35)]">
+          {toastMessage}
+        </div>
+      )}
     </>
   )
 }

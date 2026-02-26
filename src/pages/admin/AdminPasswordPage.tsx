@@ -17,7 +17,7 @@ export function AdminPasswordPage({ onNavigate, onLogout }: AdminPasswordPagePro
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [validationMessage, setValidationMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const passwordStrength = useMemo(() => {
@@ -67,11 +67,11 @@ export function AdminPasswordPage({ onNavigate, onLogout }: AdminPasswordPagePro
   }, [confirmPassword, currentPassword, newPassword, t])
 
   const handleSubmit = async () => {
-    setErrorMessage(null)
+    setValidationMessage(null)
     setSuccessMessage(null)
 
     if (validationError) {
-      setErrorMessage(validationError)
+      setValidationMessage(validationError)
       return
     }
 
@@ -85,8 +85,7 @@ export function AdminPasswordPage({ onNavigate, onLogout }: AdminPasswordPagePro
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t('admin.passwordSubmitError'))
+    } catch {
     } finally {
       setSaving(false)
     }
@@ -181,8 +180,8 @@ export function AdminPasswordPage({ onNavigate, onLogout }: AdminPasswordPagePro
             </div>
           </div>
 
-          {errorMessage && (
-            <p className="mt-4 rounded-xl bg-rose-950/45 px-4 py-3 text-sm text-rose-200">{errorMessage}</p>
+          {validationMessage && (
+            <p className="mt-4 rounded-xl bg-rose-950/45 px-4 py-3 text-sm text-rose-200">{validationMessage}</p>
           )}
           {successMessage && (
             <p className="mt-4 rounded-xl bg-emerald-950/45 px-4 py-3 text-sm text-emerald-200">{successMessage}</p>

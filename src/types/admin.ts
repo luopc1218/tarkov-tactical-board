@@ -14,9 +14,9 @@ export interface AdminMap {
   code: string
   nameZh: string
   nameEn: string
-  bannerObjectName: string
+  bannerPath: string
   bannerUrl: string
-  mapObjectName: string
+  mapPath: string
   mapUrl: string
 }
 
@@ -24,8 +24,8 @@ export interface AdminMapUpsertRequest {
   code: string
   nameZh: string
   nameEn: string
-  bannerObjectName: string
-  mapObjectName: string
+  bannerPath: string
+  mapPath: string
 }
 
 export interface AdminWhiteboardInstance {

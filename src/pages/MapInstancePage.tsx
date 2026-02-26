@@ -274,7 +274,6 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   const localClientId = useId().replace(/:/g, '')
   const [instance, setInstance] = useState<MapInstance | null>(null)
   const [loading, setLoading] = useState(true)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [mapUrl, setMapUrl] = useState<string | undefined>(undefined)
   const [strokes, setStrokes] = useState<Stroke[]>([])
   const [currentStroke, setCurrentStroke] = useState<Stroke | null>(null)
@@ -324,7 +323,6 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     let active = true
     queueMicrotask(() => {
       setLoading(true)
-      setErrorMessage(null)
     })
     void getWhiteboardInstance(instanceId)
       .then((payload) => {
@@ -333,11 +331,10 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
         }
         setInstance(payload)
       })
-      .catch((error) => {
+      .catch(() => {
         if (!active) {
           return
         }
-        setErrorMessage(error instanceof Error ? error.message : t('mapInstance.notFoundDesc'))
         setInstance(null)
       })
       .finally(() => {
@@ -349,7 +346,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     return () => {
       active = false
     }
-  }, [instanceId, t])
+  }, [instanceId])
 
   useEffect(() => {
     if (!instance?.mapId) {
@@ -1071,7 +1068,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
       <main className="app-page grid place-items-center px-4 py-8">
         <section className="panel w-full max-w-xl p-6 md:p-8">
           <h1 className="text-3xl font-extrabold text-white">{t('mapInstance.notFoundTitle')}</h1>
-          <p className="mt-3 text-emerald-50/75">{errorMessage ?? t('mapInstance.notFoundDesc')}</p>
+          <p className="mt-3 text-emerald-50/75">{t('mapInstance.notFoundDesc')}</p>
           <button type="button" onClick={onBackHome} className="btn-primary mt-5">
             {t('common.backHome')}
           </button>

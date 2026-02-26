@@ -4,10 +4,9 @@ import { useTranslation } from 'react-i18next'
 interface AdminLoginPageProps {
   onLogin: (payload: { username: string; password: string }) => Promise<void>
   loading: boolean
-  errorMessage: string | null
 }
 
-export function AdminLoginPage({ onLogin, loading, errorMessage }: AdminLoginPageProps) {
+export function AdminLoginPage({ onLogin, loading }: AdminLoginPageProps) {
   const { t } = useTranslation()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -58,8 +57,6 @@ export function AdminLoginPage({ onLogin, loading, errorMessage }: AdminLoginPag
                   className="w-full rounded-xl border border-emerald-200/20 bg-black/25 px-3.5 py-2.5 text-sm text-white placeholder:text-emerald-50/40 outline-none transition focus:border-emerald-300/70 focus:ring-2 focus:ring-emerald-300/20"
                 />
               </label>
-
-              {errorMessage && <p className="rounded-lg bg-rose-950/45 px-3 py-2 text-sm text-rose-200">{errorMessage}</p>}
 
               <button
                 type="submit"
