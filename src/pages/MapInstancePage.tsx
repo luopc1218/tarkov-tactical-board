@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { FiCopy } from 'react-icons/fi'
 import { fetchMapPresets } from '../api/maps'
 import { getWhiteboardInstance, getWhiteboardState, saveWhiteboardState } from '../api/whiteboard'
+import { getApiBaseUrl } from '../lib/runtime-config'
 import type { MapInstance } from '../types/map-instance'
 
 interface MapInstancePageProps {
@@ -46,7 +47,6 @@ const DEFAULT_CANVAS_WIDTH = 1920
 const DEFAULT_CANVAS_HEIGHT = 1080
 const MIN_SCALE = 0.05
 const MAX_SCALE = 8
-const WHITEBOARD_STROKE_TOPIC = 'stroke.add'
 const WHITEBOARD_STROKE_START_TOPIC = 'stroke.start'
 const WHITEBOARD_STROKE_APPEND_TOPIC = 'stroke.append'
 const WHITEBOARD_STROKE_END_TOPIC = 'stroke.end'
@@ -55,6 +55,7 @@ const WHITEBOARD_UNDO_TOPIC = 'stroke.undo'
 const WHITEBOARD_CURSOR_MOVE_TOPIC = 'cursor.move'
 const WHITEBOARD_CURSOR_LEAVE_TOPIC = 'cursor.leave'
 const STROKE_APPEND_INTERVAL_MS = 40
+const WS_RECONNECT_BACKOFF_MS = [1000, 2000, 5000]
 
 const buildPathData = (points: Point[]) => {
   if (points.length === 0) {
@@ -85,6 +86,8 @@ const colorFromId = (value: string) => {
 }
 
 const resolveWsUrl = (wsPath: string) => {
+  const normalizedWsPath = wsPath.startsWith('/') ? wsPath : `/${wsPath}`
+
   if (/^wss?:\/\//i.test(wsPath)) {
     return wsPath
   }
@@ -93,15 +96,38 @@ const resolveWsUrl = (wsPath: string) => {
     return wsPath.replace(/^http/i, 'ws')
   }
 
-  const wsBase = import.meta.env.VITE_WS_BASE_URL
-  if (wsBase) {
-    const base = new URL(wsBase)
-    const protocol = base.protocol === 'https:' ? 'wss:' : 'ws:'
-    return new URL(wsPath, `${protocol}//${base.host}`).toString()
+  const tryBuildWsFromHttpBase = (baseValue: string) => {
+    try {
+      const base = new URL(baseValue)
+      const protocol =
+        base.protocol === 'https:' || base.protocol === 'wss:' ? 'wss:' : 'ws:'
+      return new URL(normalizedWsPath, `${protocol}//${base.host}`).toString()
+    } catch {
+      return null
+    }
   }
 
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return new URL(wsPath, `${protocol}//${window.location.host}`).toString()
+  const wsBase = import.meta.env.VITE_WS_BASE_URL?.trim() ?? ''
+  const apiBase = getApiBaseUrl().trim()
+  const candidates = [
+    wsBase,
+    apiBase,
+    window.location.origin,
+    // Electron packaged app commonly loads from file://, fallback to local backend default.
+    'http://127.0.0.1:8080',
+  ]
+
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue
+    }
+    const built = tryBuildWsFromHttpBase(candidate)
+    if (built) {
+      return built
+    }
+  }
+
+  return null
 }
 
 const readStrokePayload = (payload: unknown): Stroke | null => {
@@ -306,6 +332,8 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   const currentStrokeRef = useRef<Stroke | null>(null)
   const pendingAppendPointsRef = useRef<Point[]>([])
   const appendTimerRef = useRef<number | null>(null)
+  const reconnectTimerRef = useRef<number | null>(null)
+  const reconnectAttemptRef = useRef(0)
 
   useEffect(() => {
     currentStrokeRef.current = currentStroke
@@ -381,161 +409,220 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
       return
     }
 
-    const ws = new WebSocket(resolveWsUrl(instance.wsPath))
-    wsRef.current = ws
-    queueMicrotask(() => {
-      setWsConnected(false)
-    })
-
-    ws.onopen = () => {
-      setWsConnected(true)
+    const resolvedWsUrl = resolveWsUrl(instance.wsPath)
+    if (!resolvedWsUrl) {
+      console.warn('[MapInstancePage] Unable to resolve websocket url', {
+        wsPath: instance.wsPath,
+        apiBaseUrl: getApiBaseUrl(),
+      })
+      return
     }
-    ws.onclose = () => {
-      setWsConnected(false)
-    }
-    ws.onerror = () => {
-      setWsConnected(false)
-    }
-    ws.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data as string) as {
-          type?: string
-          payload?: unknown
-          data?: unknown
-        }
-        const actualPayload = payload.payload ?? payload.data ?? payload
 
-        if (payload.type === WHITEBOARD_CURSOR_LEAVE_TOPIC) {
-          const leave = readCursorPayload(actualPayload)
-          if (!leave || leave.clientId === localClientIdRef.current) {
-            return
-          }
-          setRemoteCursors((prev) => {
-            const next = { ...prev }
-            delete next[leave.clientId]
-            return next
-          })
-          return
-        }
-
-        if (payload.type === WHITEBOARD_CURSOR_MOVE_TOPIC) {
-          const cursor = readCursorPayload(actualPayload)
-          if (!cursor || cursor.clientId === localClientIdRef.current) {
-            return
-          }
-          setRemoteCursors((prev) => ({ ...prev, [cursor.clientId]: cursor }))
-          return
-        }
-
-        if (payload.type === WHITEBOARD_STROKE_START_TOPIC) {
-          const stream = readStrokeStreamPayload(actualPayload)
-          if (!stream || stream.clientId === localClientIdRef.current) {
-            return
-          }
-          const firstPoint = stream.point ?? stream.points?.[0]
-          if (!firstPoint) {
-            return
-          }
-          setRemoteInProgressStrokes((prev) => ({
-            ...prev,
-            [stream.strokeId]: {
-              id: stream.strokeId,
-              points: [firstPoint],
-              color: stream.color || '#22d3ee',
-              width: stream.width || 3,
-            },
-          }))
-          return
-        }
-
-        if (payload.type === WHITEBOARD_STROKE_APPEND_TOPIC) {
-          const stream = readStrokeStreamPayload(actualPayload)
-          if (!stream || stream.clientId === localClientIdRef.current) {
-            return
-          }
-          const nextPoints = stream.points ?? (stream.point ? [stream.point] : [])
-          if (nextPoints.length === 0) {
-            return
-          }
-          setRemoteInProgressStrokes((prev) => {
-            const target = prev[stream.strokeId]
-            if (!target) {
-              return {
-                ...prev,
-                [stream.strokeId]: {
-                  id: stream.strokeId,
-                  points: nextPoints,
-                  color: stream.color || '#22d3ee',
-                  width: stream.width || 3,
-                },
-              }
-            }
-            return {
-              ...prev,
-              [stream.strokeId]: {
-                ...target,
-                points: [...target.points, ...nextPoints],
-              },
-            }
-          })
-          return
-        }
-
-        if (payload.type === WHITEBOARD_STROKE_END_TOPIC) {
-          const stream = readStrokeStreamPayload(actualPayload)
-          if (!stream || stream.clientId === localClientIdRef.current) {
-            return
-          }
-          setRemoteInProgressStrokes((prev) => {
-            const target = prev[stream.strokeId]
-            if (!target) {
-              return prev
-            }
-            setStrokes((current) => (current.some((item) => item.id === target.id) ? current : [...current, target]))
-            const next = { ...prev }
-            delete next[stream.strokeId]
-            return next
-          })
-          return
-        }
-
-        if (payload.type === WHITEBOARD_UNDO_TOPIC) {
-          const undo = readUndoPayload(actualPayload)
-          if (!undo || undo.clientId === localClientIdRef.current) {
-            return
-          }
-          setStrokes((prev) => prev.filter((item) => item.id !== undo.strokeId))
-          localStrokeIdsRef.current.delete(undo.strokeId)
-          return
-        }
-
-        if (payload.type === WHITEBOARD_CLEAR_TOPIC) {
-          setStrokes([])
-          setCurrentStroke(null)
-          setRemoteInProgressStrokes({})
-          localStrokeIdsRef.current.clear()
-          return
-        }
-        const remoteStroke = readStrokePayload(actualPayload)
-        if (!remoteStroke || localStrokeIdsRef.current.has(remoteStroke.id)) {
-          return
-        }
-        setRemoteInProgressStrokes((prev) => {
-          if (!prev[remoteStroke.id]) {
-            return prev
-          }
-          const next = { ...prev }
-          delete next[remoteStroke.id]
-          return next
-        })
-        setStrokes((prev) => (prev.some((item) => item.id === remoteStroke.id) ? prev : [...prev, remoteStroke]))
-      } catch {
-        // Ignore non-JSON messages.
+    let destroyed = false
+    const clearReconnectTimer = () => {
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current)
+        reconnectTimerRef.current = null
       }
     }
 
+    const connect = () => {
+      let ws: WebSocket
+      try {
+        ws = new WebSocket(resolvedWsUrl)
+      } catch {
+        return
+      }
+
+      wsRef.current = ws
+      queueMicrotask(() => {
+        setWsConnected(false)
+      })
+
+      ws.onopen = () => {
+        reconnectAttemptRef.current = 0
+        clearReconnectTimer()
+        setWsConnected(true)
+      }
+      ws.onclose = (event) => {
+        setWsConnected(false)
+        if (wsRef.current === ws) {
+          wsRef.current = null
+        }
+        console.warn('[MapInstancePage] WebSocket closed', {
+          wsPath: instance.wsPath,
+          resolvedWsUrl,
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+        })
+        if (destroyed) {
+          return
+        }
+        const retryDelay = WS_RECONNECT_BACKOFF_MS[Math.min(reconnectAttemptRef.current, WS_RECONNECT_BACKOFF_MS.length - 1)]
+        reconnectAttemptRef.current += 1
+        clearReconnectTimer()
+        reconnectTimerRef.current = window.setTimeout(() => {
+          connect()
+        }, retryDelay)
+      }
+      ws.onerror = () => {
+        setWsConnected(false)
+        console.warn('[MapInstancePage] WebSocket connection error', {
+          wsPath: instance.wsPath,
+          resolvedWsUrl,
+        })
+      }
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data as string) as {
+            type?: string
+            payload?: unknown
+            data?: unknown
+          }
+          const actualPayload = payload.payload ?? payload.data ?? payload
+
+          if (payload.type === WHITEBOARD_CURSOR_LEAVE_TOPIC) {
+            const leave = readCursorPayload(actualPayload)
+            if (!leave || leave.clientId === localClientIdRef.current) {
+              return
+            }
+            setRemoteCursors((prev) => {
+              const next = { ...prev }
+              delete next[leave.clientId]
+              return next
+            })
+            return
+          }
+
+          if (payload.type === WHITEBOARD_CURSOR_MOVE_TOPIC) {
+            const cursor = readCursorPayload(actualPayload)
+            if (!cursor || cursor.clientId === localClientIdRef.current) {
+              return
+            }
+            setRemoteCursors((prev) => ({ ...prev, [cursor.clientId]: cursor }))
+            return
+          }
+
+          if (payload.type === WHITEBOARD_STROKE_START_TOPIC) {
+            const stream = readStrokeStreamPayload(actualPayload)
+            if (!stream || stream.clientId === localClientIdRef.current) {
+              return
+            }
+            const firstPoint = stream.point ?? stream.points?.[0]
+            if (!firstPoint) {
+              return
+            }
+            setRemoteInProgressStrokes((prev) => ({
+              ...prev,
+              [stream.strokeId]: {
+                id: stream.strokeId,
+                points: [firstPoint],
+                color: stream.color || '#22d3ee',
+                width: stream.width || 3,
+              },
+            }))
+            return
+          }
+
+          if (payload.type === WHITEBOARD_STROKE_APPEND_TOPIC) {
+            const stream = readStrokeStreamPayload(actualPayload)
+            if (!stream || stream.clientId === localClientIdRef.current) {
+              return
+            }
+            const nextPoints = stream.points ?? (stream.point ? [stream.point] : [])
+            if (nextPoints.length === 0) {
+              return
+            }
+            setRemoteInProgressStrokes((prev) => {
+              const target = prev[stream.strokeId]
+              if (!target) {
+                return {
+                  ...prev,
+                  [stream.strokeId]: {
+                    id: stream.strokeId,
+                    points: nextPoints,
+                    color: stream.color || '#22d3ee',
+                    width: stream.width || 3,
+                  },
+                }
+              }
+              return {
+                ...prev,
+                [stream.strokeId]: {
+                  ...target,
+                  points: [...target.points, ...nextPoints],
+                },
+              }
+            })
+            return
+          }
+
+          if (payload.type === WHITEBOARD_STROKE_END_TOPIC) {
+            const stream = readStrokeStreamPayload(actualPayload)
+            if (!stream || stream.clientId === localClientIdRef.current) {
+              return
+            }
+            setRemoteInProgressStrokes((prev) => {
+              const target = prev[stream.strokeId]
+              if (!target) {
+                return prev
+              }
+              setStrokes((current) => (current.some((item) => item.id === target.id) ? current : [...current, target]))
+              const next = { ...prev }
+              delete next[stream.strokeId]
+              return next
+            })
+            return
+          }
+
+          if (payload.type === WHITEBOARD_UNDO_TOPIC) {
+            const undo = readUndoPayload(actualPayload)
+            if (!undo || undo.clientId === localClientIdRef.current) {
+              return
+            }
+            setStrokes((prev) => prev.filter((item) => item.id !== undo.strokeId))
+            localStrokeIdsRef.current.delete(undo.strokeId)
+            return
+          }
+
+          if (payload.type === WHITEBOARD_CLEAR_TOPIC) {
+            setStrokes([])
+            setCurrentStroke(null)
+            setRemoteInProgressStrokes({})
+            localStrokeIdsRef.current.clear()
+            return
+          }
+          const remoteStroke = readStrokePayload(actualPayload)
+          if (!remoteStroke || localStrokeIdsRef.current.has(remoteStroke.id)) {
+            return
+          }
+          setRemoteInProgressStrokes((prev) => {
+            if (!prev[remoteStroke.id]) {
+              return prev
+            }
+            const next = { ...prev }
+            delete next[remoteStroke.id]
+            return next
+          })
+          setStrokes((prev) => (prev.some((item) => item.id === remoteStroke.id) ? prev : [...prev, remoteStroke]))
+        } catch {
+          // Ignore non-JSON messages.
+        }
+      }
+    }
+
+    reconnectAttemptRef.current = 0
+    clearReconnectTimer()
+    connect()
+
     return () => {
-      ws.close()
+      destroyed = true
+      clearReconnectTimer()
+      const ws = wsRef.current
+      if (ws) {
+        ws.close()
+      }
       wsRef.current = null
       setWsConnected(false)
       setRemoteCursors({})
@@ -671,6 +758,9 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   }
 
   const onPointerDown: React.PointerEventHandler<HTMLDivElement> = (event) => {
+    if (event.cancelable) {
+      event.preventDefault()
+    }
     const isTouch = event.pointerType === 'touch'
     if (isTouch) {
       const localPoint = toLocalPoint(event.clientX, event.clientY)
@@ -825,7 +915,6 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
       type: WHITEBOARD_STROKE_END_TOPIC,
       payload: { strokeId: stroke.id, clientId: localClientIdRef.current },
     })
-    sendWsMessage({ type: WHITEBOARD_STROKE_TOPIC, payload: stroke })
     setCurrentStroke(null)
   }
 
@@ -1301,8 +1390,9 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
         {!loading && (
           <div
             ref={containerRef}
-            className="relative min-h-0 flex-1 w-full touch-none overflow-hidden rounded-2xl border border-emerald-300/35 bg-[#08120e]"
+            className="relative min-h-0 flex-1 w-full touch-none overflow-hidden rounded-2xl border border-emerald-300/35 bg-[#08120e] select-none"
             onContextMenu={(event) => event.preventDefault()}
+            onDragStart={(event) => event.preventDefault()}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
@@ -1310,7 +1400,8 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
             onPointerLeave={onPointerLeave}
           >
             <div
-              className="absolute left-0 top-0"
+              className="absolute left-0 top-0 select-none"
+              onDragStart={(event) => event.preventDefault()}
               style={{
                 width: `${contentSize.width}px`,
                 height: `${contentSize.height}px`,
@@ -1324,6 +1415,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
                   alt={instance?.mapId ? `${t('mapInstance.mapId')} ${instance.mapId}` : 'map'}
                   className="pointer-events-none block h-full w-full select-none object-contain"
                   draggable={false}
+                  onDragStart={(event) => event.preventDefault()}
                   onLoad={(event) => {
                     const image = event.currentTarget
                     const nextWidth = image.naturalWidth || DEFAULT_CANVAS_WIDTH
