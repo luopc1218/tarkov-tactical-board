@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FiCopy } from 'react-icons/fi'
 import { fetchMapPresets } from '../api/maps'
@@ -271,6 +271,7 @@ const copyText = async (value: string): Promise<boolean> => {
 
 export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps) {
   const { t } = useTranslation()
+  const localClientId = useId().replace(/:/g, '')
   const [instance, setInstance] = useState<MapInstance | null>(null)
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -290,7 +291,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   const containerRef = useRef<HTMLDivElement | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const localStrokeIdsRef = useRef(new Set<string>())
-  const localClientIdRef = useRef(`c-${Math.random().toString(36).slice(2, 10)}`)
+  const localClientIdRef = useRef(`c-${localClientId}`)
   const lastCursorSentAtRef = useRef(0)
   const pointerModeRef = useRef<'draw' | 'pan' | 'pinch' | null>(null)
   const activePointerIdRef = useRef<number | null>(null)
@@ -313,14 +314,18 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
 
   useEffect(() => {
     if (!instanceId) {
-      setInstance(null)
-      setLoading(false)
+      queueMicrotask(() => {
+        setInstance(null)
+        setLoading(false)
+      })
       return
     }
 
     let active = true
-    setLoading(true)
-    setErrorMessage(null)
+    queueMicrotask(() => {
+      setLoading(true)
+      setErrorMessage(null)
+    })
     void getWhiteboardInstance(instanceId)
       .then((payload) => {
         if (!active) {
@@ -348,7 +353,9 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
 
   useEffect(() => {
     if (!instance?.mapId) {
-      setMapUrl(undefined)
+      queueMicrotask(() => {
+        setMapUrl(undefined)
+      })
       return
     }
 
@@ -379,7 +386,9 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
 
     const ws = new WebSocket(resolveWsUrl(instance.wsPath))
     wsRef.current = ws
-    setWsConnected(false)
+    queueMicrotask(() => {
+      setWsConnected(false)
+    })
 
     ws.onopen = () => {
       setWsConnected(true)

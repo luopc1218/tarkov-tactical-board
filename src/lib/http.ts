@@ -1,6 +1,7 @@
 import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios'
 import { getAdminAccessToken } from '../features/admin-auth'
 import qs from 'qs'
+import { getApiBaseUrl } from './runtime-config'
 
 export interface ApiResponse<T> {
   code: number
@@ -9,7 +10,7 @@ export interface ApiResponse<T> {
 }
 
 const httpInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
+  baseURL: getApiBaseUrl(),
   timeout: 15000,
   paramsSerializer: (params) =>
     qs.stringify(params, {
@@ -27,6 +28,8 @@ httpInstance.interceptors.response.use(
 )
 
 httpInstance.interceptors.request.use((config) => {
+  config.baseURL = getApiBaseUrl()
+
   const token = getAdminAccessToken()
   if (token) {
     config.headers = config.headers ?? {}
@@ -60,3 +63,5 @@ export const http = {
     return httpInstance.delete<ApiResponse<T> | T>(url, config).then(unwrapResponse)
   },
 }
+
+export const getCurrentApiBaseUrl = () => getApiBaseUrl()

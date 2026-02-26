@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import { FiSettings } from 'react-icons/fi'
 import { loginAdmin } from './api/admin-auth'
 import { createWhiteboardInstance } from './api/whiteboard'
+import { ApiSettingsDialog } from './components/ApiSettingsDialog'
 import { LanguageSwitcher } from './components/LanguageSwitcher'
 import { isAdminAuthenticated, setAdminAuthenticated } from './features/admin-auth'
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
@@ -12,6 +14,7 @@ import { HomePage } from './pages/HomePage'
 import { MapInstancePage } from './pages/MapInstancePage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { buildMapInstancePath, resolveRoute, ROUTES } from './router/routes'
+import { useTranslation } from 'react-i18next'
 
 const navigateTo = (path: string) => {
   window.history.pushState(null, '', path)
@@ -19,11 +22,14 @@ const navigateTo = (path: string) => {
 }
 
 function App() {
+  const { t } = useTranslation()
   const [pathname, setPathname] = useState(window.location.pathname)
   const [search, setSearch] = useState(window.location.search)
   const [adminLoggedIn, setAdminLoggedIn] = useState(() => isAdminAuthenticated())
   const [adminLoginLoading, setAdminLoginLoading] = useState(false)
   const [adminLoginError, setAdminLoginError] = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const shouldShowSettingsEntry = true
 
   useEffect(() => {
     const onPopState = () => {
@@ -35,6 +41,39 @@ function App() {
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
 
+  useEffect(() => {
+    if (!shouldShowSettingsEntry) {
+      return
+    }
+
+    const onShortcut = (event: KeyboardEvent) => {
+      if (event.key !== ',' || event.altKey || event.shiftKey || !(event.metaKey || event.ctrlKey)) {
+        return
+      }
+
+      event.preventDefault()
+      setSettingsOpen(true)
+    }
+
+    window.addEventListener('keydown', onShortcut)
+    return () => window.removeEventListener('keydown', onShortcut)
+  }, [shouldShowSettingsEntry])
+
+  useEffect(() => {
+    if (!shouldShowSettingsEntry) {
+      document.documentElement.style.setProperty('--desktop-titlebar-safe-top', '0px')
+      return
+    }
+
+    const platform = window.desktopApp?.platform
+    const safeTop = platform === 'darwin' ? 48 : platform === 'win32' ? 10 : 0
+    document.documentElement.style.setProperty('--desktop-titlebar-safe-top', `${safeTop}px`)
+
+    return () => {
+      document.documentElement.style.setProperty('--desktop-titlebar-safe-top', '0px')
+    }
+  }, [shouldShowSettingsEntry])
+
   const route = useMemo(() => resolveRoute(pathname), [pathname])
   const currentPathWithSearch = useMemo(() => `${pathname}${search}`, [pathname, search])
   const isAdminProtectedRoute =
@@ -42,8 +81,6 @@ function App() {
     route.name === 'admin-maps' ||
     route.name === 'admin-instances' ||
     route.name === 'admin-password'
-  const showFloatingLanguageSwitcher = !isAdminProtectedRoute
-
   useEffect(() => {
     if (!isAdminProtectedRoute || adminLoggedIn) {
       return
@@ -160,8 +197,25 @@ function App() {
 
   return (
     <>
-      {showFloatingLanguageSwitcher && <LanguageSwitcher />}
+      {shouldShowSettingsEntry && (
+        <div
+          className="fixed right-4 z-40 flex items-center gap-2 rounded-full border border-emerald-200/35 bg-emerald-950/75 px-2 py-1.5 text-emerald-100 shadow-[0_10px_24px_rgba(0,0,0,0.3)] backdrop-blur"
+          style={{ top: 'calc(0.75rem + var(--desktop-titlebar-safe-top))' }}
+        >
+          <button
+            type="button"
+            aria-label={t('settings.title')}
+            title={`${t('settings.title')} (Cmd/Ctrl + ,)`}
+            onClick={() => setSettingsOpen(true)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-emerald-200/35 bg-emerald-900/75 text-emerald-50 transition hover:bg-emerald-800/80"
+          >
+            <FiSettings />
+          </button>
+          <LanguageSwitcher inline />
+        </div>
+      )}
       {content}
+      {settingsOpen && <ApiSettingsDialog onClose={() => setSettingsOpen(false)} />}
     </>
   )
 }

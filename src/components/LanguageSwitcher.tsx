@@ -31,7 +31,7 @@ export function LanguageSwitcher({ inline = false }: LanguageSwitcherProps) {
     <div
       className={[
         'lang-switcher rounded-full bg-transparent p-0 backdrop-blur',
-        inline ? 'relative z-10' : 'lang-switcher-floating fixed right-4 top-3 z-30',
+        inline ? 'relative z-10' : 'lang-switcher-floating fixed z-30',
       ].join(' ')}
     >
       <button

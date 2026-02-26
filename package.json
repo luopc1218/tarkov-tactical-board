@@ -3,13 +3,43 @@
   "private": true,
   "version": "1.1.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite --host",
-    "build": "tsc -b && vite build",
+    "build": "npm run electron:build:web",
+    "electron:dev": "concurrently -k \"vite --host\" \"wait-on tcp:5173 && electron ./electron/main.cjs\"",
+    "electron:build:web": "tsc -b && vite build",
+    "electron:pack": "npm run electron:build:web && electron-builder",
+    "electron:pack:local": "npm run electron:build:web && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir",
     "lint": "eslint .",
     "preview": "vite preview",
     "format": "prettier . --write",
     "format:check": "prettier . --check"
+  },
+  "build": {
+    "appId": "site.tarkov.tacticalboard.desktop",
+    "productName": "Tarkov Tactical Board",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "mac": {
+      "target": [
+        "dmg"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ]
+    }
   },
   "dependencies": {
     "axios": "^1.13.2",
@@ -34,6 +64,9 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.24",
+    "concurrently": "^9.2.1",
+    "electron": "^40.6.1",
+    "electron-builder": "^26.8.1",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
@@ -43,6 +76,7 @@
     "tailwindcss": "^4.1.18",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "wait-on": "^9.0.4"
   }
 }

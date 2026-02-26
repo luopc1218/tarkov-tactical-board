@@ -1,7 +1,7 @@
 import { type ChangeEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createAdminMap, deleteAdminMap, listAdminMaps, updateAdminMap } from '../../api/admin-maps'
-import { buildFileDownloadUrl, uploadFile } from '../../api/files'
+import { resolveImagePath } from '../../api/files'
 import type { AdminMap, AdminMapUpsertRequest } from '../../types/admin'
 import { AdminShell } from './AdminShell'
 
@@ -28,7 +28,6 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
   const [editingMap, setEditingMap] = useState<AdminMap | null>(null)
   const [form, setForm] = useState<AdminMapUpsertRequest>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
-  const [uploadingTarget, setUploadingTarget] = useState<'banner' | 'map' | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [pendingDeleteMap, setPendingDeleteMap] = useState<AdminMap | null>(null)
 
@@ -37,8 +36,8 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
       form.code.trim() &&
         form.nameZh.trim() &&
         form.nameEn.trim() &&
-        form.bannerObjectName.trim() &&
-        form.mapObjectName.trim(),
+        (form.bannerObjectName ?? '').trim() &&
+        (form.mapObjectName ?? '').trim(),
     )
   }, [form])
 
@@ -68,11 +67,11 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
   const openEditModal = (item: AdminMap) => {
     setEditingMap(item)
     setForm({
-      code: item.code,
-      nameZh: item.nameZh,
-      nameEn: item.nameEn,
-      bannerObjectName: item.bannerObjectName,
-      mapObjectName: item.mapObjectName,
+      code: item.code ?? '',
+      nameZh: item.nameZh ?? '',
+      nameEn: item.nameEn ?? '',
+      bannerObjectName: item.bannerObjectName ?? item.bannerUrl ?? '',
+      mapObjectName: item.mapObjectName ?? item.mapUrl ?? '',
     })
     setModalOpen(true)
   }
@@ -80,34 +79,8 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
   const closeModal = () => {
     setModalOpen(false)
     setSaving(false)
-    setUploadingTarget(null)
     setEditingMap(null)
     setForm(EMPTY_FORM)
-  }
-
-  const handleUpload = async (target: 'banner' | 'map', event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-
-    if (!file) {
-      return
-    }
-
-    try {
-      setUploadingTarget(target)
-      setErrorMessage(null)
-      const objectName = await uploadFile(file)
-
-      if (target === 'banner') {
-        setForm((prev) => ({ ...prev, bannerObjectName: objectName }))
-      } else {
-        setForm((prev) => ({ ...prev, mapObjectName: objectName }))
-      }
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t('admin.uploadFailed'))
-    } finally {
-      setUploadingTarget(null)
-    }
   }
 
   const handleSubmit = async () => {
@@ -232,7 +205,7 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
 
               {!loading &&
                 maps.map((item) => {
-                  const bannerPreview = item.bannerUrl || buildFileDownloadUrl(item.bannerObjectName)
+                  const bannerPreview = resolveImagePath(item.bannerUrl || item.bannerObjectName)
 
                   return (
                     <tr key={item.id} className="border-t border-emerald-200/15">
@@ -319,23 +292,20 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="rounded-xl border border-emerald-200/20 bg-black/20 p-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <p className="text-xs font-medium text-emerald-100/80">{t('admin.bannerUpload')}</p>
-                    <label className="btn-outline inline-flex h-8 cursor-pointer items-center justify-center rounded-lg px-3 text-xs">
-                      {uploadingTarget === 'banner' ? t('common.loading') : t('admin.upload')}
-                      <input
-                        type="file"
-                        accept="image/png"
-                        className="hidden"
-                        onChange={(event) => void handleUpload('banner', event)}
-                      />
-                    </label>
-                  </div>
+                  <p className="text-xs font-medium text-emerald-100/80">Banner Path</p>
+                  <input
+                    value={form.bannerObjectName}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                      setForm((prev) => ({ ...prev, bannerObjectName: event.target.value }))
+                    }
+                    placeholder="assets/images/tarkov-maps/banner/Banner_customs.png"
+                    className="mt-2 w-full rounded-lg border border-emerald-200/20 bg-black/25 px-3 py-2 text-xs text-white placeholder:text-emerald-50/40 outline-none"
+                  />
                   <p className="text-xs text-emerald-50/70 break-all">{form.bannerObjectName || '-'}</p>
                   {form.bannerObjectName && (
                     <div className="mt-2 h-24 overflow-hidden rounded-lg border border-emerald-200/15 bg-black/30">
                       <img
-                        src={buildFileDownloadUrl(form.bannerObjectName)}
+                        src={resolveImagePath(form.bannerObjectName)}
                         alt="banner preview"
                         className="h-full w-full object-cover"
                       />
@@ -344,23 +314,20 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
                 </div>
 
                 <div className="rounded-xl border border-emerald-200/20 bg-black/20 p-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <p className="text-xs font-medium text-emerald-100/80">{t('admin.mapUpload')}</p>
-                    <label className="btn-outline inline-flex h-8 cursor-pointer items-center justify-center rounded-lg px-3 text-xs">
-                      {uploadingTarget === 'map' ? t('common.loading') : t('admin.upload')}
-                      <input
-                        type="file"
-                        accept="image/png"
-                        className="hidden"
-                        onChange={(event) => void handleUpload('map', event)}
-                      />
-                    </label>
-                  </div>
+                  <p className="text-xs font-medium text-emerald-100/80">Map Path</p>
+                  <input
+                    value={form.mapObjectName}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                      setForm((prev) => ({ ...prev, mapObjectName: event.target.value }))
+                    }
+                    placeholder="assets/images/tarkov-maps/Customs.png"
+                    className="mt-2 w-full rounded-lg border border-emerald-200/20 bg-black/25 px-3 py-2 text-xs text-white placeholder:text-emerald-50/40 outline-none"
+                  />
                   <p className="text-xs text-emerald-50/70 break-all">{form.mapObjectName || '-'}</p>
                   {form.mapObjectName && (
                     <div className="mt-2 h-24 overflow-hidden rounded-lg border border-emerald-200/15 bg-black/30">
                       <img
-                        src={buildFileDownloadUrl(form.mapObjectName)}
+                        src={resolveImagePath(form.mapObjectName)}
                         alt="map preview"
                         className="h-full w-full object-cover"
                       />
@@ -377,7 +344,7 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
               <button
                 type="button"
                 onClick={() => void handleSubmit()}
-                disabled={saving || uploadingTarget !== null || !canSubmit}
+                disabled={saving || !canSubmit}
                 className="btn-primary h-10 rounded-xl px-4 disabled:cursor-not-allowed disabled:opacity-55"
               >
                 {saving ? t('common.loading') : editingMap ? t('admin.update') : t('admin.create')}

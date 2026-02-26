@@ -40,13 +40,36 @@ npm run dev
 默认访问：`http://localhost:5173`  
 已启用 `--host`，支持局域网设备访问。
 
-### 3) 构建生产包
+### 3) 启动 Electron 开发模式
+
+```bash
+npm run electron:dev
+```
+
+说明：
+- 保留原有 Vite Web 构建与开发模式；
+- Electron 仅作为额外桌面壳层，默认加载同一套前端页面；
+- 桌面端可通过左上角设置按钮配置后端 API 地址（支持 `/api` 或 `https://domain/api`）。
+
+### 4) 构建生产包（Web）
 
 ```bash
 npm run build
 ```
 
-### 4) 本地预览生产包
+### 5) 打包 Electron App
+
+```bash
+npm run electron:pack
+```
+
+本地快速无签名打包（输出 `.app` 目录）：
+
+```bash
+npm run electron:pack:local
+```
+
+### 6) 本地预览生产包
 
 ```bash
 npm run preview
@@ -109,6 +132,11 @@ npm run preview
 - `VITE_API_BASE_URL`：API 基础路径（默认 `/api`）
 - `VITE_WS_BASE_URL`：WebSocket 基础地址（用于非同源 WS 场景）
 
+代码内默认 API 地址配置：
+
+- `src/config/app-config.ts` -> `APP_CONFIG.defaultApiBaseUrl`
+- 运行时优先级：用户在桌面端设置的地址 > `VITE_API_BASE_URL` > `APP_CONFIG.defaultApiBaseUrl`
+
 示例（`.env.local`）：
 
 ```bash
@@ -119,7 +147,10 @@ VITE_API_BASE_URL=/api
 ## 常用脚本
 
 - `npm run dev`：开发模式
-- `npm run build`：TypeScript 检查 + 打包
+- `npm run build`：TypeScript 检查 + Web 打包
+- `npm run electron:dev`：Electron + Vite 联合开发
+- `npm run electron:build:web`：仅构建 Web 产物（Electron 复用）
+- `npm run electron:pack`：打包 Electron 安装包
 - `npm run lint`：ESLint
 - `npm run format`：Prettier 格式化
 - `npm run format:check`：检查格式

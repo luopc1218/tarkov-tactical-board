@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
-import { FiArrowRight, FiCrosshair, FiHash, FiMap } from 'react-icons/fi'
-import homeHeroBg from '../assets/images/home_hero_bg.jpg'
-import { buildFileDownloadUrl } from '../api/files'
+import { FiArrowRight, FiCrosshair, FiHash, FiMap, FiRefreshCw } from 'react-icons/fi'
+import homeHeroBg from '../assets/images/home_hero_bg.png'
+import { resolveImagePath } from '../api/files'
 import { fetchMapPresets, refreshMapPresets } from '../api/maps'
 import type { TarkovMapPreset } from '../constants/maps'
 
-const CUSTOM_MAP_BANNER_URL =
-  buildFileDownloadUrl('maps/banners/custom-map.png')
+const CUSTOM_MAP_BANNER_URL = resolveImagePath('images/home_hero_bg.png')
 
 interface HomePageProps {
   onCreateInstance: (mapId: number) => Promise<void>
@@ -122,7 +121,12 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
         {!loading && errorMessage && (
           <div className="space-y-3">
             <p className="rounded-xl border border-rose-300/35 bg-rose-950/40 px-4 py-3 text-rose-200">{errorMessage}</p>
-            <button type="button" onClick={() => void loadMapPresets(true)} className="btn-outline">
+            <button
+              type="button"
+              onClick={() => void loadMapPresets(true)}
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-emerald-100/35 bg-[linear-gradient(135deg,#4da676_0%,#2ec489_55%,#1fc6a9_100%)] px-4 text-sm font-semibold text-emerald-950 shadow-[0_10px_24px_rgba(16,185,129,0.32)] transition hover:brightness-105 active:brightness-95"
+            >
+              <FiRefreshCw />
               {t('common.retry')}
             </button>
           </div>

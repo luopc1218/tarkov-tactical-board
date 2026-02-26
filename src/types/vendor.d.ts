@@ -31,3 +31,10 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+interface Window {
+  desktopApp?: {
+    isElectron: boolean
+    platform?: string
+  }
+}

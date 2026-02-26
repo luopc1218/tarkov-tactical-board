@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LanguageSwitcher } from '../../components/LanguageSwitcher'
 import { ROUTES } from '../../router/routes'
 
 type AdminNavKey = 'dashboard' | 'maps' | 'instances' | 'password'
@@ -41,7 +40,7 @@ export function AdminShell({
           <p className="text-xs font-semibold tracking-[0.14em] text-emerald-300">ADMIN</p>
           <p className="mt-1 text-sm text-emerald-50/70">Tarkov Tactical Board</p>
         </div>
-        <LanguageSwitcher inline />
+        <div className="h-9" />
       </div>
 
       <div className="flex min-h-0 w-full flex-1 gap-6">
