@@ -2,6 +2,7 @@ const path = require('node:path')
 const { app, BrowserWindow, shell } = require('electron')
 
 const DEV_SERVER_URL = process.env.ELECTRON_RENDERER_URL || 'http://127.0.0.1:5173'
+const DEV_ICON_PATH = path.join(__dirname, '..', 'build', 'icon.png')
 
 function createWindow() {
   const isMac = process.platform === 'darwin'
@@ -30,6 +31,7 @@ function createWindow() {
           trafficLightPosition: { x: 14, y: 14 },
         }
       : {}),
+    ...(!isMac && !app.isPackaged ? { icon: DEV_ICON_PATH } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -53,6 +55,10 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  if (process.platform === 'darwin' && !app.isPackaged && app.dock) {
+    app.dock.setIcon(DEV_ICON_PATH)
+  }
+
   createWindow()
 
   app.on('activate', () => {
