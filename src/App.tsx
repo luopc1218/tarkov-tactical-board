@@ -3,7 +3,6 @@ import { FiSettings } from 'react-icons/fi'
 import { loginAdmin } from './api/admin-auth'
 import { createWhiteboardInstance } from './api/whiteboard'
 import { ApiSettingsDialog } from './components/ApiSettingsDialog'
-import { LanguageSwitcher } from './components/LanguageSwitcher'
 import { isAdminAuthenticated, setAdminAuthenticated } from './features/admin-auth'
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
 import { AdminInstancesPage } from './pages/admin/AdminInstancesPage'
@@ -17,24 +16,72 @@ import { buildMapInstancePath, resolveRoute, ROUTES } from './router/routes'
 import { useTranslation } from 'react-i18next'
 
 const navigateTo = (path: string) => {
-  window.history.pushState(null, '', path)
+  const isElectronFilePage = window.location.protocol === 'file:'
+  if (isElectronFilePage) {
+    window.history.pushState(null, '', `#${path}`)
+  } else {
+    window.history.pushState(null, '', path)
+  }
   window.dispatchEvent(new PopStateEvent('popstate'))
+}
+
+const getNormalizedLocation = () => {
+  const { pathname, protocol, hash, search } = window.location
+  const isElectronFilePage = protocol === 'file:'
+  if (!isElectronFilePage) {
+    return { pathname, search }
+  }
+
+  const hashRoute = hash.startsWith('#') ? hash.slice(1) : ''
+  if (hashRoute.startsWith('/')) {
+    const queryIndex = hashRoute.indexOf('?')
+    if (queryIndex === -1) {
+      return { pathname: hashRoute, search: '' }
+    }
+    return {
+      pathname: hashRoute.slice(0, queryIndex),
+      search: hashRoute.slice(queryIndex),
+    }
+  }
+
+  const normalized = pathname.replace(/\\/g, '/').toLowerCase()
+  if (normalized.endsWith('/index.html')) {
+    return { pathname: ROUTES.home, search: '' }
+  }
+
+  const drivePrefixedPathMatch = pathname.match(/^\/[a-zA-Z]:\/(instances|admin)(?:\/|$)/)
+  if (drivePrefixedPathMatch) {
+    const routePath = pathname.replace(/^\/[a-zA-Z]:/, '')
+    return { pathname: routePath, search: '' }
+  }
+
+  const routeStartIndex = normalized.search(/\/(instances|admin)(\/|$)/)
+  if (routeStartIndex >= 0) {
+    const routePath = pathname.slice(routeStartIndex).replace(/\\/g, '/')
+    return { pathname: routePath, search: '' }
+  }
+
+  return { pathname, search }
 }
 
 function App() {
   const { t } = useTranslation()
-  const [pathname, setPathname] = useState(window.location.pathname)
-  const [search, setSearch] = useState(window.location.search)
+  const desktopPlatform = window.desktopApp?.platform
+  const isDesktopApp = Boolean(window.desktopApp?.isElectron)
+  const isWindowsDesktop = desktopPlatform === 'win32'
+  const [pathname, setPathname] = useState(() => getNormalizedLocation().pathname)
+  const [search, setSearch] = useState(() => getNormalizedLocation().search)
   const [adminLoggedIn, setAdminLoggedIn] = useState(() => isAdminAuthenticated())
   const [adminLoginLoading, setAdminLoginLoading] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
-  const shouldShowSettingsEntry = true
+  const shouldShowSettingsEntry = desktopPlatform !== 'darwin'
 
   useEffect(() => {
     const onPopState = () => {
-      setPathname(window.location.pathname)
-      setSearch(window.location.search)
+      const location = getNormalizedLocation()
+      setPathname(location.pathname)
+      setSearch(location.search)
     }
     window.addEventListener('popstate', onPopState)
 
@@ -89,17 +136,44 @@ function App() {
   useEffect(() => {
     if (!shouldShowSettingsEntry) {
       document.documentElement.style.setProperty('--desktop-titlebar-safe-top', '0px')
+      document.documentElement.style.setProperty('--desktop-titlebar-safe-right', '0px')
+      document.documentElement.style.setProperty('--desktop-window-controls-width', '0px')
       return
     }
 
     const platform = window.desktopApp?.platform
-    const safeTop = platform === 'darwin' ? 48 : platform === 'win32' ? 10 : 0
+    const safeTop = platform === 'darwin' ? 48 : platform === 'win32' ? 40 : 0
+    const safeRight = platform === 'win32' ? 144 : 0
+    const windowControlsWidth = platform === 'win32' ? 138 : 0
     document.documentElement.style.setProperty('--desktop-titlebar-safe-top', `${safeTop}px`)
+    document.documentElement.style.setProperty('--desktop-titlebar-safe-right', `${safeRight}px`)
+    document.documentElement.style.setProperty('--desktop-window-controls-width', `${windowControlsWidth}px`)
 
     return () => {
       document.documentElement.style.setProperty('--desktop-titlebar-safe-top', '0px')
+      document.documentElement.style.setProperty('--desktop-titlebar-safe-right', '0px')
+      document.documentElement.style.setProperty('--desktop-window-controls-width', '0px')
     }
   }, [shouldShowSettingsEntry])
+
+  useEffect(() => {
+    const platform = window.desktopApp?.platform ?? 'web'
+    document.documentElement.setAttribute('data-platform', platform)
+
+    return () => {
+      document.documentElement.removeAttribute('data-platform')
+    }
+  }, [])
+
+  useEffect(() => {
+    const unsubscribe = window.desktopApp?.onOpenSettings?.(() => {
+      setSettingsOpen(true)
+    })
+
+    return () => {
+      unsubscribe?.()
+    }
+  }, [])
 
   const route = useMemo(() => resolveRoute(pathname), [pathname])
   const currentPathWithSearch = useMemo(() => `${pathname}${search}`, [pathname, search])
@@ -215,22 +289,47 @@ function App() {
 
   return (
     <>
-      {shouldShowSettingsEntry && (
+      {isDesktopApp && isWindowsDesktop && (
         <div
-          className="fixed right-4 z-40 flex items-center gap-2 rounded-full border border-emerald-200/35 bg-emerald-950/75 px-2 py-1.5 text-emerald-100 shadow-[0_10px_24px_rgba(0,0,0,0.3)] backdrop-blur"
-          style={{ top: 'calc(0.75rem + var(--desktop-titlebar-safe-top))' }}
-        >
+          className="fixed inset-x-0 top-0 z-30 h-10"
+          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+        />
+      )}
+      {shouldShowSettingsEntry && (
+        isWindowsDesktop ? (
           <button
             type="button"
             aria-label={t('settings.title')}
             title={`${t('settings.title')} (Cmd/Ctrl + ,)`}
             onClick={() => setSettingsOpen(true)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-emerald-200/35 bg-emerald-900/75 text-emerald-50 transition hover:bg-emerald-800/80"
+            className="group fixed z-40 inline-flex h-10 w-10 items-center justify-center bg-transparent text-emerald-50/70 transition"
+            style={{
+              top: 0,
+              left: 4,
+              WebkitAppRegion: 'no-drag',
+            } as React.CSSProperties}
           >
-            <FiSettings />
+            <FiSettings className="text-[0.95rem] transition group-hover:text-emerald-50 group-hover:drop-shadow-[0_0_6px_rgba(212,250,230,0.45)] group-active:text-white" />
           </button>
-          <LanguageSwitcher inline />
-        </div>
+        ) : (
+          <div
+            className="fixed right-4 z-40 flex items-center rounded-full border border-emerald-200/35 bg-emerald-950/75 px-2 py-1.5 text-emerald-100 shadow-[0_10px_24px_rgba(0,0,0,0.3)] backdrop-blur"
+            style={{
+              top: 'calc(0.75rem + var(--desktop-titlebar-safe-top))',
+              right: 'calc(1rem + var(--desktop-titlebar-safe-right))',
+            }}
+          >
+            <button
+              type="button"
+              aria-label={t('settings.title')}
+              title={`${t('settings.title')} (Cmd/Ctrl + ,)`}
+              onClick={() => setSettingsOpen(true)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-emerald-200/35 bg-emerald-900/75 text-emerald-50 transition hover:bg-emerald-800/80"
+            >
+              <FiSettings />
+            </button>
+          </div>
+        )
       )}
       {content}
       {settingsOpen && <ApiSettingsDialog onClose={() => setSettingsOpen(false)} />}

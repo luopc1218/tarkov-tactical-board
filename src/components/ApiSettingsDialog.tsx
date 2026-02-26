@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { LanguageSwitcher } from './LanguageSwitcher'
 import { getApiBaseUrl, getDefaultApiBaseUrl, setApiBaseUrl } from '../lib/runtime-config'
 
 interface ApiSettingsDialogProps {
@@ -55,6 +56,11 @@ export function ApiSettingsDialog({ onClose }: ApiSettingsDialogProps) {
           >
             {t('common.cancel')}
           </button>
+        </div>
+
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-emerald-200/20 bg-black/20 px-3 py-2">
+          <span className="text-sm font-semibold text-emerald-100/90">{t('common.language')}</span>
+          <LanguageSwitcher inline />
         </div>
 
         <label className="block text-sm font-semibold text-emerald-100/90">{t('settings.apiBaseUrlLabel')}</label>
