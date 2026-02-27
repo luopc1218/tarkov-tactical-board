@@ -2,6 +2,8 @@
 
 [中文](#中文) | [English](#english)
 
+Demo (GitHub Pages): https://luopc1218.github.io/tarkov-tactical-board/
+
 ## 中文
 
 ### 技术栈
@@ -42,6 +44,11 @@ npm run electron:dev
 提示：前端首次使用时，可能需要打开设置弹窗配置 API 接口地址（例如 `/api` 或 `https://your-domain/api`）。
 
 ### 打包与部署
+
+#### GitHub Pages 演示发布
+
+- 推送到 `master` 后会自动构建并发布到 GitHub Pages。
+- 仓库需要在 `Settings -> Pages` 中选择 `GitHub Actions` 作为 Source。
 
 #### Web 构建
 
@@ -127,6 +134,11 @@ npm run electron:dev
 Note: On first launch, you may need to open the settings modal and configure the API base URL (for example, `/api` or `https://your-domain/api`).
 
 ### Build and Deploy
+
+#### GitHub Pages Demo Deployment
+
+- Pushing to `master` triggers automatic build and deployment to GitHub Pages.
+- In repository `Settings -> Pages`, set Source to `GitHub Actions`.
 
 #### Build web assets
 

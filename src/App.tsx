@@ -15,9 +15,48 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { buildMapInstancePath, resolveRoute, ROUTES } from './router/routes'
 import { useTranslation } from 'react-i18next'
 
-const navigateTo = (path: string) => {
+const normalizePathname = (value: string) => {
+  const trimmed = value.replace(/\/+$/, '')
+  return trimmed || ROUTES.home
+}
+
+const getWebBasePath = () => {
+  const baseUrl = import.meta.env.BASE_URL
+  if (!baseUrl || baseUrl === '/' || baseUrl === './') {
+    return ''
+  }
+
+  const normalizedBase = normalizePathname(baseUrl)
+  return normalizedBase === ROUTES.home ? '' : normalizedBase
+}
+
+const stripBasePath = (pathname: string) => {
+  const normalizedPathname = normalizePathname(pathname)
+  const basePath = getWebBasePath()
+  if (!basePath) {
+    return normalizedPathname
+  }
+
+  if (normalizedPathname === basePath) {
+    return ROUTES.home
+  }
+
+  if (normalizedPathname.startsWith(`${basePath}/`)) {
+    const routePath = normalizedPathname.slice(basePath.length)
+    return routePath || ROUTES.home
+  }
+
+  return normalizedPathname
+}
+
+const shouldUseHashRouting = () => {
   const isElectronFilePage = window.location.protocol === 'file:'
-  if (isElectronFilePage) {
+  const isGithubPagesBuild = getWebBasePath().length > 0
+  return isElectronFilePage || isGithubPagesBuild
+}
+
+const navigateTo = (path: string) => {
+  if (shouldUseHashRouting()) {
     window.history.pushState(null, '', `#${path}`)
   } else {
     window.history.pushState(null, '', path)
@@ -28,12 +67,8 @@ const navigateTo = (path: string) => {
 const getNormalizedLocation = () => {
   const { pathname, protocol, hash, search } = window.location
   const isElectronFilePage = protocol === 'file:'
-  if (!isElectronFilePage) {
-    return { pathname, search }
-  }
-
   const hashRoute = hash.startsWith('#') ? hash.slice(1) : ''
-  if (hashRoute.startsWith('/')) {
+  if (shouldUseHashRouting() && hashRoute.startsWith('/')) {
     const queryIndex = hashRoute.indexOf('?')
     if (queryIndex === -1) {
       return { pathname: hashRoute, search: '' }
@@ -42,6 +77,10 @@ const getNormalizedLocation = () => {
       pathname: hashRoute.slice(0, queryIndex),
       search: hashRoute.slice(queryIndex),
     }
+  }
+
+  if (!isElectronFilePage) {
+    return { pathname: stripBasePath(pathname), search }
   }
 
   const normalized = pathname.replace(/\\/g, '/').toLowerCase()
@@ -61,7 +100,7 @@ const getNormalizedLocation = () => {
     return { pathname: routePath, search: '' }
   }
 
-  return { pathname, search }
+  return { pathname: stripBasePath(pathname), search }
 }
 
 function App() {
