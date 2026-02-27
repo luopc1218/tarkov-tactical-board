@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LanguageSwitcher } from './LanguageSwitcher'
@@ -42,39 +43,55 @@ export function ApiSettingsDialog({ onClose }: ApiSettingsDialogProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-xl rounded-2xl border border-emerald-200/30 bg-[linear-gradient(165deg,rgba(8,19,15,0.95)_0%,rgba(16,33,26,0.92)_100%)] p-5 text-emerald-50 shadow-[0_24px_60px_rgba(0,0,0,0.45)] md:p-6">
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+    >
+      <motion.div
+        className="ios-card w-full max-w-xl p-5 text-slate-100 md:p-6"
+        initial={{ opacity: 0, y: 18, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 10, scale: 0.98 }}
+        transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+      >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-xl font-bold text-white">{t('settings.title')}</h2>
-            <p className="mt-1 text-sm text-emerald-100/75">{t('settings.description')}</p>
+            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-slate-50">
+              {t('settings.title')}
+            </h2>
+            <p className="mt-1 text-sm text-slate-300/85">{t('settings.description')}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-emerald-200/30 px-3 py-1.5 text-sm text-emerald-100/90 transition hover:bg-emerald-100/10"
+            className="btn-outline rounded-lg px-3 py-1.5 text-sm"
           >
             {t('common.cancel')}
           </button>
         </div>
 
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-emerald-200/20 bg-black/20 px-3 py-2">
-          <span className="text-sm font-semibold text-emerald-100/90">{t('common.language')}</span>
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-slate-600/70 bg-slate-800/70 px-3 py-2">
+          <span className="text-sm font-semibold text-slate-100">{t('common.language')}</span>
           <LanguageSwitcher inline />
         </div>
 
-        <label className="block text-sm font-semibold text-emerald-100/90">{t('settings.apiBaseUrlLabel')}</label>
+        <label className="block text-sm font-semibold text-slate-100">
+          {t('settings.apiBaseUrlLabel')}
+        </label>
         <input
           type="text"
           value={apiBaseUrlInput}
           onChange={(event) => setApiBaseUrlInput(event.target.value)}
           placeholder={getDefaultApiBaseUrl()}
-          className="mt-2 h-11 w-full rounded-xl border border-emerald-200/30 bg-black/25 px-3 text-sm text-emerald-50 outline-none focus:border-emerald-200/60"
+          className="ios-input mt-2 h-11 w-full px-3 text-sm text-slate-100 outline-none"
         />
 
-        <p className="mt-2 text-xs text-emerald-100/65">{t('settings.apiBaseUrlHint')}</p>
+        <p className="mt-2 text-xs text-slate-400">{t('settings.apiBaseUrlHint')}</p>
         {errorMessage && (
-          <p className="mt-3 rounded-lg border border-rose-300/35 bg-rose-950/35 px-3 py-2 text-sm text-rose-200">
+          <p className="mt-3 rounded-lg border border-rose-400/40 bg-rose-950/65 px-3 py-2 text-sm text-rose-200">
             {errorMessage}
           </p>
         )}
@@ -83,19 +100,19 @@ export function ApiSettingsDialog({ onClose }: ApiSettingsDialogProps) {
           <button
             type="button"
             onClick={handleReset}
-            className="rounded-xl border border-emerald-200/30 px-3 py-2 text-sm text-emerald-100 transition hover:bg-emerald-100/10"
+            className="btn-outline rounded-lg px-3 py-1.5 text-sm"
           >
             {t('settings.reset')}
           </button>
           <button
             type="button"
             onClick={handleSave}
-            className="rounded-xl border border-cyan-200/35 bg-[linear-gradient(135deg,#2f7b56_0%,#1f9d79_55%,#13b6a1_100%)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
+            className="btn-primary rounded-lg px-4 py-1.5 text-sm font-semibold"
           >
             {t('settings.save')}
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

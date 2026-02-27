@@ -30,12 +30,23 @@ export interface AdminMapUpsertRequest {
 
 export interface AdminWhiteboardInstance {
   instanceId: string
-  mapId: number
+  mapNameZh?: string | null
+  mapNameEn?: string | null
+  mapName?: string | null
+  mapId?: number
   createdAt: string
   updatedAt: string
   expireAt: string
   active: boolean
   hasState: boolean
+}
+
+export interface AdminWhiteboardInstancePage {
+  items: AdminWhiteboardInstance[]
+  total: number
+  page: number
+  size: number
+  pages: number
 }
 
 export interface ChangePasswordRequest {

@@ -23,21 +23,18 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
   const [creatingMapId, setCreatingMapId] = useState<string | null>(null)
   const [instanceIdInput, setInstanceIdInput] = useState('')
 
-  const loadMapPresets = useCallback(
-    async (forceRefresh = false) => {
-      try {
-        setLoading(true)
-        setLoadFailed(false)
-        const data = forceRefresh ? await refreshMapPresets() : await fetchMapPresets()
-        setMapPresets(data)
-      } catch {
-        setLoadFailed(true)
-      } finally {
-        setLoading(false)
-      }
-    },
-    [],
-  )
+  const loadMapPresets = useCallback(async (forceRefresh = false) => {
+    try {
+      setLoading(true)
+      setLoadFailed(false)
+      const data = forceRefresh ? await refreshMapPresets() : await fetchMapPresets()
+      setMapPresets(data)
+    } catch {
+      setLoadFailed(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
     void loadMapPresets()
@@ -54,44 +51,45 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
 
   return (
     <main
-      className="app-page px-4 py-8 md:py-12"
+      className="app-page px-4 py-9 md:py-12"
       style={{
-        backgroundImage: `linear-gradient(180deg, rgba(7,18,14,0.55) 0%, rgba(7,18,14,0.85) 42%, rgba(7,18,14,0.95) 100%), url(${homeHeroBg})`,
-        backgroundSize: '100% auto',
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'top center',
+        backgroundImage: `linear-gradient(180deg, rgba(10,12,12,0.4) 0%, rgba(10,12,12,0.66) 54%, rgba(10,12,12,0.86) 100%), url(${homeHeroBg})`,
+        backgroundSize: '100% 100%, 100% auto',
+        backgroundPosition: 'center, top center',
+        backgroundRepeat: 'no-repeat, no-repeat',
+        backgroundBlendMode: 'multiply',
       }}
     >
       <section className="mx-auto w-full max-w-6xl">
-        <div className="mb-8 space-y-4 md:mb-10">
-          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/45 bg-emerald-900/35 px-3 py-1 text-sm text-emerald-100">
-            <FiCrosshair />
-            <span>TARKOV TACTICAL BOARD</span>
+        <div className="mb-9 space-y-4 md:mb-12">
+          <span className="inline-flex items-center gap-2 rounded-full border border-slate-500/80 bg-slate-800/65 px-3 py-1 text-xs font-medium text-slate-200 backdrop-blur">
+            <FiCrosshair className="text-amber-300" />
+            <span>Tarkov Map Board</span>
           </span>
-          <h1 className="max-w-2xl text-4xl font-extrabold leading-tight text-white md:text-6xl">
-            {t('home.title')}
-          </h1>
-          <p className="max-w-3xl text-emerald-50/85">{t('home.subtitle')}</p>
+          <h1 className="ios-large-title max-w-3xl text-slate-50">{t('home.title')}</h1>
+          <p className="ios-subtitle max-w-3xl">{t('home.subtitle')}</p>
         </div>
 
-        <div className="mb-6 rounded-2xl border border-emerald-300/35 bg-[linear-gradient(140deg,rgba(7,20,15,0.9)_0%,rgba(15,40,30,0.76)_100%)] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.24)] md:p-5">
-          <p className="text-lg font-semibold text-emerald-50 md:text-base">{t('home.joinByInstance')}</p>
-          <p className="mt-1 text-sm text-emerald-100/70">{t('home.instanceIdPlaceholder')}</p>
+        <div className="ios-card mb-7 p-5 md:p-6">
+          <p className="text-lg font-semibold text-slate-100 md:text-base">
+            {t('home.joinByInstance')}
+          </p>
+          <p className="mt-1 text-sm text-slate-300/85">{t('home.instanceIdPlaceholder')}</p>
 
           <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center">
-            <label className="flex h-14 items-center gap-3 rounded-2xl border border-emerald-200/25 bg-black/25 px-4 text-emerald-50 focus-within:border-emerald-200/60 md:h-11 md:flex-1 md:rounded-xl md:px-3">
-              <FiHash className="shrink-0 text-emerald-200/85" />
+            <label className="ios-input flex h-14 items-center gap-3 px-4 text-slate-100 md:h-11 md:flex-1 md:px-3">
+              <FiHash className="shrink-0 text-slate-400" />
               <input
                 value={instanceIdInput}
                 onChange={(event) => setInstanceIdInput(event.target.value)}
                 placeholder={t('home.instanceIdPlaceholder')}
-                className="h-full w-full bg-transparent text-base outline-none placeholder:text-emerald-100/45 md:text-sm"
+                className="h-full w-full bg-transparent text-base outline-none placeholder:text-slate-500 md:text-sm"
               />
             </label>
 
             <button
               type="button"
-              className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl border border-cyan-200/35 bg-[linear-gradient(135deg,#2f7b56_0%,#1f9d79_55%,#13b6a1_100%)] px-5 text-base font-bold text-white shadow-[0_12px_26px_rgba(20,184,166,0.3)] transition hover:brightness-110 active:brightness-100 md:h-11 md:rounded-xl md:px-4 md:text-sm"
+              className="btn-primary inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition"
               onClick={async () => {
                 const nextId = instanceIdInput.trim()
                 if (!nextId) {
@@ -101,8 +99,7 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
                 try {
                   setJoinErrorMessage(null)
                   await onJoinInstance(nextId)
-                } catch {
-                }
+                } catch {}
               }}
             >
               <FiArrowRight />
@@ -110,15 +107,15 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
             </button>
           </div>
           {joinErrorMessage && (
-            <p className="mt-3 rounded-xl border border-rose-300/35 bg-rose-950/40 px-4 py-2 text-sm text-rose-200">
+            <p className="mt-3 rounded-xl border border-rose-400/45 bg-rose-950/65 px-4 py-2 text-sm text-rose-200">
               {joinErrorMessage}
             </p>
           )}
         </div>
 
         {loading && (
-          <div className="flex items-center gap-2 text-emerald-50/80">
-            <span className="h-5 w-5 animate-spin rounded-full border-2 border-emerald-100/30 border-t-emerald-200" />
+          <div className="flex items-center gap-2 text-slate-300/90">
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-600 border-t-amber-300" />
             <span>{t('home.loadingMaps')}</span>
           </div>
         )}
@@ -128,7 +125,7 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
             <button
               type="button"
               onClick={() => void loadMapPresets(true)}
-              className="inline-flex h-11 items-center gap-2 rounded-xl border border-emerald-100/35 bg-[linear-gradient(135deg,#4da676_0%,#2ec489_55%,#1fc6a9_100%)] px-4 text-sm font-semibold text-emerald-950 shadow-[0_10px_24px_rgba(16,185,129,0.32)] transition hover:brightness-105 active:brightness-95"
+              className="btn-outline inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-semibold"
             >
               <FiRefreshCw />
               {t('common.retry')}
@@ -137,9 +134,7 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
         )}
 
         {!loading && !loadFailed && mapPresets.length === 0 && (
-          <p className="rounded-xl border border-emerald-300/30 bg-emerald-950/35 px-4 py-3 text-emerald-100">
-            {t('home.emptyMaps')}
-          </p>
+          <p className="ios-card px-4 py-3 text-slate-200">{t('home.emptyMaps')}</p>
         )}
 
         {!loading && !loadFailed && mapPresets.length > 0 && (
@@ -152,25 +147,25 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
                   key={preset.id}
                   initial={{ opacity: 0, y: 18 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.28, delay: index * 0.03 }}
-                  className="overflow-hidden rounded-2xl border border-white/12 bg-[rgba(9,16,13,0.82)] shadow-[0_12px_36px_rgba(0,0,0,0.28)] cursor-default"
+                  transition={{ duration: 0.24, delay: index * 0.024, ease: [0.22, 1, 0.36, 1] }}
+                  className="ios-card cursor-default overflow-hidden transition-transform duration-200 hover:-translate-y-0.5"
                 >
                   <div
                     className="relative h-40 bg-cover bg-center"
                     style={{
                       backgroundImage: bannerSrc
-                        ? `linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(8,12,10,0.72) 100%), url(${bannerSrc})`
-                        : 'linear-gradient(160deg, rgba(51,84,65,0.7) 0%, rgba(20,30,24,0.85) 100%)',
+                        ? `linear-gradient(180deg, rgba(15,23,42,0.16) 0%, rgba(15,23,42,0.7) 100%), url(${bannerSrc})`
+                        : 'linear-gradient(160deg, rgba(55,65,81,0.78) 0%, rgba(30,41,59,0.88) 100%)',
                     }}
                   >
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-[rgba(9,16,13,0.88)] to-transparent" />
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-900 to-transparent" />
                   </div>
                   <div className="space-y-4 p-4 pt-3">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-xl font-bold text-white">
+                      <h2 className="text-xl font-semibold tracking-[-0.01em] text-slate-100">
                         {renderMapName(preset)}
                       </h2>
-                      <FiMap className="text-emerald-300" />
+                      <FiMap className="text-slate-400" />
                     </div>
                     <button
                       type="button"
@@ -185,7 +180,7 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
                         }
                       }}
                       disabled={creatingMapId !== null}
-                      className="inline-flex items-center gap-2 rounded-xl border border-emerald-100/35 bg-[linear-gradient(135deg,#52b788_0%,#34d399_100%)] px-3 py-2 text-sm font-semibold text-emerald-950 shadow-[0_10px_24px_rgba(16,185,129,0.32)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="btn-primary inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {creatingMapId === preset.id ? t('common.loading') : t('home.createInstance')}
                       <FiArrowRight />
@@ -197,26 +192,32 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
             <motion.article
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.28, delay: mapPresets.length * 0.03 }}
-              className="overflow-hidden rounded-2xl border border-dashed border-white/20 bg-[rgba(9,16,13,0.72)] shadow-[0_12px_36px_rgba(0,0,0,0.24)]"
+              transition={{
+                duration: 0.24,
+                delay: mapPresets.length * 0.024,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+              className="ios-card overflow-hidden border-dashed border-slate-500/80"
             >
               <div
                 className="relative h-40 bg-cover bg-center"
                 style={{
-                  backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(8,12,10,0.75) 100%), url(${CUSTOM_MAP_BANNER_URL})`,
+                  backgroundImage: `linear-gradient(180deg, rgba(15,23,42,0.2) 0%, rgba(15,23,42,0.72) 100%), url(${CUSTOM_MAP_BANNER_URL})`,
                 }}
               >
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-[rgba(9,16,13,0.88)] to-transparent" />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-900 to-transparent" />
               </div>
               <div className="space-y-4 p-4 pt-3">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-white">{t('home.customMapTitle')}</h2>
-                  <FiMap className="text-emerald-300/70" />
+                  <h2 className="text-xl font-semibold text-slate-100">
+                    {t('home.customMapTitle')}
+                  </h2>
+                  <FiMap className="text-slate-400" />
                 </div>
                 <button
                   type="button"
                   disabled
-                  className="inline-flex items-center gap-2 rounded-xl border border-emerald-100/25 bg-emerald-100/10 px-3 py-2 text-sm font-semibold text-emerald-100/75"
+                  className="btn-outline inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-300"
                 >
                   {t('home.comingSoon')}
                 </button>
@@ -225,8 +226,8 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
           </div>
         )}
 
-        <footer className="mt-10 rounded-2xl border border-emerald-300/20 bg-black/25 px-4 py-4 text-xs leading-6 text-emerald-100/75 md:mt-12 md:px-5 md:py-5 md:text-sm">
-          <p className="font-semibold text-emerald-100">{t('home.copyrightTitle')}</p>
+        <footer className="ios-card mt-10 px-4 py-4 text-xs leading-6 text-slate-400 md:mt-12 md:px-5 md:py-5 md:text-sm">
+          <p className="font-semibold text-slate-200">{t('home.copyrightTitle')}</p>
           <p className="mt-1">{t('home.copyrightDesc1')}</p>
           <p className="mt-1">{t('home.copyrightDesc2')}</p>
         </footer>

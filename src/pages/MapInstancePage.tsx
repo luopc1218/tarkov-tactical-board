@@ -99,8 +99,7 @@ const resolveWsUrl = (wsPath: string) => {
   const tryBuildWsFromHttpBase = (baseValue: string) => {
     try {
       const base = new URL(baseValue)
-      const protocol =
-        base.protocol === 'https:' || base.protocol === 'wss:' ? 'wss:' : 'ws:'
+      const protocol = base.protocol === 'https:' || base.protocol === 'wss:' ? 'wss:' : 'ws:'
       return new URL(normalizedWsPath, `${protocol}//${base.host}`).toString()
     } catch {
       return null
@@ -169,7 +168,9 @@ const readStrokePayload = (payload: unknown): Stroke | null => {
 const readStrokesFromState = (state: unknown): Stroke[] => {
   const strokeList = Array.isArray(state)
     ? state
-    : state && typeof state === 'object' && Array.isArray((state as Record<string, unknown>).strokes)
+    : state &&
+        typeof state === 'object' &&
+        Array.isArray((state as Record<string, unknown>).strokes)
       ? ((state as Record<string, unknown>).strokes as unknown[])
       : []
 
@@ -201,8 +202,14 @@ const readCursorPayload = (payload: unknown): RemoteCursor | null => {
     clientId,
     x,
     y,
-    label: typeof source.label === 'string' && source.label.trim() ? source.label.trim() : `User-${clientId.slice(0, 4)}`,
-    color: typeof source.color === 'string' && source.color.trim() ? source.color.trim() : colorFromId(clientId),
+    label:
+      typeof source.label === 'string' && source.label.trim()
+        ? source.label.trim()
+        : `User-${clientId.slice(0, 4)}`,
+    color:
+      typeof source.color === 'string' && source.color.trim()
+        ? source.color.trim()
+        : colorFromId(clientId),
     updatedAt: Date.now(),
   }
 }
@@ -222,7 +229,9 @@ const readUndoPayload = (payload: unknown): { strokeId: string; clientId?: strin
   }
 }
 
-const readStrokeStreamPayload = (payload: unknown): {
+const readStrokeStreamPayload = (
+  payload: unknown
+): {
   strokeId: string
   clientId?: string
   point?: Point
@@ -305,7 +314,10 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   const [currentStroke, setCurrentStroke] = useState<Stroke | null>(null)
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 })
   const [wsConnected, setWsConnected] = useState(false)
-  const [contentSize, setContentSize] = useState({ width: DEFAULT_CANVAS_WIDTH, height: DEFAULT_CANVAS_HEIGHT })
+  const [contentSize, setContentSize] = useState({
+    width: DEFAULT_CANVAS_WIDTH,
+    height: DEFAULT_CANVAS_HEIGHT,
+  })
   const [brushColor, setBrushColor] = useState('#ff3b30')
   const [brushWidth, setBrushWidth] = useState(16)
   const [cursorScale, setCursorScale] = useState(1.8)
@@ -459,7 +471,10 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
         if (destroyed) {
           return
         }
-        const retryDelay = WS_RECONNECT_BACKOFF_MS[Math.min(reconnectAttemptRef.current, WS_RECONNECT_BACKOFF_MS.length - 1)]
+        const retryDelay =
+          WS_RECONNECT_BACKOFF_MS[
+            Math.min(reconnectAttemptRef.current, WS_RECONNECT_BACKOFF_MS.length - 1)
+          ]
         reconnectAttemptRef.current += 1
         clearReconnectTimer()
         reconnectTimerRef.current = window.setTimeout(() => {
@@ -568,7 +583,9 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
               if (!target) {
                 return prev
               }
-              setStrokes((current) => (current.some((item) => item.id === target.id) ? current : [...current, target]))
+              setStrokes((current) =>
+                current.some((item) => item.id === target.id) ? current : [...current, target]
+              )
               const next = { ...prev }
               delete next[stream.strokeId]
               return next
@@ -605,7 +622,9 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
             delete next[remoteStroke.id]
             return next
           })
-          setStrokes((prev) => (prev.some((item) => item.id === remoteStroke.id) ? prev : [...prev, remoteStroke]))
+          setStrokes((prev) =>
+            prev.some((item) => item.id === remoteStroke.id) ? prev : [...prev, remoteStroke]
+          )
         } catch {
           // Ignore non-JSON messages.
         }
@@ -797,7 +816,12 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     activePointerIdRef.current = event.pointerId
 
     if (pointerModeRef.current === 'pan') {
-      panAnchorRef.current = { x: event.clientX, y: event.clientY, startX: viewport.x, startY: viewport.y }
+      panAnchorRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+        startX: viewport.x,
+        startY: viewport.y,
+      }
     } else {
       const point = toWorldPoint(event.clientX, event.clientY)
       if (!point) {
@@ -851,7 +875,11 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
       }
     }
 
-    if (pointerModeRef.current === 'pinch' && activeTouchPointsRef.current.size >= 2 && pinchRef.current) {
+    if (
+      pointerModeRef.current === 'pinch' &&
+      activeTouchPointsRef.current.size >= 2 &&
+      pinchRef.current
+    ) {
       const pinch = pinchRef.current
       if (!pinch) {
         return
@@ -864,7 +892,11 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
       const distance = distanceBetween(first, second)
 
       setViewport(() => {
-        const normalizedScale = clamp((distance / pinch.startDistance) * pinch.startScale, MIN_SCALE, MAX_SCALE)
+        const normalizedScale = clamp(
+          (distance / pinch.startDistance) * pinch.startScale,
+          MIN_SCALE,
+          MAX_SCALE
+        )
         return {
           scale: normalizedScale,
           x: center.x - pinch.worldX * normalizedScale,
@@ -1006,7 +1038,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     const nextScale = clamp(
       Math.min(containerWidth / width, containerHeight / height),
       MIN_SCALE,
-      MAX_SCALE,
+      MAX_SCALE
     )
     const nextX = (containerWidth - width * nextScale) / 2
     const nextY = (containerHeight - height * nextScale) / 2
@@ -1127,7 +1159,15 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
           stroke="rgba(255,255,255,0.72)"
           strokeWidth={1.5}
         />
-        <circle cx={cursor.x} cy={cursor.y} r={baseRadius} fill={cursor.color} fillOpacity={0.95} stroke="rgba(0,0,0,0.72)" strokeWidth={2.1} />
+        <circle
+          cx={cursor.x}
+          cy={cursor.y}
+          r={baseRadius}
+          fill={cursor.color}
+          fillOpacity={0.95}
+          stroke="rgba(0,0,0,0.72)"
+          strokeWidth={2.1}
+        />
         <rect
           x={cursor.x + 12}
           y={cursor.y - 22}
@@ -1139,13 +1179,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
           stroke={cursor.color}
           strokeWidth={1.1}
         />
-        <text
-          x={cursor.x + 10}
-          y={cursor.y - 8}
-          fontSize={14}
-          fontWeight={700}
-          fill="#f8fafc"
-        >
+        <text x={cursor.x + 10} y={cursor.y - 8} fontSize={14} fontWeight={700} fill="#f8fafc">
           {cursor.label}
         </text>
       </g>
@@ -1157,7 +1191,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
       <main className="app-page grid place-items-center px-4 py-8">
         <section className="panel w-full max-w-xl p-6 md:p-8">
           <h1 className="text-3xl font-extrabold text-white">{t('mapInstance.notFoundTitle')}</h1>
-          <p className="mt-3 text-emerald-50/75">{t('mapInstance.notFoundDesc')}</p>
+          <p className="mt-3 text-slate-50/75">{t('mapInstance.notFoundDesc')}</p>
           <button type="button" onClick={onBackHome} className="btn-primary mt-5">
             {t('common.backHome')}
           </button>
@@ -1169,48 +1203,55 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   return (
     <main className="app-page box-border h-screen overflow-hidden px-2 pb-2 pt-14 md:px-3 md:pb-3 md:pt-16">
       <section className="mx-auto flex h-full w-full max-w-none flex-col gap-2">
-        <div className="panel flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-emerald-50/85 md:hidden">
+        <div className="panel flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-slate-200 md:hidden">
           <span className="truncate">
             {t('mapInstance.instanceId')}: {instance?.id ?? instanceId}
           </span>
           <button
             type="button"
             onClick={() => setMobileDrawerOpen(true)}
-            className="btn-base min-h-8 rounded-xl border border-emerald-300/45 bg-emerald-400/15 px-3 py-1 text-xs text-emerald-50"
+            className="btn-base min-h-8 rounded-lg border border-slate-500/70 bg-slate-700/45 px-3 py-1 text-xs text-slate-100"
           >
             {t('mapInstance.tools')}
           </button>
         </div>
 
-        <div className="panel hidden flex-wrap items-center gap-3 px-3 py-2 text-sm text-emerald-50/85 md:flex">
+        <div className="panel hidden flex-wrap items-center gap-3 px-3 py-2 text-sm text-slate-200 md:flex">
           <span className="inline-flex items-center gap-2">
-            <span>{t('mapInstance.instanceId')}: {instance?.id ?? instanceId}</span>
+            <span>
+              {t('mapInstance.instanceId')}: {instance?.id ?? instanceId}
+            </span>
             <button
               type="button"
               onClick={() => void copyInstanceId()}
-              className="btn-base rounded-lg border border-sky-300/45 bg-sky-400/15 px-2.5 py-1.5 text-xs text-sky-100 hover:bg-sky-300/25"
+              className="btn-base rounded-lg border border-amber-300/45 bg-amber-400/15 px-2.5 py-1.5 text-xs text-amber-100 hover:bg-amber-300/25"
             >
               <FiCopy />
               <span>{copied ? t('mapInstance.copied') : t('mapInstance.copyId')}</span>
             </button>
           </span>
-          <span>{t('mapInstance.mapId')}: {instance?.mapId ?? '-'}</span>
           <span>
-            {t('mapInstance.wsStatus')}: {wsConnected ? t('mapInstance.connected') : t('mapInstance.disconnected')}
+            {t('mapInstance.mapId')}: {instance?.mapId ?? '-'}
           </span>
-          <span>{t('mapInstance.zoom')}: {Math.round(viewport.scale * 100)}%</span>
-          <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-300/35 bg-emerald-950/45 px-3 py-1.5">
-            <span className="text-xs text-emerald-100/80">{t('mapInstance.brushColor')}</span>
+          <span>
+            {t('mapInstance.wsStatus')}:{' '}
+            {wsConnected ? t('mapInstance.connected') : t('mapInstance.disconnected')}
+          </span>
+          <span>
+            {t('mapInstance.zoom')}: {Math.round(viewport.scale * 100)}%
+          </span>
+          <div className="inline-flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900/75 px-3 py-1.5">
+            <span className="text-xs text-slate-300">{t('mapInstance.brushColor')}</span>
             <input
               type="color"
               value={brushColor}
               onChange={(event) => setBrushColor(event.target.value)}
-              className="h-7 w-9 rounded border border-emerald-200/30 bg-transparent p-0"
+              className="h-7 w-9 rounded border border-slate-500/70 bg-transparent p-0"
               aria-label={t('mapInstance.brushColor')}
             />
           </div>
-          <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-300/35 bg-emerald-950/45 px-3 py-1.5">
-            <span className="text-xs text-emerald-100/80">{t('mapInstance.brushWidth')}</span>
+          <div className="inline-flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900/75 px-3 py-1.5">
+            <span className="text-xs text-slate-300">{t('mapInstance.brushWidth')}</span>
             <input
               type="range"
               min={12}
@@ -1218,13 +1259,13 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
               step={1}
               value={brushWidth}
               onChange={(event) => setBrushWidth(Number(event.target.value))}
-              className="w-24 accent-emerald-300"
+              className="w-24 accent-amber-400"
               aria-label={t('mapInstance.brushWidth')}
             />
-            <span className="w-5 text-right text-xs text-emerald-50">{brushWidth}</span>
+            <span className="w-5 text-right text-xs text-slate-200">{brushWidth}</span>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-300/35 bg-emerald-950/45 px-3 py-1.5">
-            <span className="text-xs text-emerald-100/80">{t('mapInstance.cursorSize')}</span>
+          <div className="inline-flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900/75 px-3 py-1.5">
+            <span className="text-xs text-slate-300">{t('mapInstance.cursorSize')}</span>
             <input
               type="range"
               min={1}
@@ -1232,22 +1273,22 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
               step={0.1}
               value={cursorScale}
               onChange={(event) => setCursorScale(Number(event.target.value))}
-              className="w-24 accent-emerald-300"
+              className="w-24 accent-amber-400"
               aria-label={t('mapInstance.cursorSize')}
             />
-            <span className="w-8 text-right text-xs text-emerald-50">{cursorScale.toFixed(1)}x</span>
+            <span className="w-8 text-right text-xs text-slate-200">{cursorScale.toFixed(1)}x</span>
           </div>
           <button
             type="button"
             onClick={() => fitViewportToContent(contentSize.width, contentSize.height)}
-            className="btn-base rounded-xl border border-cyan-300/45 bg-cyan-400/15 px-3 py-2 text-cyan-100 hover:bg-cyan-300/25"
+            className="btn-base rounded-lg border border-amber-300/45 bg-amber-500/15 px-3 py-1.5 text-amber-100 hover:bg-amber-400/25"
           >
             {t('mapInstance.resetView')}
           </button>
           <button
             type="button"
             onClick={clearBoard}
-            className="btn-base rounded-xl border border-amber-300/45 bg-amber-400/15 px-3 py-2 text-amber-100 hover:bg-amber-300/25"
+            className="btn-base rounded-lg border border-rose-300/45 bg-rose-500/15 px-3 py-1.5 text-rose-100 hover:bg-rose-400/25"
           >
             {t('mapInstance.clearBoard')}
           </button>
@@ -1255,20 +1296,22 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
             type="button"
             onClick={undoLastStroke}
             disabled={strokes.length === 0}
-            className="btn-base rounded-xl border border-violet-300/45 bg-violet-400/15 px-3 py-2 text-violet-100 hover:bg-violet-300/25 disabled:cursor-not-allowed disabled:opacity-45"
+            className="btn-base rounded-lg border border-slate-500/60 bg-slate-700/35 px-3 py-1.5 text-slate-100 hover:bg-slate-600/45 disabled:cursor-not-allowed disabled:opacity-45"
           >
             {t('mapInstance.undoLastStroke')}
           </button>
           <button
             type="button"
             onClick={onBackHome}
-            className="btn-base rounded-xl border border-emerald-300/45 bg-emerald-400/15 px-3 py-2 text-emerald-50 hover:bg-emerald-300/25"
+            className="btn-base rounded-lg border border-slate-500/60 bg-slate-700/35 px-3 py-1.5 text-slate-100 hover:bg-slate-600/45"
           >
             {t('mapInstance.backToMaps')}
           </button>
         </div>
 
-        <div className={`fixed inset-0 z-40 md:hidden ${mobileDrawerOpen ? '' : 'pointer-events-none'}`}>
+        <div
+          className={`fixed inset-0 z-40 md:hidden ${mobileDrawerOpen ? '' : 'pointer-events-none'}`}
+        >
           <button
             type="button"
             aria-label={t('mapInstance.closeTools')}
@@ -1276,31 +1319,40 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
             className={`absolute inset-0 bg-black/45 transition-opacity ${mobileDrawerOpen ? 'opacity-100' : 'opacity-0'}`}
           />
           <div
-            className={`absolute inset-x-0 bottom-0 rounded-t-3xl border border-emerald-300/35 bg-[#0a1712] px-4 pb-5 pt-4 transition-transform duration-200 ${mobileDrawerOpen ? 'translate-y-0' : 'translate-y-full'}`}
+            className={`absolute inset-x-0 bottom-0 rounded-t-3xl border border-slate-600 bg-[#0f172a] px-4 pb-5 pt-4 transition-transform duration-200 ${mobileDrawerOpen ? 'translate-y-0' : 'translate-y-full'}`}
           >
             <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-semibold text-emerald-50">{t('mapInstance.tools')}</p>
+              <p className="text-sm font-semibold text-slate-100">{t('mapInstance.tools')}</p>
               <button
                 type="button"
                 onClick={() => setMobileDrawerOpen(false)}
-                className="btn-base min-h-8 rounded-lg border border-emerald-300/45 bg-emerald-400/15 px-2.5 py-1 text-xs text-emerald-50"
+                className="btn-base min-h-8 rounded-lg border border-slate-500/70 bg-slate-700/45 px-2.5 py-1 text-xs text-slate-100"
               >
                 {t('mapInstance.closeTools')}
               </button>
             </div>
 
-            <div className="space-y-2 text-xs text-emerald-100/85">
-              <p>{t('mapInstance.instanceId')}: {instance?.id ?? instanceId}</p>
-              <p>{t('mapInstance.mapId')}: {instance?.mapId ?? '-'}</p>
-              <p>{t('mapInstance.zoom')}: {Math.round(viewport.scale * 100)}%</p>
-              <p>{t('mapInstance.wsStatus')}: {wsConnected ? t('mapInstance.connected') : t('mapInstance.disconnected')}</p>
+            <div className="space-y-2 text-xs text-slate-300">
+              <p>
+                {t('mapInstance.instanceId')}: {instance?.id ?? instanceId}
+              </p>
+              <p>
+                {t('mapInstance.mapId')}: {instance?.mapId ?? '-'}
+              </p>
+              <p>
+                {t('mapInstance.zoom')}: {Math.round(viewport.scale * 100)}%
+              </p>
+              <p>
+                {t('mapInstance.wsStatus')}:{' '}
+                {wsConnected ? t('mapInstance.connected') : t('mapInstance.disconnected')}
+              </p>
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => void copyInstanceId()}
-                className="btn-base min-h-9 rounded-xl border border-sky-300/45 bg-sky-400/15 px-3 py-2 text-xs text-sky-100"
+                className="btn-base min-h-8 rounded-lg border border-amber-300/45 bg-amber-400/15 px-3 py-1.5 text-xs text-amber-100"
               >
                 {copied ? t('mapInstance.copied') : t('mapInstance.copyId')}
               </button>
@@ -1310,14 +1362,14 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
                   fitViewportToContent(contentSize.width, contentSize.height)
                   setMobileDrawerOpen(false)
                 }}
-                className="btn-base min-h-9 rounded-xl border border-cyan-300/45 bg-cyan-400/15 px-3 py-2 text-xs text-cyan-100"
+                className="btn-base min-h-8 rounded-lg border border-amber-300/45 bg-amber-500/15 px-3 py-1.5 text-xs text-amber-100"
               >
                 {t('mapInstance.resetView')}
               </button>
               <button
                 type="button"
                 onClick={clearBoard}
-                className="btn-base min-h-9 rounded-xl border border-amber-300/45 bg-amber-400/15 px-3 py-2 text-xs text-amber-100"
+                className="btn-base min-h-8 rounded-lg border border-rose-300/45 bg-rose-500/15 px-3 py-1.5 text-xs text-rose-100"
               >
                 {t('mapInstance.clearBoard')}
               </button>
@@ -1325,26 +1377,26 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
                 type="button"
                 onClick={undoLastStroke}
                 disabled={strokes.length === 0}
-                className="btn-base min-h-9 rounded-xl border border-violet-300/45 bg-violet-400/15 px-3 py-2 text-xs text-violet-100 disabled:cursor-not-allowed disabled:opacity-45"
+                className="btn-base min-h-8 rounded-lg border border-slate-500/60 bg-slate-700/35 px-3 py-1.5 text-xs text-slate-100 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 {t('mapInstance.undoLastStroke')}
               </button>
             </div>
 
-            <div className="mt-3 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-xl border border-emerald-300/35 bg-emerald-950/45 px-3 py-2">
-              <span className="text-xs text-emerald-100/80">{t('mapInstance.brushColor')}</span>
+            <div className="mt-3 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-xl border border-slate-600 bg-slate-900/75 px-3 py-2">
+              <span className="text-xs text-slate-300">{t('mapInstance.brushColor')}</span>
               <input
                 type="color"
                 value={brushColor}
                 onChange={(event) => setBrushColor(event.target.value)}
-                className="h-8 w-full rounded border border-emerald-200/30 bg-transparent p-0"
+                className="h-8 w-full rounded border border-slate-500/70 bg-transparent p-0"
                 aria-label={t('mapInstance.brushColor')}
               />
               <span />
             </div>
 
-            <div className="mt-2 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-xl border border-emerald-300/35 bg-emerald-950/45 px-3 py-2">
-              <span className="text-xs text-emerald-100/80">{t('mapInstance.brushWidth')}</span>
+            <div className="mt-2 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-xl border border-slate-600 bg-slate-900/75 px-3 py-2">
+              <span className="text-xs text-slate-300">{t('mapInstance.brushWidth')}</span>
               <input
                 type="range"
                 min={12}
@@ -1352,14 +1404,14 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
                 step={1}
                 value={brushWidth}
                 onChange={(event) => setBrushWidth(Number(event.target.value))}
-                className="w-full accent-emerald-300"
+                className="w-full accent-amber-400"
                 aria-label={t('mapInstance.brushWidth')}
               />
-              <span className="w-6 text-right text-xs text-emerald-50">{brushWidth}</span>
+              <span className="w-6 text-right text-xs text-slate-200">{brushWidth}</span>
             </div>
 
-            <div className="mt-2 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-xl border border-emerald-300/35 bg-emerald-950/45 px-3 py-2">
-              <span className="text-xs text-emerald-100/80">{t('mapInstance.cursorSize')}</span>
+            <div className="mt-2 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-xl border border-slate-600 bg-slate-900/75 px-3 py-2">
+              <span className="text-xs text-slate-300">{t('mapInstance.cursorSize')}</span>
               <input
                 type="range"
                 min={1}
@@ -1367,16 +1419,18 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
                 step={0.1}
                 value={cursorScale}
                 onChange={(event) => setCursorScale(Number(event.target.value))}
-                className="w-full accent-emerald-300"
+                className="w-full accent-amber-400"
                 aria-label={t('mapInstance.cursorSize')}
               />
-              <span className="w-10 text-right text-xs text-emerald-50">{cursorScale.toFixed(1)}x</span>
+              <span className="w-10 text-right text-xs text-slate-200">
+                {cursorScale.toFixed(1)}x
+              </span>
             </div>
 
             <button
               type="button"
               onClick={onBackHome}
-              className="btn-base mt-3 min-h-9 w-full rounded-xl border border-emerald-300/45 bg-emerald-400/15 px-3 py-2 text-xs text-emerald-50"
+              className="btn-base mt-3 min-h-8 w-full rounded-lg border border-slate-500/60 bg-slate-700/35 px-3 py-1.5 text-xs text-slate-100"
             >
               {t('mapInstance.backToMaps')}
             </button>
@@ -1384,13 +1438,13 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
         </div>
 
         {loading && (
-          <div className="panel px-4 py-3 text-sm text-emerald-100/80">{t('common.loading')}</div>
+          <div className="panel px-4 py-3 text-sm text-slate-300">{t('common.loading')}</div>
         )}
 
         {!loading && (
           <div
             ref={containerRef}
-            className="relative min-h-0 flex-1 w-full touch-none overflow-hidden rounded-2xl border border-emerald-300/35 bg-[#08120e] select-none"
+            className="relative min-h-0 flex-1 w-full touch-none overflow-hidden rounded-2xl border border-slate-600 bg-[#0b1220] select-none"
             onContextMenu={(event) => event.preventDefault()}
             onDragStart={(event) => event.preventDefault()}
             onPointerDown={onPointerDown}
@@ -1428,7 +1482,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
                   }}
                 />
               ) : (
-                <div className="grid h-full w-full place-items-center bg-[linear-gradient(120deg,#0d1d17,#1a3026)] text-emerald-100/80">
+                <div className="grid h-full w-full place-items-center bg-[linear-gradient(120deg,#0f172a,#1f2937)] text-slate-100/80">
                   {t('mapInstance.noMapBackground')}
                 </div>
               )}

@@ -18,21 +18,21 @@ export function NotFoundPage({ pathname, onBackHome, onBackPrevious }: NotFoundP
         transition={{ duration: 0.28 }}
         className="panel w-full max-w-2xl p-6 md:p-8"
       >
-        <p className="text-sm font-semibold tracking-[0.12em] text-emerald-300">ERROR 404</p>
-        <h1 className="mt-2 text-4xl font-extrabold leading-tight text-white">{t('notFound.title')}</h1>
-        <p className="mt-4 text-emerald-50/75">{t('notFound.desc', { pathname })}</p>
+        <p className="text-sm font-semibold tracking-[0.12em] text-slate-300">ERROR 404</p>
+        <h1 className="mt-2 text-4xl font-bold leading-tight text-white">{t('notFound.title')}</h1>
+        <p className="mt-4 text-slate-300">{t('notFound.desc', { pathname })}</p>
         <div className="mt-7 flex flex-col gap-3 sm:flex-row">
           <button
             type="button"
             onClick={onBackHome}
-            className="btn-primary h-11 rounded-xl px-5 text-[0.92rem] shadow-[0_12px_24px_rgba(14,40,29,0.35)] hover:-translate-y-0.5"
+            className="btn-primary h-10 rounded-lg px-4 text-[0.92rem]"
           >
             {t('common.backHome')}
           </button>
           <button
             type="button"
             onClick={onBackPrevious}
-            className="btn-outline h-11 rounded-xl px-5 text-[0.92rem] backdrop-blur-sm hover:-translate-y-0.5"
+            className="btn-outline h-10 rounded-lg px-4 text-[0.92rem]"
           >
             {t('common.backPrevious')}
           </button>

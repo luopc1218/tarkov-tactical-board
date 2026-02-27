@@ -22,21 +22,21 @@ export function AdminDashboardPage({ onNavigate, onLogout }: AdminDashboardPageP
           <button
             type="button"
             onClick={() => onNavigate(ROUTES.adminMaps)}
-            className="btn-outline h-10 rounded-xl px-4"
+            className="btn-outline h-9 rounded-lg px-3.5"
           >
             {t('admin.mapManagement')}
           </button>
           <button
             type="button"
             onClick={() => onNavigate(ROUTES.adminInstances)}
-            className="btn-outline h-10 rounded-xl px-4"
+            className="btn-outline h-9 rounded-lg px-3.5"
           >
             {t('admin.instanceManagement')}
           </button>
           <button
             type="button"
             onClick={() => onNavigate(ROUTES.adminPassword)}
-            className="btn-outline h-10 rounded-xl px-4"
+            className="btn-outline h-9 rounded-lg px-3.5"
           >
             {t('admin.changePassword')}
           </button>
@@ -44,12 +44,12 @@ export function AdminDashboardPage({ onNavigate, onLogout }: AdminDashboardPageP
       }
     >
       <div className="grid gap-3 lg:grid-cols-2">
-        <section className="rounded-xl border border-emerald-200/15 bg-black/20 p-5">
-          <p className="text-xs text-emerald-100/70">{t('admin.mapManagement')}</p>
+        <section className="rounded-xl border border-slate-600/60 bg-slate-900/70 p-5">
+          <p className="text-xs text-slate-300">{t('admin.mapManagement')}</p>
           <p className="mt-2 text-2xl font-semibold text-white">API Connected</p>
         </section>
-        <section className="rounded-xl border border-emerald-200/15 bg-black/20 p-5">
-          <p className="text-xs text-emerald-100/70">Status</p>
+        <section className="rounded-xl border border-slate-600/60 bg-slate-900/70 p-5">
+          <p className="text-xs text-slate-300">Status</p>
           <p className="mt-2 text-2xl font-semibold text-white">Online</p>
         </section>
       </div>

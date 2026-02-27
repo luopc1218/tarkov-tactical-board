@@ -33,10 +33,10 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
   const canSubmit = useMemo(() => {
     return Boolean(
       form.code.trim() &&
-        form.nameZh.trim() &&
-        form.nameEn.trim() &&
-        (form.bannerPath ?? '').trim() &&
-        (form.mapPath ?? '').trim(),
+      form.nameZh.trim() &&
+      form.nameEn.trim() &&
+      (form.bannerPath ?? '').trim() &&
+      (form.mapPath ?? '').trim()
     )
   }, [form])
 
@@ -147,19 +147,27 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
       onLogout={onLogout}
       headerActions={
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => void loadMaps()} className="btn-outline h-10 rounded-xl px-4">
+          <button
+            type="button"
+            onClick={() => void loadMaps()}
+            className="btn-outline h-9 rounded-lg px-3.5"
+          >
             {t('admin.reloadMaps')}
           </button>
-          <button type="button" onClick={openCreateModal} className="btn-primary h-10 rounded-xl px-4">
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="btn-primary h-9 rounded-lg px-3.5"
+          >
             {t('admin.createMap')}
           </button>
         </div>
       }
     >
       <div className="flex h-full min-h-0 flex-col gap-4">
-        <div className="scrollbar-tactical min-h-0 flex-1 overflow-auto rounded-xl border border-emerald-200/20">
+        <div className="scrollbar-tactical min-h-0 flex-1 overflow-auto rounded-xl border border-slate-600/70">
           <table className="w-full min-w-[980px] text-left text-sm">
-            <thead className="sticky top-0 z-10 bg-emerald-900/95 text-emerald-100 backdrop-blur">
+            <thead className="sticky top-0 z-10 bg-slate-900/98 text-slate-200 backdrop-blur">
               <tr>
                 <th className="px-4 py-3">ID</th>
                 <th className="px-4 py-3">{t('admin.banner')}</th>
@@ -172,7 +180,7 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-emerald-50/70">
+                  <td colSpan={6} className="px-4 py-8 text-center text-slate-300">
                     {t('common.loading')}
                   </td>
                 </tr>
@@ -180,7 +188,7 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
 
               {!loading && maps.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-emerald-50/70">
+                  <td colSpan={6} className="px-4 py-8 text-center text-slate-300">
                     {t('admin.mapsEmpty')}
                   </td>
                 </tr>
@@ -191,14 +199,18 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
                   const bannerPreview = resolveImagePath(item.bannerUrl || item.bannerPath)
 
                   return (
-                    <tr key={item.id} className="border-t border-emerald-200/15">
-                      <td className="px-4 py-3 text-emerald-50/85">{item.id}</td>
+                    <tr key={item.id} className="border-t border-slate-700/70">
+                      <td className="px-4 py-3 text-slate-300">{item.id}</td>
                       <td className="px-4 py-3">
-                        <div className="h-14 w-24 overflow-hidden rounded-md border border-emerald-200/20 bg-black/20">
+                        <div className="h-14 w-24 overflow-hidden rounded-md border border-slate-600/70 bg-slate-900/80">
                           {bannerPreview ? (
-                            <img src={bannerPreview} alt={item.code} className="h-full w-full object-cover" />
+                            <img
+                              src={bannerPreview}
+                              alt={item.code}
+                              className="h-full w-full object-cover"
+                            />
                           ) : (
-                            <div className="grid h-full w-full place-items-center text-[11px] text-emerald-100/50">
+                            <div className="grid h-full w-full place-items-center text-[11px] text-slate-400">
                               N/A
                             </div>
                           )}
@@ -235,82 +247,90 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
       </div>
 
       {modalOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-6">
-          <div className="w-full max-w-3xl rounded-2xl border border-emerald-200/20 bg-[#102018] p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/65 p-6">
+          <div className="w-full max-w-3xl rounded-2xl border border-slate-600 bg-slate-900 p-6 shadow-[0_18px_40px_rgba(0,0,0,0.42)]">
             <h2 className="text-xl font-semibold text-white">
               {editingMap ? t('admin.editMap') : t('admin.createMap')}
             </h2>
-            <p className="mt-1 text-sm text-emerald-50/70">{t('admin.mapFormHint')}</p>
+            <p className="mt-1 text-sm text-slate-300">{t('admin.mapFormHint')}</p>
 
             <div className="mt-5 grid gap-4">
               <div className="grid gap-3 md:grid-cols-3">
                 <label className="space-y-1.5">
-                  <span className="text-xs font-medium text-emerald-100/80">{t('admin.mapCode')}</span>
+                  <span className="text-xs font-medium text-slate-300">{t('admin.mapCode')}</span>
                   <input
                     value={form.code}
                     onChange={(event) => setForm((prev) => ({ ...prev, code: event.target.value }))}
                     placeholder={t('admin.mapCode')}
-                    className="w-full rounded-xl border border-emerald-200/20 bg-black/25 px-3 py-2.5 text-sm text-white placeholder:text-emerald-50/40 outline-none"
+                    className="w-full rounded-xl border border-slate-600 bg-slate-950/70 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:border-amber-400"
                   />
                 </label>
                 <label className="space-y-1.5">
-                  <span className="text-xs font-medium text-emerald-100/80">{t('admin.mapNameZh')}</span>
+                  <span className="text-xs font-medium text-slate-300">{t('admin.mapNameZh')}</span>
                   <input
                     value={form.nameZh}
-                    onChange={(event) => setForm((prev) => ({ ...prev, nameZh: event.target.value }))}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, nameZh: event.target.value }))
+                    }
                     placeholder={t('admin.mapNameZh')}
-                    className="w-full rounded-xl border border-emerald-200/20 bg-black/25 px-3 py-2.5 text-sm text-white placeholder:text-emerald-50/40 outline-none"
+                    className="w-full rounded-xl border border-slate-600 bg-slate-950/70 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:border-amber-400"
                   />
                 </label>
                 <label className="space-y-1.5">
-                  <span className="text-xs font-medium text-emerald-100/80">{t('admin.mapNameEn')}</span>
+                  <span className="text-xs font-medium text-slate-300">{t('admin.mapNameEn')}</span>
                   <input
                     value={form.nameEn}
-                    onChange={(event) => setForm((prev) => ({ ...prev, nameEn: event.target.value }))}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, nameEn: event.target.value }))
+                    }
                     placeholder={t('admin.mapNameEn')}
-                    className="w-full rounded-xl border border-emerald-200/20 bg-black/25 px-3 py-2.5 text-sm text-white placeholder:text-emerald-50/40 outline-none"
+                    className="w-full rounded-xl border border-slate-600 bg-slate-950/70 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:border-amber-400"
                   />
                 </label>
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-xl border border-emerald-200/20 bg-black/20 p-3">
-                  <p className="text-xs font-medium text-emerald-100/80">Banner Path</p>
+                <div className="rounded-xl border border-slate-600/70 bg-slate-800/70 p-3">
+                  <p className="text-xs font-medium text-slate-300">Banner Path</p>
                   <input
                     value={form.bannerPath}
                     onChange={(event: ChangeEvent<HTMLInputElement>) =>
                       setForm((prev) => ({ ...prev, bannerPath: event.target.value }))
                     }
                     placeholder="assets/images/tarkov-maps/banner/Banner_customs.png"
-                    className="mt-2 w-full rounded-lg border border-emerald-200/20 bg-black/25 px-3 py-2 text-xs text-white placeholder:text-emerald-50/40 outline-none"
+                    className="mt-2 w-full rounded-lg border border-slate-600 bg-slate-950/70 px-3 py-2 text-xs text-white placeholder:text-slate-500 outline-none focus:border-amber-400"
                   />
-                  <p className="text-xs text-emerald-50/70 break-all">{form.bannerPath || '-'}</p>
+                  <p className="text-xs text-slate-300 break-all">{form.bannerPath || '-'}</p>
                 </div>
 
-                <div className="rounded-xl border border-emerald-200/20 bg-black/20 p-3">
-                  <p className="text-xs font-medium text-emerald-100/80">Map Path</p>
+                <div className="rounded-xl border border-slate-600/70 bg-slate-800/70 p-3">
+                  <p className="text-xs font-medium text-slate-300">Map Path</p>
                   <input
                     value={form.mapPath}
                     onChange={(event: ChangeEvent<HTMLInputElement>) =>
                       setForm((prev) => ({ ...prev, mapPath: event.target.value }))
                     }
                     placeholder="assets/images/tarkov-maps/Customs.png"
-                    className="mt-2 w-full rounded-lg border border-emerald-200/20 bg-black/25 px-3 py-2 text-xs text-white placeholder:text-emerald-50/40 outline-none"
+                    className="mt-2 w-full rounded-lg border border-slate-600 bg-slate-950/70 px-3 py-2 text-xs text-white placeholder:text-slate-500 outline-none focus:border-amber-400"
                   />
-                  <p className="text-xs text-emerald-50/70 break-all">{form.mapPath || '-'}</p>
+                  <p className="text-xs text-slate-300 break-all">{form.mapPath || '-'}</p>
                 </div>
               </div>
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
-              <button type="button" onClick={closeModal} className="btn-outline h-10 rounded-xl px-4">
+              <button
+                type="button"
+                onClick={closeModal}
+                className="btn-outline h-9 rounded-lg px-3.5"
+              >
                 {t('common.cancel')}
               </button>
               <button
                 type="button"
                 onClick={() => void handleSubmit()}
                 disabled={saving || !canSubmit}
-                className="btn-primary h-10 rounded-xl px-4 disabled:cursor-not-allowed disabled:opacity-55"
+                className="btn-primary h-9 rounded-lg px-3.5 disabled:cursor-not-allowed disabled:opacity-55"
               >
                 {saving ? t('common.loading') : editingMap ? t('admin.update') : t('admin.create')}
               </button>
@@ -320,22 +340,26 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
       )}
 
       {pendingDeleteMap && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-6">
-          <div className="w-full max-w-md rounded-2xl border border-rose-200/25 bg-[#1b1313] p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/65 p-6">
+          <div className="w-full max-w-md rounded-2xl border border-slate-600 bg-slate-900 p-6 shadow-[0_18px_40px_rgba(0,0,0,0.42)]">
             <h2 className="text-xl font-semibold text-white">{t('admin.confirmDeleteTitle')}</h2>
-            <p className="mt-2 text-sm text-rose-100/80">
+            <p className="mt-2 text-sm text-slate-300">
               {t('admin.confirmDeleteDesc', { code: pendingDeleteMap.code })}
             </p>
 
             <div className="mt-6 flex justify-end gap-2">
-              <button type="button" onClick={closeDeleteConfirm} className="btn-outline h-10 rounded-xl px-4">
+              <button
+                type="button"
+                onClick={closeDeleteConfirm}
+                className="btn-outline h-9 rounded-lg px-3.5"
+              >
                 {t('common.cancel')}
               </button>
               <button
                 type="button"
                 onClick={() => void confirmDelete()}
                 disabled={deletingId === pendingDeleteMap.id}
-                className="h-10 rounded-xl border border-rose-300/45 px-4 text-sm font-semibold text-rose-100 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-55"
+                className="h-9 rounded-lg border border-rose-300/45 px-3.5 text-sm font-semibold text-rose-100 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-55"
               >
                 {deletingId === pendingDeleteMap.id ? t('common.loading') : t('admin.delete')}
               </button>

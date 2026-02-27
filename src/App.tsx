@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { FiSettings } from 'react-icons/fi'
 import { loginAdmin } from './api/admin-auth'
 import { createWhiteboardInstance } from './api/whiteboard'
@@ -105,6 +106,7 @@ const getNormalizedLocation = () => {
 
 function App() {
   const { t } = useTranslation()
+  const prefersReducedMotion = useReducedMotion()
   const desktopPlatform = window.desktopApp?.platform
   const isDesktopApp = Boolean(window.desktopApp?.isElectron)
   const isWindowsDesktop = desktopPlatform === 'win32'
@@ -134,7 +136,12 @@ function App() {
     }
 
     const onShortcut = (event: KeyboardEvent) => {
-      if (event.key !== ',' || event.altKey || event.shiftKey || !(event.metaKey || event.ctrlKey)) {
+      if (
+        event.key !== ',' ||
+        event.altKey ||
+        event.shiftKey ||
+        !(event.metaKey || event.ctrlKey)
+      ) {
         return
       }
 
@@ -187,7 +194,10 @@ function App() {
     const windowControlsWidth = platform === 'win32' ? 138 : 0
     document.documentElement.style.setProperty('--desktop-titlebar-safe-top', `${safeTop}px`)
     document.documentElement.style.setProperty('--desktop-titlebar-safe-right', `${safeRight}px`)
-    document.documentElement.style.setProperty('--desktop-window-controls-width', `${windowControlsWidth}px`)
+    document.documentElement.style.setProperty(
+      '--desktop-window-controls-width',
+      `${windowControlsWidth}px`
+    )
 
     return () => {
       document.documentElement.style.setProperty('--desktop-titlebar-safe-top', '0px')
@@ -218,6 +228,11 @@ function App() {
   const route = useMemo(() => resolveRoute(pathname), [pathname])
   const currentPathWithSearch = useMemo(() => `${pathname}${search}`, [pathname, search])
   const isAdminProtectedRoute =
+    route.name === 'admin-dashboard' ||
+    route.name === 'admin-maps' ||
+    route.name === 'admin-instances' ||
+    route.name === 'admin-password'
+  const isAdminShellRoute =
     route.name === 'admin-dashboard' ||
     route.name === 'admin-maps' ||
     route.name === 'admin-instances' ||
@@ -277,7 +292,8 @@ function App() {
       setAdminLoggedIn(true)
 
       const redirect = new URLSearchParams(search).get('redirect')
-      const safeRedirect = redirect && redirect.startsWith('/admin') ? redirect : ROUTES.adminDashboard
+      const safeRedirect =
+        redirect && redirect.startsWith('/admin') ? redirect : ROUTES.adminDashboard
       navigateTo(safeRedirect)
     } catch {
     } finally {
@@ -294,9 +310,13 @@ function App() {
   let content: React.ReactNode = null
 
   if (route.name === 'home') {
-    content = <HomePage onCreateInstance={handleCreateInstance} onJoinInstance={handleJoinInstance} />
+    content = (
+      <HomePage onCreateInstance={handleCreateInstance} onJoinInstance={handleJoinInstance} />
+    )
   } else if (route.name === 'map-instance') {
-    content = <MapInstancePage instanceId={route.instanceId} onBackHome={() => navigateTo(ROUTES.home)} />
+    content = (
+      <MapInstancePage instanceId={route.instanceId} onBackHome={() => navigateTo(ROUTES.home)} />
+    )
   } else if (route.name === 'admin-login') {
     content = <AdminLoginPage onLogin={handleAdminLogin} loading={adminLoginLoading} />
   } else if (route.name === 'admin-dashboard') {
@@ -304,11 +324,17 @@ function App() {
       <AdminDashboardPage onNavigate={navigateTo} onLogout={handleAdminLogout} />
     ) : null
   } else if (route.name === 'admin-maps') {
-    content = adminLoggedIn ? <AdminMapsPage onNavigate={navigateTo} onLogout={handleAdminLogout} /> : null
+    content = adminLoggedIn ? (
+      <AdminMapsPage onNavigate={navigateTo} onLogout={handleAdminLogout} />
+    ) : null
   } else if (route.name === 'admin-instances') {
-    content = adminLoggedIn ? <AdminInstancesPage onNavigate={navigateTo} onLogout={handleAdminLogout} /> : null
+    content = adminLoggedIn ? (
+      <AdminInstancesPage onNavigate={navigateTo} onLogout={handleAdminLogout} />
+    ) : null
   } else if (route.name === 'admin-password') {
-    content = adminLoggedIn ? <AdminPasswordPage onNavigate={navigateTo} onLogout={handleAdminLogout} /> : null
+    content = adminLoggedIn ? (
+      <AdminPasswordPage onNavigate={navigateTo} onLogout={handleAdminLogout} />
+    ) : null
   } else if (route.name === 'admin-not-found') {
     content = (
       <NotFoundPage
@@ -327,6 +353,20 @@ function App() {
     )
   }
 
+  const pageTransition = prefersReducedMotion
+    ? {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        exit: { opacity: 0 },
+        transition: { duration: 0.12, ease: [0.22, 1, 0.36, 1] as const },
+      }
+    : {
+        initial: { opacity: 0, y: 14, filter: 'blur(8px)' },
+        animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
+        exit: { opacity: 0, y: -10, filter: 'blur(6px)' },
+        transition: { duration: 0.26, ease: [0.22, 1, 0.36, 1] as const },
+      }
+
   return (
     <>
       {isDesktopApp && isWindowsDesktop && (
@@ -335,26 +375,30 @@ function App() {
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         />
       )}
-      {shouldShowSettingsEntry && (
-        isWindowsDesktop || isWebApp ? (
+      {shouldShowSettingsEntry &&
+        (isWindowsDesktop || isWebApp ? (
           <button
             type="button"
             aria-label={t('settings.title')}
             title={`${t('settings.title')} (Cmd/Ctrl + ,)`}
             onClick={() => setSettingsOpen(true)}
-            className="group fixed z-40 inline-flex h-10 w-10 items-center justify-center bg-transparent text-emerald-50/70 transition"
-            style={{
-              top: isWindowsDesktop ? 0 : 12,
-              left: isWindowsDesktop ? 4 : undefined,
-              right: isWindowsDesktop ? undefined : 16,
-              ...(isWindowsDesktop ? ({ WebkitAppRegion: 'no-drag' } as React.CSSProperties) : {}),
-            } as React.CSSProperties}
+            className="group fixed z-40 inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-500/75 bg-slate-900/65 text-slate-200 backdrop-blur transition hover:border-amber-300/70 hover:text-white"
+            style={
+              {
+                top: isWindowsDesktop ? 1 : 12,
+                left: isWindowsDesktop ? 6 : undefined,
+                right: isWindowsDesktop ? undefined : 16,
+                ...(isWindowsDesktop
+                  ? ({ WebkitAppRegion: 'no-drag' } as React.CSSProperties)
+                  : {}),
+              } as React.CSSProperties
+            }
           >
-            <FiSettings className="text-[0.95rem] transition group-hover:text-emerald-50 group-hover:drop-shadow-[0_0_6px_rgba(212,250,230,0.45)] group-active:text-white" />
+            <FiSettings className="text-[0.92rem] transition" />
           </button>
         ) : (
           <div
-            className="fixed right-4 z-40 flex items-center rounded-full border border-emerald-200/35 bg-emerald-950/75 px-2 py-1.5 text-emerald-100 shadow-[0_10px_24px_rgba(0,0,0,0.3)] backdrop-blur"
+            className="fixed right-4 z-40 flex items-center rounded-full border border-slate-500/75 bg-slate-900/65 px-2 py-1 text-slate-200 shadow-sm backdrop-blur"
             style={{
               top: 'calc(0.75rem + var(--desktop-titlebar-safe-top))',
               right: 'calc(1rem + var(--desktop-titlebar-safe-right))',
@@ -365,20 +409,44 @@ function App() {
               aria-label={t('settings.title')}
               title={`${t('settings.title')} (Cmd/Ctrl + ,)`}
               onClick={() => setSettingsOpen(true)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-emerald-200/35 bg-emerald-900/75 text-emerald-50 transition hover:bg-emerald-800/80"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-500/80 bg-slate-800/90 text-slate-100 transition hover:border-amber-300/70 hover:bg-slate-700"
             >
               <FiSettings />
             </button>
           </div>
-        )
+        ))}
+      {isAdminShellRoute ? (
+        content
+      ) : (
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={`${route.name}:${currentPathWithSearch}`}
+            initial={pageTransition.initial}
+            animate={pageTransition.animate}
+            exit={pageTransition.exit}
+            transition={pageTransition.transition}
+          >
+            {content}
+          </motion.div>
+        </AnimatePresence>
       )}
-      {content}
-      {settingsOpen && <ApiSettingsDialog onClose={() => setSettingsOpen(false)} />}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-[80] max-w-md rounded-xl border border-rose-300/40 bg-rose-950/95 px-4 py-3 text-sm text-rose-100 shadow-[0_18px_36px_rgba(0,0,0,0.35)]">
-          {toastMessage}
-        </div>
-      )}
+      <AnimatePresence>
+        {settingsOpen && <ApiSettingsDialog onClose={() => setSettingsOpen(false)} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            key={toastMessage}
+            initial={{ opacity: 0, y: 14, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.98 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="fixed bottom-6 right-6 z-[80] max-w-md rounded-xl border border-rose-400/45 bg-rose-950/92 px-4 py-3 text-sm text-rose-100 shadow-lg"
+          >
+            {toastMessage}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   )
 }
