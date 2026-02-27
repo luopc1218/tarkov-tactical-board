@@ -61,7 +61,7 @@ npm run electron:dev
 npm run build
 ```
 
-生产环境默认 API 地址：`http://81.71.150.227/api`（可在设置弹窗中覆盖）。
+生产环境默认 API 地址：`https://81.71.150.227/api`（可在设置弹窗中覆盖）。
 
 #### Electron 打包
 
@@ -153,7 +153,7 @@ npm run electron:dev
 npm run build
 ```
 
-Default API base URL in production: `http://81.71.150.227/api` (can be overridden in the settings modal).
+Default API base URL in production: `https://81.71.150.227/api` (can be overridden in the settings modal).
 
 #### Package Electron app
 
