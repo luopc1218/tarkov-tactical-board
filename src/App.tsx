@@ -108,6 +108,7 @@ function App() {
   const desktopPlatform = window.desktopApp?.platform
   const isDesktopApp = Boolean(window.desktopApp?.isElectron)
   const isWindowsDesktop = desktopPlatform === 'win32'
+  const isWebApp = !isDesktopApp
   const [pathname, setPathname] = useState(() => getNormalizedLocation().pathname)
   const [search, setSearch] = useState(() => getNormalizedLocation().search)
   const [adminLoggedIn, setAdminLoggedIn] = useState(() => isAdminAuthenticated())
@@ -335,7 +336,7 @@ function App() {
         />
       )}
       {shouldShowSettingsEntry && (
-        isWindowsDesktop ? (
+        isWindowsDesktop || isWebApp ? (
           <button
             type="button"
             aria-label={t('settings.title')}
@@ -343,9 +344,10 @@ function App() {
             onClick={() => setSettingsOpen(true)}
             className="group fixed z-40 inline-flex h-10 w-10 items-center justify-center bg-transparent text-emerald-50/70 transition"
             style={{
-              top: 0,
-              left: 4,
-              WebkitAppRegion: 'no-drag',
+              top: isWindowsDesktop ? 0 : 12,
+              left: isWindowsDesktop ? 4 : undefined,
+              right: isWindowsDesktop ? undefined : 16,
+              ...(isWindowsDesktop ? ({ WebkitAppRegion: 'no-drag' } as React.CSSProperties) : {}),
             } as React.CSSProperties}
           >
             <FiSettings className="text-[0.95rem] transition group-hover:text-emerald-50 group-hover:drop-shadow-[0_0_6px_rgba(212,250,230,0.45)] group-active:text-white" />

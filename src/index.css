@@ -128,27 +128,32 @@ button:disabled {
   background: linear-gradient(180deg, rgba(134, 239, 172, 0.65), rgba(74, 222, 128, 0.6));
 }
 
-html[data-platform='win32'] {
+html[data-platform='win32'],
+html[data-platform='darwin'] {
   scrollbar-width: thin;
   scrollbar-color: rgba(161, 198, 177, 0.45) rgba(0, 0, 0, 0);
 }
 
-html[data-platform='win32'] ::-webkit-scrollbar {
+html[data-platform='win32'] ::-webkit-scrollbar,
+html[data-platform='darwin'] ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-html[data-platform='win32'] ::-webkit-scrollbar-track {
+html[data-platform='win32'] ::-webkit-scrollbar-track,
+html[data-platform='darwin'] ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-html[data-platform='win32'] ::-webkit-scrollbar-thumb {
+html[data-platform='win32'] ::-webkit-scrollbar-thumb,
+html[data-platform='darwin'] ::-webkit-scrollbar-thumb {
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
   background-color: rgba(161, 198, 177, 0.32);
 }
 
-html[data-platform='win32'] ::-webkit-scrollbar-thumb:hover {
+html[data-platform='win32'] ::-webkit-scrollbar-thumb:hover,
+html[data-platform='darwin'] ::-webkit-scrollbar-thumb:hover {
   background-color: rgba(184, 223, 201, 0.52);
 }

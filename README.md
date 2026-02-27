@@ -82,6 +82,8 @@ npm run electron:pack:win
 npm run electron:pack:release
 ```
 
+说明：仓库目前默认发布 Windows x64 安装包；理论上支持 macOS / Linux / 其他架构，但需要在对应平台自行构建。
+
 打包产物目录：`release/`
 
 #### Docker 部署（前端）
@@ -173,6 +175,8 @@ npm run electron:pack:win
 # Build both macOS + Windows
 npm run electron:pack:release
 ```
+
+Note: this repo currently publishes a Windows x64 installer by default. macOS / Linux / other architectures are theoretically supported, but should be built on the target platform by yourself.
 
 Build output directory: `release/`
 
