@@ -11,6 +11,9 @@
     "electron:build:web": "tsc -b && vite build",
     "electron:pack": "npm run electron:build:web && electron-builder",
     "electron:pack:local": "npm run electron:build:web && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir",
+    "electron:pack:mac": "npm run electron:build:web && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --publish never -c.mac.identity=null",
+    "electron:pack:win": "npm run electron:build:web && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --publish never",
+    "electron:pack:release": "npm run electron:build:web && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --win --publish never -c.mac.identity=null",
     "lint": "eslint .",
     "preview": "vite preview",
     "format": "prettier . --write",
@@ -19,7 +22,8 @@
   "build": {
     "appId": "site.tarkov.tacticalboard.desktop",
     "productName": "Tarkov Tactical Board",
-    "icon": "build/icon.ico",
+    "icon": "public/app-icons/icon.png",
+    "compression": "maximum",
     "directories": {
       "output": "release"
     },
@@ -30,25 +34,25 @@
     ],
     "extraResources": [
       {
-        "from": "build/icon.ico",
+        "from": "public/app-icons/icon.ico",
         "to": "icon.ico"
       }
     ],
     "asar": true,
     "mac": {
-      "icon": "build/icon.png",
+      "icon": "public/app-icons/icon.png",
       "target": [
         "dmg"
       ]
     },
     "win": {
-      "icon": "build/icon.ico",
+      "icon": "public/app-icons/icon.ico",
       "target": [
         "nsis"
       ]
     },
     "linux": {
-      "icon": "build/icon.png",
+      "icon": "public/app-icons/icon.png",
       "target": [
         "AppImage"
       ]

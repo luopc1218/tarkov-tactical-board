@@ -2,8 +2,8 @@ const path = require('node:path')
 const { app, BrowserWindow, Menu, shell } = require('electron')
 
 const DEV_SERVER_URL = process.env.ELECTRON_RENDERER_URL || 'http://127.0.0.1:5173'
-const DEV_ICON_PATH = path.join(__dirname, '..', 'build', 'icon.png')
-const DEV_WINDOWS_ICON_PATH = path.join(__dirname, '..', 'build', 'icon.ico')
+const DEV_ICON_PATH = path.join(__dirname, '..', 'public', 'app-icons', 'icon.png')
+const DEV_WINDOWS_ICON_PATH = path.join(__dirname, '..', 'public', 'app-icons', 'icon.ico')
 
 function openSettings(focusedWindow) {
   const targetWindow = focusedWindow || BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
