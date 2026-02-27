@@ -3,6 +3,11 @@
 [中文](#中文) | [English](#english)
 
 Demo (GitHub Pages): https://luopc1218.github.io/tarkov-tactical-board/
+Backend Repository: https://github.com/luopc1218/tarkov-tactical-board-server
+
+> [!IMPORTANT]
+> **首次使用请先配置 API**：前端首次使用时，可能需要打开设置弹窗配置 API 接口地址（例如 `/api` 或 `https://your-domain/api`）。桌面端打开设置快捷键：`Cmd/Ctrl + ,`。
+> **Configure API on first launch**: You may need to open the settings modal and set the API base URL first (for example, `/api` or `https://your-domain/api`). Desktop shortcut: `Cmd/Ctrl + ,`.
 
 ## 中文
 
@@ -41,20 +46,22 @@ npm run dev
 npm run electron:dev
 ```
 
-提示：前端首次使用时，可能需要打开设置弹窗配置 API 接口地址（例如 `/api` 或 `https://your-domain/api`）。
-
 ### 打包与部署
 
 #### GitHub Pages 演示发布
 
 - 推送到 `master` 后会自动构建并发布到 GitHub Pages。
 - 仓库需要在 `Settings -> Pages` 中选择 `GitHub Actions` 作为 Source。
+- 演示地址：https://luopc1218.github.io/tarkov-tactical-board/
+- 后端仓库：https://github.com/luopc1218/tarkov-tactical-board-server
 
 #### Web 构建
 
 ```bash
 npm run build
 ```
+
+生产环境默认 API 地址：`http://81.71.150.227/api`（可在设置弹窗中覆盖）。
 
 #### Electron 打包
 
@@ -131,20 +138,22 @@ Default URL: `http://localhost:5173`
 npm run electron:dev
 ```
 
-Note: On first launch, you may need to open the settings modal and configure the API base URL (for example, `/api` or `https://your-domain/api`).
-
 ### Build and Deploy
 
 #### GitHub Pages Demo Deployment
 
 - Pushing to `master` triggers automatic build and deployment to GitHub Pages.
 - In repository `Settings -> Pages`, set Source to `GitHub Actions`.
+- Demo URL: https://luopc1218.github.io/tarkov-tactical-board/
+- Backend repository: https://github.com/luopc1218/tarkov-tactical-board-server
 
 #### Build web assets
 
 ```bash
 npm run build
 ```
+
+Default API base URL in production: `http://81.71.150.227/api` (can be overridden in the settings modal).
 
 #### Package Electron app
 

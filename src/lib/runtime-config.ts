@@ -20,7 +20,8 @@ export const isElectronApp = () => {
 }
 
 export const getDefaultApiBaseUrl = () =>
-  import.meta.env.VITE_API_BASE_URL ?? APP_CONFIG.defaultApiBaseUrl
+  import.meta.env.VITE_API_BASE_URL ??
+  (import.meta.env.PROD ? APP_CONFIG.productionApiBaseUrl : APP_CONFIG.defaultApiBaseUrl)
 
 export const getApiBaseUrl = () => {
   const stored = window.localStorage.getItem(API_BASE_URL_STORAGE_KEY)
