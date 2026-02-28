@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FiCopy } from 'react-icons/fi'
+import { FiCopy, FiMessageSquare, FiSend } from 'react-icons/fi'
 import { fetchMapPresets } from '../api/maps'
 import { getWhiteboardInstance, getWhiteboardState, saveWhiteboardState } from '../api/whiteboard'
 import { getApiBaseUrl } from '../lib/runtime-config'
@@ -43,6 +43,16 @@ interface RemoteCursor {
   updatedAt: number
 }
 
+interface ChatMessage {
+  id: string
+  clientId: string
+  text: string
+  displayName: string
+  sentAt: number
+  isLocal: boolean
+  failed?: boolean
+}
+
 const DEFAULT_CANVAS_WIDTH = 1920
 const DEFAULT_CANVAS_HEIGHT = 1080
 const MIN_SCALE = 0.05
@@ -54,8 +64,24 @@ const WHITEBOARD_CLEAR_TOPIC = 'board.clear'
 const WHITEBOARD_UNDO_TOPIC = 'stroke.undo'
 const WHITEBOARD_CURSOR_MOVE_TOPIC = 'cursor.move'
 const WHITEBOARD_CURSOR_LEAVE_TOPIC = 'cursor.leave'
+const CHAT_MESSAGE_TOPIC = 'chat.message'
+const CHAT_HISTORY_TOPIC = 'chat.history'
 const STROKE_APPEND_INTERVAL_MS = 40
 const WS_RECONNECT_BACKOFF_MS = [1000, 2000, 5000]
+const CHAT_MAX_MESSAGES = 200
+const CHAT_MESSAGE_TOPIC_ALIASES = new Set([
+  CHAT_MESSAGE_TOPIC,
+  'chat.send',
+  'chat.broadcast',
+  'chat.receive',
+  'chat.push',
+])
+const CHAT_HISTORY_TOPIC_ALIASES = new Set([
+  CHAT_HISTORY_TOPIC,
+  'chat.sync',
+  'chat.messages',
+  'chat.init',
+])
 
 const buildPathData = (points: Point[]) => {
   if (points.length === 0) {
@@ -127,6 +153,25 @@ const resolveWsUrl = (wsPath: string) => {
   }
 
   return null
+}
+
+const buildChatWsPath = (instanceId: string) => `/ws/chat/${encodeURIComponent(instanceId)}`
+
+const createRealtimeClientId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `c-${crypto.randomUUID()}`
+  }
+  return `c-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
+}
+
+const createChatSenderName = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `U-${crypto.randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase()}`
+  }
+  return `U-${Date.now().toString(36).toUpperCase()}${Math.random()
+    .toString(36)
+    .slice(2, 8)
+    .toUpperCase()}`
 }
 
 const readStrokePayload = (payload: unknown): Stroke | null => {
@@ -276,6 +321,147 @@ const readStrokeStreamPayload = (
   }
 }
 
+const readString = (value: unknown): string | null => {
+  if (typeof value !== 'string') {
+    return null
+  }
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+const readIdentifier = (value: unknown): string | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(Math.trunc(value))
+  }
+  return readString(value)
+}
+
+const pickString = (source: Record<string, unknown>, keys: string[]): string | null => {
+  for (const key of keys) {
+    const value = readString(source[key])
+    if (value) {
+      return value
+    }
+  }
+  return null
+}
+
+const pickIdentifier = (source: Record<string, unknown>, keys: string[]): string | null => {
+  for (const key of keys) {
+    const value = readIdentifier(source[key])
+    if (value) {
+      return value
+    }
+  }
+  return null
+}
+
+const resolveEventType = (source: Record<string, unknown>) => {
+  return (
+    pickString(source, ['type', 'topic', 'event', 'action', 'name']) ??
+    (source.payload && typeof source.payload === 'object'
+      ? pickString(source.payload as Record<string, unknown>, ['type', 'topic', 'event', 'action'])
+      : null) ??
+    (source.data && typeof source.data === 'object'
+      ? pickString(source.data as Record<string, unknown>, ['type', 'topic', 'event', 'action'])
+      : null) ??
+    ''
+  ).toLowerCase()
+}
+
+const parseChatTimestamp = (source: Record<string, unknown>) => {
+  const timestampCandidates = [source.sentAt, source.timestamp, source.createdAt, source.time]
+  for (const candidate of timestampCandidates) {
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+      return candidate
+    }
+    if (typeof candidate === 'string' && candidate.trim()) {
+      const parsed = Date.parse(candidate)
+      if (Number.isFinite(parsed)) {
+        return parsed
+      }
+    }
+  }
+  return Date.now()
+}
+
+const normalizeChatMessage = (payload: unknown): Omit<ChatMessage, 'isLocal' | 'failed'> | null => {
+  if (!payload || typeof payload !== 'object') {
+    return null
+  }
+
+  const source = payload as Record<string, unknown>
+  const text = pickString(source, ['text', 'message', 'content', 'msg'])
+  if (!text) {
+    return null
+  }
+
+  const explicitClientId = pickString(source, ['clientId', 'senderId', 'userId', 'from'])
+  const displayName =
+    pickString(source, ['displayName', 'senderName', 'nickname', 'username', 'name']) ??
+    (explicitClientId ? `User-${explicitClientId.slice(0, 4).toUpperCase()}` : 'User')
+  const clientId =
+    explicitClientId ?? `name:${displayName}`
+  const sentAt = parseChatTimestamp(source)
+  const id =
+    pickIdentifier(source, ['messageId', 'id', 'clientMessageId']) ??
+    `${clientId}-${sentAt}-${text.slice(0, 16)}`
+
+  return {
+    id,
+    clientId,
+    text,
+    displayName,
+    sentAt,
+  }
+}
+
+const readChatMessagesPayload = (payload: unknown): Omit<ChatMessage, 'isLocal' | 'failed'>[] => {
+  if (Array.isArray(payload)) {
+    return payload
+      .map((item) => normalizeChatMessage(item))
+      .filter((item): item is Omit<ChatMessage, 'isLocal' | 'failed'> => item !== null)
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return []
+  }
+
+  const source = payload as Record<string, unknown>
+  const listKeys = ['messages', 'items', 'list', 'history', 'records']
+  for (const key of listKeys) {
+    const value = source[key]
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => normalizeChatMessage(item))
+        .filter((item): item is Omit<ChatMessage, 'isLocal' | 'failed'> => item !== null)
+    }
+  }
+
+  const objectKeys = ['message', 'item', 'record']
+  for (const key of objectKeys) {
+    const value = source[key]
+    const normalized = normalizeChatMessage(value)
+    if (normalized) {
+      return [normalized]
+    }
+  }
+
+  const single = normalizeChatMessage(payload)
+  return single ? [single] : []
+}
+
+const isLocalChatMessage = (
+  message: Omit<ChatMessage, 'isLocal' | 'failed'>,
+  localClientId: string,
+  localDisplayName: string
+) => {
+  if (message.clientId === localClientId) {
+    return true
+  }
+  return message.displayName.trim().toLowerCase() === localDisplayName.trim().toLowerCase()
+}
+
 const copyText = async (value: string): Promise<boolean> => {
   if (navigator.clipboard && window.isSecureContext) {
     try {
@@ -306,7 +492,6 @@ const copyText = async (value: string): Promise<boolean> => {
 
 export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps) {
   const { t } = useTranslation()
-  const localClientId = useId().replace(/:/g, '')
   const [instance, setInstance] = useState<MapInstance | null>(null)
   const [loading, setLoading] = useState(true)
   const [mapUrl, setMapUrl] = useState<string | undefined>(undefined)
@@ -314,6 +499,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   const [currentStroke, setCurrentStroke] = useState<Stroke | null>(null)
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 })
   const [wsConnected, setWsConnected] = useState(false)
+  const [chatWsConnected, setChatWsConnected] = useState(false)
   const [contentSize, setContentSize] = useState({
     width: DEFAULT_CANVAS_WIDTH,
     height: DEFAULT_CANVAS_HEIGHT,
@@ -323,12 +509,21 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   const [cursorScale, setCursorScale] = useState(1.8)
   const [copied, setCopied] = useState(false)
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
+  const [chatVisible, setChatVisible] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const [chatUnread, setChatUnread] = useState(0)
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [remoteCursors, setRemoteCursors] = useState<Record<string, RemoteCursor>>({})
   const [remoteInProgressStrokes, setRemoteInProgressStrokes] = useState<Record<string, Stroke>>({})
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const chatScrollRef = useRef<HTMLDivElement | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
+  const chatWsRef = useRef<WebSocket | null>(null)
   const localStrokeIdsRef = useRef(new Set<string>())
-  const localClientIdRef = useRef(`c-${localClientId}`)
+  const chatMessageIdsRef = useRef(new Set<string>())
+  const chatVisibleRef = useRef(false)
+  const localClientIdRef = useRef(createRealtimeClientId())
+  const localDisplayNameRef = useRef(createChatSenderName())
   const lastCursorSentAtRef = useRef(0)
   const pointerModeRef = useRef<'draw' | 'pan' | 'pinch' | null>(null)
   const activePointerIdRef = useRef<number | null>(null)
@@ -346,10 +541,106 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   const appendTimerRef = useRef<number | null>(null)
   const reconnectTimerRef = useRef<number | null>(null)
   const reconnectAttemptRef = useRef(0)
+  const chatReconnectTimerRef = useRef<number | null>(null)
+  const chatReconnectAttemptRef = useRef(0)
 
   useEffect(() => {
     currentStrokeRef.current = currentStroke
   }, [currentStroke])
+
+  useEffect(() => {
+    chatVisibleRef.current = chatVisible
+    if (chatVisible) {
+      setChatUnread(0)
+    }
+  }, [chatVisible])
+
+  useEffect(() => {
+    if (!chatVisible) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      const container = chatScrollRef.current
+      if (!container) {
+        return
+      }
+      container.scrollTop = container.scrollHeight
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [chatMessages, chatVisible])
+
+  useEffect(() => {
+    setChatVisible(false)
+    setChatInput('')
+    setChatUnread(0)
+    setChatMessages([])
+    chatMessageIdsRef.current.clear()
+    if (instanceId) {
+      localDisplayNameRef.current = createChatSenderName()
+    }
+  }, [instanceId])
+
+  const appendChatMessages = useCallback(
+    (messages: ChatMessage[], options?: { countUnread?: boolean }) => {
+      const countUnread = options?.countUnread ?? true
+      if (messages.length === 0) {
+        return
+      }
+
+      const nextItems: ChatMessage[] = []
+      for (const message of messages) {
+        if (!message.id || chatMessageIdsRef.current.has(message.id)) {
+          continue
+        }
+        chatMessageIdsRef.current.add(message.id)
+        nextItems.push(message)
+      }
+
+      if (nextItems.length === 0) {
+        return
+      }
+
+      setChatMessages((prev) => [...prev, ...nextItems].slice(-CHAT_MAX_MESSAGES))
+
+      if (countUnread && !chatVisibleRef.current) {
+        const unreadDelta = nextItems.reduce((count, item) => count + (item.isLocal ? 0 : 1), 0)
+        if (unreadDelta > 0) {
+          setChatUnread((prev) => prev + unreadDelta)
+        }
+      }
+    },
+    []
+  )
+
+  const toggleChatVisibility = () => {
+    setMobileDrawerOpen(false)
+    setChatVisible((prev) => !prev)
+  }
+
+  const formatChatTime = (timestamp: number) => {
+    return new Date(timestamp).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  const renderConnectionBadge = (label: string, connected: boolean) => (
+    <span
+      className={[
+        'inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium',
+        connected
+          ? 'border-emerald-300/45 bg-emerald-500/12 text-emerald-100'
+          : 'border-rose-300/45 bg-rose-500/12 text-rose-100',
+      ].join(' ')}
+    >
+      <span>{label}</span>
+      <span>{connected ? t('mapInstance.connected') : t('mapInstance.disconnected')}</span>
+    </span>
+  )
 
   useEffect(() => {
     if (!instanceId) {
@@ -495,9 +786,10 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
             payload?: unknown
             data?: unknown
           }
+          const type = resolveEventType(payload as unknown as Record<string, unknown>)
           const actualPayload = payload.payload ?? payload.data ?? payload
 
-          if (payload.type === WHITEBOARD_CURSOR_LEAVE_TOPIC) {
+          if (type === WHITEBOARD_CURSOR_LEAVE_TOPIC) {
             const leave = readCursorPayload(actualPayload)
             if (!leave || leave.clientId === localClientIdRef.current) {
               return
@@ -510,7 +802,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
             return
           }
 
-          if (payload.type === WHITEBOARD_CURSOR_MOVE_TOPIC) {
+          if (type === WHITEBOARD_CURSOR_MOVE_TOPIC) {
             const cursor = readCursorPayload(actualPayload)
             if (!cursor || cursor.clientId === localClientIdRef.current) {
               return
@@ -519,7 +811,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
             return
           }
 
-          if (payload.type === WHITEBOARD_STROKE_START_TOPIC) {
+          if (type === WHITEBOARD_STROKE_START_TOPIC) {
             const stream = readStrokeStreamPayload(actualPayload)
             if (!stream || stream.clientId === localClientIdRef.current) {
               return
@@ -540,7 +832,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
             return
           }
 
-          if (payload.type === WHITEBOARD_STROKE_APPEND_TOPIC) {
+          if (type === WHITEBOARD_STROKE_APPEND_TOPIC) {
             const stream = readStrokeStreamPayload(actualPayload)
             if (!stream || stream.clientId === localClientIdRef.current) {
               return
@@ -573,7 +865,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
             return
           }
 
-          if (payload.type === WHITEBOARD_STROKE_END_TOPIC) {
+          if (type === WHITEBOARD_STROKE_END_TOPIC) {
             const stream = readStrokeStreamPayload(actualPayload)
             if (!stream || stream.clientId === localClientIdRef.current) {
               return
@@ -593,7 +885,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
             return
           }
 
-          if (payload.type === WHITEBOARD_UNDO_TOPIC) {
+          if (type === WHITEBOARD_UNDO_TOPIC) {
             const undo = readUndoPayload(actualPayload)
             if (!undo || undo.clientId === localClientIdRef.current) {
               return
@@ -603,7 +895,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
             return
           }
 
-          if (payload.type === WHITEBOARD_CLEAR_TOPIC) {
+          if (type === WHITEBOARD_CLEAR_TOPIC) {
             setStrokes([])
             setCurrentStroke(null)
             setRemoteInProgressStrokes({})
@@ -648,6 +940,128 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
       setRemoteInProgressStrokes({})
     }
   }, [instance?.wsPath])
+
+  useEffect(() => {
+    if (!instance?.id) {
+      return
+    }
+
+    const chatWsPath = buildChatWsPath(instance.id)
+    const resolvedChatWsUrl = resolveWsUrl(chatWsPath)
+    if (!resolvedChatWsUrl) {
+      console.warn('[MapInstancePage] Unable to resolve chat websocket url', {
+        chatWsPath,
+        apiBaseUrl: getApiBaseUrl(),
+      })
+      return
+    }
+
+    let destroyed = false
+    const clearReconnectTimer = () => {
+      if (chatReconnectTimerRef.current !== null) {
+        window.clearTimeout(chatReconnectTimerRef.current)
+        chatReconnectTimerRef.current = null
+      }
+    }
+
+    const connect = () => {
+      let ws: WebSocket
+      try {
+        ws = new WebSocket(resolvedChatWsUrl)
+      } catch {
+        return
+      }
+
+      chatWsRef.current = ws
+      queueMicrotask(() => {
+        setChatWsConnected(false)
+      })
+
+      ws.onopen = () => {
+        chatReconnectAttemptRef.current = 0
+        clearReconnectTimer()
+        setChatWsConnected(true)
+      }
+      ws.onclose = (event) => {
+        setChatWsConnected(false)
+        if (chatWsRef.current === ws) {
+          chatWsRef.current = null
+        }
+        console.warn('[MapInstancePage] Chat WebSocket closed', {
+          chatWsPath,
+          resolvedChatWsUrl,
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+        })
+        if (destroyed) {
+          return
+        }
+        const retryDelay =
+          WS_RECONNECT_BACKOFF_MS[
+            Math.min(chatReconnectAttemptRef.current, WS_RECONNECT_BACKOFF_MS.length - 1)
+          ]
+        chatReconnectAttemptRef.current += 1
+        clearReconnectTimer()
+        chatReconnectTimerRef.current = window.setTimeout(() => {
+          connect()
+        }, retryDelay)
+      }
+      ws.onerror = () => {
+        setChatWsConnected(false)
+        console.warn('[MapInstancePage] Chat WebSocket connection error', {
+          chatWsPath,
+          resolvedChatWsUrl,
+        })
+      }
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data as string) as {
+            type?: string
+            payload?: unknown
+            data?: unknown
+          }
+          const type = resolveEventType(payload as unknown as Record<string, unknown>)
+          const actualPayload = payload.payload ?? payload.data ?? payload
+          const isChatHistoryType =
+            CHAT_HISTORY_TOPIC_ALIASES.has(type) || type.startsWith('chat.history')
+          const isChatMessageType =
+            CHAT_MESSAGE_TOPIC_ALIASES.has(type) ||
+            type.startsWith('chat.message') ||
+            type.startsWith('chat.send')
+
+          if (isChatHistoryType || isChatMessageType || !type) {
+            const chatItems = readChatMessagesPayload(actualPayload).map((item) => ({
+              ...item,
+              isLocal: isLocalChatMessage(
+                item,
+                localClientIdRef.current,
+                localDisplayNameRef.current
+              ),
+            }))
+            appendChatMessages(chatItems, { countUnread: !isChatHistoryType })
+          }
+        } catch {
+          // Ignore non-JSON messages.
+        }
+      }
+    }
+
+    chatReconnectAttemptRef.current = 0
+    clearReconnectTimer()
+    connect()
+
+    return () => {
+      destroyed = true
+      clearReconnectTimer()
+      const ws = chatWsRef.current
+      if (ws) {
+        ws.close()
+      }
+      chatWsRef.current = null
+      setChatWsConnected(false)
+    }
+  }, [appendChatMessages, instance?.id])
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -708,9 +1122,19 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   const sendWsMessage = (message: Record<string, unknown>) => {
     const ws = wsRef.current
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      return
+      return false
     }
     ws.send(JSON.stringify(message))
+    return true
+  }
+
+  const sendChatWsMessage = (message: Record<string, unknown>) => {
+    const ws = chatWsRef.current
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      return false
+    }
+    ws.send(JSON.stringify(message))
+    return true
   }
 
   const clearAppendTimer = useCallback(() => {
@@ -1074,6 +1498,35 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     })
   }
 
+  const sendChatMessage = () => {
+    const text = chatInput.trim()
+    if (!text) {
+      return
+    }
+
+    const sent = sendChatWsMessage({
+      senderName: localDisplayNameRef.current,
+      content: text,
+    })
+
+    setChatInput('')
+    if (sent) {
+      return
+    }
+
+    const localFailedMessage: ChatMessage = {
+      id: `chat-failed-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      clientId: localClientIdRef.current,
+      text,
+      displayName: localDisplayNameRef.current,
+      sentAt: Date.now(),
+      isLocal: true,
+      failed: true,
+    }
+    chatMessageIdsRef.current.add(localFailedMessage.id)
+    setChatMessages((prev) => [...prev, localFailedMessage].slice(-CHAT_MAX_MESSAGES))
+  }
+
   const copyInstanceId = async () => {
     const value = instance?.id ?? instanceId
     if (!value) {
@@ -1201,19 +1654,37 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   }
 
   return (
-    <main className="app-page box-border h-screen overflow-hidden px-2 pb-2 pt-14 md:px-3 md:pb-3 md:pt-16">
+    <main className="app-page box-border h-screen h-[100dvh] overflow-hidden px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-14 md:h-screen md:px-3 md:pb-3 md:pt-16">
       <section className="mx-auto flex h-full w-full max-w-none flex-col gap-2">
         <div className="panel flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-slate-200 md:hidden">
           <span className="truncate">
             {t('mapInstance.instanceId')}: {instance?.id ?? instanceId}
           </span>
-          <button
-            type="button"
-            onClick={() => setMobileDrawerOpen(true)}
-            className="btn-base min-h-8 rounded-lg border border-slate-500/70 bg-slate-700/45 px-3 py-1 text-xs text-slate-100"
-          >
-            {t('mapInstance.tools')}
-          </button>
+          <div className="hidden items-center gap-1 sm:flex">
+            {renderConnectionBadge(t('mapInstance.instanceConnection'), wsConnected)}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={toggleChatVisibility}
+              className="btn-base relative min-h-8 rounded-lg border border-amber-300/45 bg-amber-500/15 px-2.5 py-1 text-xs text-amber-100"
+            >
+              <FiMessageSquare />
+              <span>{chatVisible ? t('mapInstance.hideChat') : t('mapInstance.showChat')}</span>
+              {chatUnread > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 min-w-4 rounded-full bg-amber-400 px-1 text-[10px] font-semibold text-slate-900">
+                  {chatUnread > 99 ? '99+' : chatUnread}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileDrawerOpen(true)}
+              className="btn-base min-h-8 rounded-lg border border-slate-500/70 bg-slate-700/45 px-3 py-1 text-xs text-slate-100"
+            >
+              {t('mapInstance.tools')}
+            </button>
+          </div>
         </div>
 
         <div className="panel hidden flex-wrap items-center gap-3 px-3 py-2 text-sm text-slate-200 md:flex">
@@ -1233,10 +1704,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
           <span>
             {t('mapInstance.mapId')}: {instance?.mapId ?? '-'}
           </span>
-          <span>
-            {t('mapInstance.wsStatus')}:{' '}
-            {wsConnected ? t('mapInstance.connected') : t('mapInstance.disconnected')}
-          </span>
+          {renderConnectionBadge(t('mapInstance.instanceConnection'), wsConnected)}
           <span>
             {t('mapInstance.zoom')}: {Math.round(viewport.scale * 100)}%
           </span>
@@ -1280,6 +1748,19 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
           </div>
           <button
             type="button"
+            onClick={toggleChatVisibility}
+            className="btn-base relative rounded-lg border border-amber-300/45 bg-amber-500/15 px-3 py-1.5 text-amber-100 hover:bg-amber-400/25"
+          >
+            <FiMessageSquare />
+            <span>{chatVisible ? t('mapInstance.hideChat') : t('mapInstance.showChat')}</span>
+            {chatUnread > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 min-w-4 rounded-full bg-amber-400 px-1 text-[10px] font-semibold text-slate-900">
+                {chatUnread > 99 ? '99+' : chatUnread}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
             onClick={() => fitViewportToContent(contentSize.width, contentSize.height)}
             className="btn-base rounded-lg border border-amber-300/45 bg-amber-500/15 px-3 py-1.5 text-amber-100 hover:bg-amber-400/25"
           >
@@ -1309,6 +1790,10 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
           </button>
         </div>
 
+        <div className="panel px-3 py-1.5 text-[11px] text-slate-300">
+          {t('mapInstance.panHint')}
+        </div>
+
         <div
           className={`fixed inset-0 z-40 md:hidden ${mobileDrawerOpen ? '' : 'pointer-events-none'}`}
         >
@@ -1319,7 +1804,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
             className={`absolute inset-0 bg-black/45 transition-opacity ${mobileDrawerOpen ? 'opacity-100' : 'opacity-0'}`}
           />
           <div
-            className={`absolute inset-x-0 bottom-0 rounded-t-3xl border border-slate-600 bg-[#0f172a] px-4 pb-5 pt-4 transition-transform duration-200 ${mobileDrawerOpen ? 'translate-y-0' : 'translate-y-full'}`}
+            className={`absolute inset-x-2 top-14 max-h-[calc(100dvh-4.5rem)] overflow-y-auto rounded-2xl border border-slate-600 bg-[#0f172a] px-4 pb-5 pt-4 transition-all duration-200 ${mobileDrawerOpen ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'}`}
           >
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm font-semibold text-slate-100">{t('mapInstance.tools')}</p>
@@ -1342,10 +1827,9 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
               <p>
                 {t('mapInstance.zoom')}: {Math.round(viewport.scale * 100)}%
               </p>
-              <p>
-                {t('mapInstance.wsStatus')}:{' '}
-                {wsConnected ? t('mapInstance.connected') : t('mapInstance.disconnected')}
-              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {renderConnectionBadge(t('mapInstance.instanceConnection'), wsConnected)}
+              </div>
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -1355,6 +1839,13 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
                 className="btn-base min-h-8 rounded-lg border border-amber-300/45 bg-amber-400/15 px-3 py-1.5 text-xs text-amber-100"
               >
                 {copied ? t('mapInstance.copied') : t('mapInstance.copyId')}
+              </button>
+              <button
+                type="button"
+                onClick={toggleChatVisibility}
+                className="btn-base min-h-8 rounded-lg border border-amber-300/45 bg-amber-500/15 px-3 py-1.5 text-xs text-amber-100"
+              >
+                {chatVisible ? t('mapInstance.hideChat') : t('mapInstance.showChat')}
               </button>
               <button
                 type="button"
@@ -1442,60 +1933,158 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
         )}
 
         {!loading && (
-          <div
-            ref={containerRef}
-            className="relative min-h-0 flex-1 w-full touch-none overflow-hidden rounded-2xl border border-slate-600 bg-[#0b1220] select-none"
-            onContextMenu={(event) => event.preventDefault()}
-            onDragStart={(event) => event.preventDefault()}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
-            onPointerLeave={onPointerLeave}
-          >
+          <div className="flex min-h-0 flex-1 flex-col gap-2 md:flex-row">
             <div
-              className="absolute left-0 top-0 select-none"
+              ref={containerRef}
+              className="relative min-h-[52vh] min-w-0 flex-1 touch-none overflow-hidden rounded-2xl border border-slate-600 bg-[#0b1220] select-none md:min-h-0"
+              onContextMenu={(event) => event.preventDefault()}
               onDragStart={(event) => event.preventDefault()}
-              style={{
-                width: `${contentSize.width}px`,
-                height: `${contentSize.height}px`,
-                transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
-                transformOrigin: '0 0',
-              }}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
+              onPointerLeave={onPointerLeave}
             >
-              {mapUrl ? (
-                <img
-                  src={mapUrl}
-                  alt={instance?.mapId ? `${t('mapInstance.mapId')} ${instance.mapId}` : 'map'}
-                  className="pointer-events-none block h-full w-full select-none object-contain"
-                  draggable={false}
-                  onDragStart={(event) => event.preventDefault()}
-                  onLoad={(event) => {
-                    const image = event.currentTarget
-                    const nextWidth = image.naturalWidth || DEFAULT_CANVAS_WIDTH
-                    const nextHeight = image.naturalHeight || DEFAULT_CANVAS_HEIGHT
-                    setContentSize({
-                      width: nextWidth,
-                      height: nextHeight,
-                    })
-                    fitViewportToContent(nextWidth, nextHeight)
-                  }}
-                />
-              ) : (
-                <div className="grid h-full w-full place-items-center bg-[linear-gradient(120deg,#0f172a,#1f2937)] text-slate-100/80">
-                  {t('mapInstance.noMapBackground')}
-                </div>
-              )}
-              <svg
-                className="absolute inset-0 pointer-events-none"
-                viewBox={`0 0 ${contentSize.width} ${contentSize.height}`}
-                preserveAspectRatio="none"
+              <div
+                className="absolute left-0 top-0 select-none"
+                onDragStart={(event) => event.preventDefault()}
+                style={{
+                  width: `${contentSize.width}px`,
+                  height: `${contentSize.height}px`,
+                  transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
+                  transformOrigin: '0 0',
+                }}
               >
-                {renderedStrokes}
-                {renderedRemoteInProgressStrokes}
-                {renderedRemoteCursors}
-              </svg>
+                {mapUrl ? (
+                  <img
+                    src={mapUrl}
+                    alt={instance?.mapId ? `${t('mapInstance.mapId')} ${instance.mapId}` : 'map'}
+                    className="pointer-events-none block h-full w-full select-none object-contain"
+                    draggable={false}
+                    onDragStart={(event) => event.preventDefault()}
+                    onLoad={(event) => {
+                      const image = event.currentTarget
+                      const nextWidth = image.naturalWidth || DEFAULT_CANVAS_WIDTH
+                      const nextHeight = image.naturalHeight || DEFAULT_CANVAS_HEIGHT
+                      setContentSize({
+                        width: nextWidth,
+                        height: nextHeight,
+                      })
+                      fitViewportToContent(nextWidth, nextHeight)
+                    }}
+                  />
+                ) : (
+                  <div className="grid h-full w-full place-items-center bg-[linear-gradient(120deg,#0f172a,#1f2937)] text-slate-100/80">
+                    {t('mapInstance.noMapBackground')}
+                  </div>
+                )}
+                <svg
+                  className="absolute inset-0 pointer-events-none"
+                  viewBox={`0 0 ${contentSize.width} ${contentSize.height}`}
+                  preserveAspectRatio="none"
+                >
+                  {renderedStrokes}
+                  {renderedRemoteInProgressStrokes}
+                  {renderedRemoteCursors}
+                </svg>
+              </div>
             </div>
+
+            {chatVisible && (
+              <>
+                <button
+                  type="button"
+                  aria-label={t('mapInstance.closeChat')}
+                  onClick={() => setChatVisible(false)}
+                  className="fixed inset-0 z-40 bg-black/45 md:hidden"
+                />
+                <aside className="panel fixed inset-x-2 top-16 bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-50 flex min-h-0 flex-col overflow-hidden md:static md:inset-auto md:z-auto md:w-[22rem] md:max-w-[42vw] md:shrink-0">
+                  <div className="flex items-center justify-between border-b border-slate-700/70 px-3 py-2">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-100">{t('mapInstance.chat')}</p>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {renderConnectionBadge(t('mapInstance.chatConnection'), chatWsConnected)}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setChatVisible(false)}
+                      className="btn-base min-h-7 rounded-lg border border-slate-500/70 bg-slate-700/45 px-2.5 py-1 text-[11px] text-slate-100 md:hidden"
+                    >
+                      {t('mapInstance.closeChat')}
+                    </button>
+                  </div>
+
+                  <div
+                    ref={chatScrollRef}
+                    className="scrollbar-tactical flex-1 space-y-2 overflow-auto px-2.5 py-2.5"
+                  >
+                    {chatMessages.length === 0 && (
+                      <p className="rounded-lg border border-slate-700/70 bg-slate-900/70 px-3 py-2 text-xs text-slate-400">
+                        {t('mapInstance.chatEmpty')}
+                      </p>
+                    )}
+
+                    {chatMessages.map((item) => (
+                      <div
+                        key={item.id}
+                        className={`flex ${item.isLocal ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={[
+                            'max-w-[92%] rounded-lg border px-2.5 py-2',
+                            item.isLocal
+                              ? 'border-amber-300/45 bg-amber-500/14 text-amber-50'
+                              : 'border-slate-600/80 bg-slate-800/75 text-slate-100',
+                          ].join(' ')}
+                        >
+                          <p className="text-[11px] text-slate-300/80">
+                            {item.isLocal ? t('mapInstance.you') : item.displayName}
+                          </p>
+                          <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-5">
+                            {item.text}
+                          </p>
+                          <p className="mt-1 text-right text-[10px] text-slate-400">
+                            {formatChatTime(item.sentAt)}
+                            {item.failed ? ` · ${t('mapInstance.chatSendFailed')}` : ''}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="border-t border-slate-700/70 p-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] md:pb-2.5">
+                    <div className="ios-input flex items-center gap-2 px-2 py-1.5">
+                      <input
+                        value={chatInput}
+                        onChange={(event) => setChatInput(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' && !event.shiftKey) {
+                            event.preventDefault()
+                            sendChatMessage()
+                          }
+                        }}
+                        placeholder={t('mapInstance.chatPlaceholder')}
+                        className="h-8 flex-1 bg-transparent px-1 text-sm text-slate-100 outline-none placeholder:text-slate-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={sendChatMessage}
+                        className="btn-base min-h-8 rounded-lg border border-amber-300/45 bg-amber-500/14 px-2.5 py-1 text-xs text-amber-100"
+                      >
+                        <FiSend />
+                        <span>{t('mapInstance.sendMessage')}</span>
+                      </button>
+                    </div>
+                    {!chatWsConnected && (
+                      <p className="mt-2 text-[11px] text-amber-200/80">
+                        {t('mapInstance.chatOfflineHint')}
+                      </p>
+                    )}
+                  </div>
+                </aside>
+              </>
+            )}
           </div>
         )}
       </section>

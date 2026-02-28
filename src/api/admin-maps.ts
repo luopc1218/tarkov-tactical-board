@@ -113,7 +113,6 @@ export const listAdminMaps = () => {
 export const createAdminMap = (payload: AdminMapUpsertRequest) => {
   return http
     .post<AdminMapApiItem>('/admin/maps', {
-      code: payload.code,
       nameZh: payload.nameZh,
       nameEn: payload.nameEn,
       bannerPath: payload.bannerPath,
@@ -131,7 +130,6 @@ export const createAdminMap = (payload: AdminMapUpsertRequest) => {
 export const updateAdminMap = (id: number, payload: AdminMapUpsertRequest) => {
   return http
     .put<AdminMapApiItem>(`/admin/maps/${id}`, {
-      code: payload.code,
       nameZh: payload.nameZh,
       nameEn: payload.nameEn,
       bannerPath: payload.bannerPath,

@@ -11,7 +11,6 @@ interface AdminMapsPageProps {
 }
 
 const EMPTY_FORM: AdminMapUpsertRequest = {
-  code: '',
   nameZh: '',
   nameEn: '',
   bannerPath: '',
@@ -32,7 +31,6 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
 
   const canSubmit = useMemo(() => {
     return Boolean(
-      form.code.trim() &&
       form.nameZh.trim() &&
       form.nameEn.trim() &&
       (form.bannerPath ?? '').trim() &&
@@ -64,7 +62,6 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
   const openEditModal = (item: AdminMap) => {
     setEditingMap(item)
     setForm({
-      code: item.code ?? '',
       nameZh: item.nameZh ?? '',
       nameEn: item.nameEn ?? '',
       bannerPath: item.bannerPath ?? item.bannerUrl ?? '',
@@ -86,7 +83,6 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
     }
 
     const payload: AdminMapUpsertRequest = {
-      code: form.code.trim(),
       nameZh: form.nameZh.trim(),
       nameEn: form.nameEn.trim(),
       bannerPath: form.bannerPath.trim(),
@@ -166,12 +162,11 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
     >
       <div className="flex h-full min-h-0 flex-col gap-4">
         <div className="scrollbar-tactical min-h-0 flex-1 overflow-auto rounded-xl border border-slate-600/70">
-          <table className="w-full min-w-[980px] text-left text-sm">
+          <table className="w-full min-w-[860px] text-left text-sm">
             <thead className="sticky top-0 z-10 bg-slate-900/98 text-slate-200 backdrop-blur">
               <tr>
                 <th className="px-4 py-3">ID</th>
                 <th className="px-4 py-3">{t('admin.banner')}</th>
-                <th className="px-4 py-3">{t('admin.mapCode')}</th>
                 <th className="px-4 py-3">{t('admin.mapNameZh')}</th>
                 <th className="px-4 py-3">{t('admin.mapNameEn')}</th>
                 <th className="px-4 py-3">{t('admin.actions')}</th>
@@ -180,7 +175,7 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-300">
+                  <td colSpan={5} className="px-4 py-8 text-center text-slate-300">
                     {t('common.loading')}
                   </td>
                 </tr>
@@ -188,7 +183,7 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
 
               {!loading && maps.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-300">
+                  <td colSpan={5} className="px-4 py-8 text-center text-slate-300">
                     {t('admin.mapsEmpty')}
                   </td>
                 </tr>
@@ -206,7 +201,7 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
                           {bannerPreview ? (
                             <img
                               src={bannerPreview}
-                              alt={item.code}
+                              alt={item.nameEn || item.nameZh || `map-${item.id}`}
                               className="h-full w-full object-cover"
                             />
                           ) : (
@@ -216,7 +211,6 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-white">{item.code}</td>
                       <td className="px-4 py-3 text-white">{item.nameZh}</td>
                       <td className="px-4 py-3 text-white">{item.nameEn}</td>
                       <td className="px-4 py-3">
@@ -255,16 +249,7 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
             <p className="mt-1 text-sm text-slate-300">{t('admin.mapFormHint')}</p>
 
             <div className="mt-5 grid gap-4">
-              <div className="grid gap-3 md:grid-cols-3">
-                <label className="space-y-1.5">
-                  <span className="text-xs font-medium text-slate-300">{t('admin.mapCode')}</span>
-                  <input
-                    value={form.code}
-                    onChange={(event) => setForm((prev) => ({ ...prev, code: event.target.value }))}
-                    placeholder={t('admin.mapCode')}
-                    className="w-full rounded-xl border border-slate-600 bg-slate-950/70 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:border-amber-400"
-                  />
-                </label>
+              <div className="grid gap-3 md:grid-cols-2">
                 <label className="space-y-1.5">
                   <span className="text-xs font-medium text-slate-300">{t('admin.mapNameZh')}</span>
                   <input
@@ -344,7 +329,9 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
           <div className="w-full max-w-md rounded-2xl border border-slate-600 bg-slate-900 p-6 shadow-[0_18px_40px_rgba(0,0,0,0.42)]">
             <h2 className="text-xl font-semibold text-white">{t('admin.confirmDeleteTitle')}</h2>
             <p className="mt-2 text-sm text-slate-300">
-              {t('admin.confirmDeleteDesc', { code: pendingDeleteMap.code })}
+              {t('admin.confirmDeleteDesc', {
+                mapName: pendingDeleteMap.nameZh || pendingDeleteMap.nameEn || pendingDeleteMap.id,
+              })}
             </p>
 
             <div className="mt-6 flex justify-end gap-2">

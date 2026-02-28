@@ -11,7 +11,7 @@ export interface LoginResponse {
 
 export interface AdminMap {
   id: number
-  code: string
+  code?: string
   nameZh: string
   nameEn: string
   bannerPath: string
@@ -21,7 +21,6 @@ export interface AdminMap {
 }
 
 export interface AdminMapUpsertRequest {
-  code: string
   nameZh: string
   nameEn: string
   bannerPath: string
