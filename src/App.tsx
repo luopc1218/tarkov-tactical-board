@@ -5,6 +5,7 @@ import { loginAdmin } from './api/admin-auth'
 import { createWhiteboardInstance } from './api/whiteboard'
 import { ApiSettingsDialog } from './components/ApiSettingsDialog'
 import { isAdminAuthenticated, setAdminAuthenticated } from './features/admin-auth'
+import { saveRecentInstance } from './features/recent-instances'
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
 import { AdminInstancesPage } from './pages/admin/AdminInstancesPage'
 import { AdminLoginPage } from './pages/admin/AdminLoginPage'
@@ -270,8 +271,12 @@ function App() {
     navigateTo(ROUTES.adminDashboard)
   }, [adminLoggedIn, route.name])
 
-  const handleCreateInstance = async (mapId: number) => {
-    const instance = await createWhiteboardInstance(mapId)
+  const handleCreateInstance = async (payload: { mapId: number; mapName: string }) => {
+    const instance = await createWhiteboardInstance(payload.mapId)
+    saveRecentInstance({
+      instanceId: instance.id,
+      mapName: payload.mapName,
+    })
     navigateTo(buildMapInstancePath(instance.id))
   }
 
@@ -295,7 +300,8 @@ function App() {
       const safeRedirect =
         redirect && redirect.startsWith('/admin') ? redirect : ROUTES.adminDashboard
       navigateTo(safeRedirect)
-    } catch {
+    } catch (error) {
+      console.warn('[App] Admin login failed', error)
     } finally {
       setAdminLoginLoading(false)
     }

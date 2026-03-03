@@ -209,3 +209,7 @@ export const listAdminWhiteboardInstances = ({
 export const deleteAdminWhiteboardInstance = (instanceId: string) => {
   return http.delete<void>(`/admin/whiteboard/instances/${encodeURIComponent(instanceId)}`)
 }
+
+export const clearAllAdminWhiteboardInstances = () => {
+  return http.delete<void>('/admin/whiteboard/instances')
+}

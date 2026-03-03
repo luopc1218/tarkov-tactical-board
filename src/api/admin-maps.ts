@@ -6,6 +6,8 @@ interface AdminMapApiItem {
   code?: string
   nameZh?: string
   nameEn?: string
+  sortOrder?: string | number
+  sort_order?: string | number
   name_zh?: string
   name_en?: string
   bannerObjectName?: string
@@ -38,6 +40,21 @@ const readString = (...values: Array<string | undefined>) => {
     }
   }
   return ''
+}
+
+const readNumber = (...values: Array<string | number | undefined>) => {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value
+    }
+    if (typeof value === 'string' && value.trim()) {
+      const parsed = Number(value)
+      if (Number.isFinite(parsed)) {
+        return parsed
+      }
+    }
+  }
+  return undefined
 }
 
 const normalizeAdminMap = (item: AdminMapApiItem): AdminMap | null => {
@@ -74,6 +91,7 @@ const normalizeAdminMap = (item: AdminMapApiItem): AdminMap | null => {
     code: readString(item.code),
     nameZh: readString(item.nameZh, item.name_zh),
     nameEn: readString(item.nameEn, item.name_en),
+    sortOrder: readNumber(item.sortOrder, item.sort_order),
     bannerPath,
     bannerUrl,
     mapPath,
@@ -106,7 +124,15 @@ export const listAdminMaps = () => {
   return http.get<unknown>('/admin/maps').then((payload) =>
     extractAdminMapItems(payload)
       .map(normalizeAdminMap)
-      .filter((item): item is AdminMap => item !== null),
+      .filter((item): item is AdminMap => item !== null)
+      .sort((a, b) => {
+        const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : Number.MAX_SAFE_INTEGER
+        const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : Number.MAX_SAFE_INTEGER
+        if (aOrder !== bOrder) {
+          return aOrder - bOrder
+        }
+        return a.id - b.id
+      }),
   )
 }
 
@@ -146,4 +172,20 @@ export const updateAdminMap = (id: number, payload: AdminMapUpsertRequest) => {
 
 export const deleteAdminMap = (id: number) => {
   return http.delete<void>(`/admin/maps/${id}`)
+}
+
+export const reorderAdminMaps = (mapIds: number[]) => {
+  return http.put<unknown>('/admin/maps/order', { mapIds }).then((payload) =>
+    extractAdminMapItems(payload)
+      .map(normalizeAdminMap)
+      .filter((item): item is AdminMap => item !== null)
+      .sort((a, b) => {
+        const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : Number.MAX_SAFE_INTEGER
+        const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : Number.MAX_SAFE_INTEGER
+        if (aOrder !== bOrder) {
+          return aOrder - bOrder
+        }
+        return a.id - b.id
+      }),
+  )
 }

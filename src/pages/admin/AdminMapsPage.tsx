@@ -1,6 +1,13 @@
 import { type ChangeEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { FiArrowDown, FiArrowUp } from 'react-icons/fi'
 import { useTranslation } from 'react-i18next'
-import { createAdminMap, deleteAdminMap, listAdminMaps, updateAdminMap } from '../../api/admin-maps'
+import {
+  createAdminMap,
+  deleteAdminMap,
+  listAdminMaps,
+  reorderAdminMaps,
+  updateAdminMap,
+} from '../../api/admin-maps'
 import { resolveImagePath } from '../../api/files'
 import type { AdminMap, AdminMapUpsertRequest } from '../../types/admin'
 import { AdminShell } from './AdminShell'
@@ -27,6 +34,7 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
   const [form, setForm] = useState<AdminMapUpsertRequest>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [movingId, setMovingId] = useState<number | null>(null)
   const [pendingDeleteMap, setPendingDeleteMap] = useState<AdminMap | null>(null)
 
   const canSubmit = useMemo(() => {
@@ -43,7 +51,8 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
       setLoading(true)
       const data = await listAdminMaps()
       setMaps(data)
-    } catch {
+    } catch (error) {
+      console.warn('[AdminMapsPage] Load maps failed', error)
     } finally {
       setLoading(false)
     }
@@ -101,7 +110,8 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
       }
 
       closeModal()
-    } catch {
+    } catch (error) {
+      console.warn('[AdminMapsPage] Submit map failed', error)
       setSaving(false)
     }
   }
@@ -111,7 +121,8 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
       setDeletingId(id)
       await deleteAdminMap(id)
       setMaps((prev) => prev.filter((item) => item.id !== id))
-    } catch {
+    } catch (error) {
+      console.warn('[AdminMapsPage] Delete map failed', error)
     } finally {
       setDeletingId(null)
     }
@@ -132,6 +143,32 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
 
     await handleDelete(pendingDeleteMap.id)
     setPendingDeleteMap(null)
+  }
+
+  const handleMove = async (id: number, direction: 'up' | 'down') => {
+    const currentIndex = maps.findIndex((item) => item.id === id)
+    if (currentIndex < 0) {
+      return
+    }
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    if (targetIndex < 0 || targetIndex >= maps.length) {
+      return
+    }
+
+    const next = [...maps]
+    const [current] = next.splice(currentIndex, 1)
+    next.splice(targetIndex, 0, current)
+
+    try {
+      setMovingId(id)
+      const reordered = await reorderAdminMaps(next.map((item) => item.id))
+      setMaps(reordered.length > 0 ? reordered : next)
+    } catch (error) {
+      console.warn('[AdminMapsPage] Reorder maps failed', error)
+    } finally {
+      setMovingId(null)
+    }
   }
 
   return (
@@ -165,7 +202,7 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
           <table className="w-full min-w-[860px] text-left text-sm">
             <thead className="sticky top-0 z-10 bg-slate-900/98 text-slate-200 backdrop-blur">
               <tr>
-                <th className="px-4 py-3">ID</th>
+                <th className="px-4 py-3">{t('admin.id')}</th>
                 <th className="px-4 py-3">{t('admin.banner')}</th>
                 <th className="px-4 py-3">{t('admin.mapNameZh')}</th>
                 <th className="px-4 py-3">{t('admin.mapNameEn')}</th>
@@ -206,7 +243,7 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
                             />
                           ) : (
                             <div className="grid h-full w-full place-items-center text-[11px] text-slate-400">
-                              N/A
+                              {t('common.notAvailable')}
                             </div>
                           )}
                         </div>
@@ -215,6 +252,24 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
                       <td className="px-4 py-3 text-white">{item.nameEn}</td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void handleMove(item.id, 'up')}
+                            disabled={movingId !== null || maps[0]?.id === item.id}
+                            className="btn-outline inline-flex h-9 items-center gap-1 rounded-lg px-3 text-xs disabled:cursor-not-allowed disabled:opacity-55"
+                          >
+                            <FiArrowUp />
+                            {t('admin.moveUp')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleMove(item.id, 'down')}
+                            disabled={movingId !== null || maps[maps.length - 1]?.id === item.id}
+                            className="btn-outline inline-flex h-9 items-center gap-1 rounded-lg px-3 text-xs disabled:cursor-not-allowed disabled:opacity-55"
+                          >
+                            <FiArrowDown />
+                            {t('admin.moveDown')}
+                          </button>
                           <button
                             type="button"
                             onClick={() => openEditModal(item)}
@@ -276,7 +331,7 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="rounded-xl border border-slate-600/70 bg-slate-800/70 p-3">
-                  <p className="text-xs font-medium text-slate-300">Banner Path</p>
+                  <p className="text-xs font-medium text-slate-300">{t('admin.bannerPath')}</p>
                   <input
                     value={form.bannerPath}
                     onChange={(event: ChangeEvent<HTMLInputElement>) =>
@@ -285,11 +340,10 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
                     placeholder="assets/images/tarkov-maps/banner/Banner_customs.png"
                     className="mt-2 w-full rounded-lg border border-slate-600 bg-slate-950/70 px-3 py-2 text-xs text-white placeholder:text-slate-500 outline-none focus:border-amber-400"
                   />
-                  <p className="text-xs text-slate-300 break-all">{form.bannerPath || '-'}</p>
                 </div>
 
                 <div className="rounded-xl border border-slate-600/70 bg-slate-800/70 p-3">
-                  <p className="text-xs font-medium text-slate-300">Map Path</p>
+                  <p className="text-xs font-medium text-slate-300">{t('admin.mapPath')}</p>
                   <input
                     value={form.mapPath}
                     onChange={(event: ChangeEvent<HTMLInputElement>) =>
@@ -298,7 +352,6 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
                     placeholder="assets/images/tarkov-maps/Customs.png"
                     className="mt-2 w-full rounded-lg border border-slate-600 bg-slate-950/70 px-3 py-2 text-xs text-white placeholder:text-slate-500 outline-none focus:border-amber-400"
                   />
-                  <p className="text-xs text-slate-300 break-all">{form.mapPath || '-'}</p>
                 </div>
               </div>
             </div>

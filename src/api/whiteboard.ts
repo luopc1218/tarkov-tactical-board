@@ -44,3 +44,15 @@ export const saveWhiteboardState = async (
 ): Promise<WhiteboardStateResponse> => {
   return http.put<WhiteboardStateResponse>(`/whiteboard/instances/${instanceId}/state`, { state })
 }
+
+export const switchWhiteboardMap = async (
+  instanceId: string,
+  mapId: number,
+  resetState = true,
+): Promise<MapInstance> => {
+  const response = await http.put<WhiteboardInstanceResponse>(
+    `/whiteboard/instances/${instanceId}/map`,
+    { mapId, resetState },
+  )
+  return normalizeInstance(response)
+}

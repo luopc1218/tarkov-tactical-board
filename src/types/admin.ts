@@ -14,6 +14,7 @@ export interface AdminMap {
   code?: string
   nameZh: string
   nameEn: string
+  sortOrder?: number
   bannerPath: string
   bannerUrl: string
   mapPath: string

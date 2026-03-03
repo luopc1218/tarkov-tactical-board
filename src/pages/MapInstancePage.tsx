@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FiCopy, FiMessageSquare, FiSend } from 'react-icons/fi'
+import type { TarkovMapPreset } from '../constants/maps'
 import { fetchMapPresets } from '../api/maps'
-import { getWhiteboardInstance, getWhiteboardState, saveWhiteboardState } from '../api/whiteboard'
+import {
+  getWhiteboardInstance,
+  getWhiteboardState,
+  saveWhiteboardState,
+  switchWhiteboardMap,
+} from '../api/whiteboard'
+import { saveRecentInstance } from '../features/recent-instances'
 import { getApiBaseUrl } from '../lib/runtime-config'
 import type { MapInstance } from '../types/map-instance'
 
@@ -64,6 +71,7 @@ const WHITEBOARD_CLEAR_TOPIC = 'board.clear'
 const WHITEBOARD_UNDO_TOPIC = 'stroke.undo'
 const WHITEBOARD_CURSOR_MOVE_TOPIC = 'cursor.move'
 const WHITEBOARD_CURSOR_LEAVE_TOPIC = 'cursor.leave'
+const WHITEBOARD_MAP_CHANGED_TOPIC = 'map.changed'
 const CHAT_MESSAGE_TOPIC = 'chat.message'
 const CHAT_HISTORY_TOPIC = 'chat.history'
 const STROKE_APPEND_INTERVAL_MS = 40
@@ -321,6 +329,25 @@ const readStrokeStreamPayload = (
   }
 }
 
+const readMapChangedPayload = (
+  payload: unknown
+): { mapId: number; resetState: boolean } | null => {
+  if (!payload || typeof payload !== 'object') {
+    return null
+  }
+
+  const source = payload as Record<string, unknown>
+  const rawMapId = Number(source.mapId ?? source.map_id)
+  if (!Number.isFinite(rawMapId) || rawMapId <= 0) {
+    return null
+  }
+
+  return {
+    mapId: rawMapId,
+    resetState: source.resetState === undefined ? true : Boolean(source.resetState),
+  }
+}
+
 const readString = (value: unknown): string | null => {
   if (typeof value !== 'string') {
     return null
@@ -491,9 +518,13 @@ const copyText = async (value: string): Promise<boolean> => {
 }
 
 export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const isZhLanguage = (i18n.resolvedLanguage ?? i18n.language ?? '').startsWith('zh')
   const [instance, setInstance] = useState<MapInstance | null>(null)
   const [loading, setLoading] = useState(true)
+  const [mapPresets, setMapPresets] = useState<TarkovMapPreset[]>([])
+  const [switchingMap, setSwitchingMap] = useState(false)
+  const [selectedMapId, setSelectedMapId] = useState<number | null>(null)
   const [mapUrl, setMapUrl] = useState<string | undefined>(undefined)
   const [strokes, setStrokes] = useState<Stroke[]>([])
   const [currentStroke, setCurrentStroke] = useState<Stroke | null>(null)
@@ -550,9 +581,6 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
 
   useEffect(() => {
     chatVisibleRef.current = chatVisible
-    if (chatVisible) {
-      setChatUnread(0)
-    }
   }, [chatVisible])
 
   useEffect(() => {
@@ -574,10 +602,12 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   }, [chatMessages, chatVisible])
 
   useEffect(() => {
-    setChatVisible(false)
-    setChatInput('')
-    setChatUnread(0)
-    setChatMessages([])
+    queueMicrotask(() => {
+      setChatVisible(false)
+      setChatInput('')
+      setChatUnread(0)
+      setChatMessages([])
+    })
     chatMessageIdsRef.current.clear()
     if (instanceId) {
       localDisplayNameRef.current = createChatSenderName()
@@ -618,7 +648,11 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
 
   const toggleChatVisibility = () => {
     setMobileDrawerOpen(false)
-    setChatVisible((prev) => !prev)
+    const nextVisible = !chatVisibleRef.current
+    if (nextVisible) {
+      setChatUnread(0)
+    }
+    setChatVisible(nextVisible)
   }
 
   const formatChatTime = (timestamp: number) => {
@@ -641,6 +675,64 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
       <span>{connected ? t('mapInstance.connected') : t('mapInstance.disconnected')}</span>
     </span>
   )
+
+  const resolveMapLabel = useCallback(
+    (mapId: number | null | undefined) => {
+      if (!mapId) {
+        return '-'
+      }
+      const matched = mapPresets.find((item) => item.mapId === mapId)
+      if (!matched) {
+        return String(mapId)
+      }
+      if (isZhLanguage) {
+        return matched.nameZh || matched.nameEn || matched.name
+      }
+      return matched.nameEn || matched.nameZh || matched.name
+    },
+    [isZhLanguage, mapPresets]
+  )
+
+  useEffect(() => {
+    if (!instance?.id || !instance?.mapId) {
+      return
+    }
+
+    saveRecentInstance({
+      instanceId: instance.id,
+      mapName: resolveMapLabel(instance.mapId),
+    })
+  }, [instance?.id, instance?.mapId, resolveMapLabel])
+
+  const handleSwitchMap = useCallback(() => {
+    if (!instance?.id || !selectedMapId || switchingMap) {
+      return
+    }
+    if (instance.mapId === selectedMapId) {
+      return
+    }
+
+    setSwitchingMap(true)
+    void switchWhiteboardMap(instance.id, selectedMapId, true)
+      .then((nextInstance) => {
+        setInstance((prev) => (prev ? { ...prev, mapId: nextInstance.mapId } : nextInstance))
+        setSelectedMapId(nextInstance.mapId ?? null)
+        setStrokes([])
+        setCurrentStroke(null)
+        setRemoteInProgressStrokes({})
+        localStrokeIdsRef.current.clear()
+      })
+      .catch((error) => {
+        console.warn('[MapInstancePage] Switch map failed', {
+          instanceId: instance.id,
+          targetMapId: selectedMapId,
+          error,
+        })
+      })
+      .finally(() => {
+        setSwitchingMap(false)
+      })
+  }, [instance, selectedMapId, switchingMap])
 
   useEffect(() => {
     if (!instanceId) {
@@ -679,9 +771,12 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     }
   }, [instanceId])
 
+  const currentMapId = instance?.mapId ?? null
+
   useEffect(() => {
-    if (!instance?.mapId) {
+    if (!instance?.id) {
       queueMicrotask(() => {
+        setMapPresets([])
         setMapUrl(undefined)
       })
       return
@@ -693,11 +788,13 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
         if (!active) {
           return
         }
-        const matched = presets.find((item) => item.mapId === instance.mapId)
+        setMapPresets(presets)
+        const matched = presets.find((item) => item.mapId === currentMapId)
         setMapUrl(matched?.mapUrl)
       })
       .catch(() => {
         if (active) {
+          setMapPresets([])
           setMapUrl(undefined)
         }
       })
@@ -705,6 +802,12 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     return () => {
       active = false
     }
+  }, [instance?.id, currentMapId])
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setSelectedMapId(instance?.mapId ?? null)
+    })
   }, [instance?.mapId])
 
   useEffect(() => {
@@ -788,6 +891,22 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
           }
           const type = resolveEventType(payload as unknown as Record<string, unknown>)
           const actualPayload = payload.payload ?? payload.data ?? payload
+
+          if (type === WHITEBOARD_MAP_CHANGED_TOPIC) {
+            const changed = readMapChangedPayload(actualPayload)
+            if (!changed) {
+              return
+            }
+            setInstance((prev) => (prev ? { ...prev, mapId: changed.mapId } : prev))
+            setSelectedMapId(changed.mapId)
+            if (changed.resetState) {
+              setStrokes([])
+              setCurrentStroke(null)
+              setRemoteInProgressStrokes({})
+              localStrokeIdsRef.current.clear()
+            }
+            return
+          }
 
           if (type === WHITEBOARD_CURSOR_LEAVE_TOPIC) {
             const leave = readCursorPayload(actualPayload)
@@ -1119,23 +1238,23 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     }
   }, [instance?.id, instance?.mapId, strokes])
 
-  const sendWsMessage = (message: Record<string, unknown>) => {
+  const sendWsMessage = useCallback((message: Record<string, unknown>) => {
     const ws = wsRef.current
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       return false
     }
     ws.send(JSON.stringify(message))
     return true
-  }
+  }, [])
 
-  const sendChatWsMessage = (message: Record<string, unknown>) => {
+  const sendChatWsMessage = useCallback((message: Record<string, unknown>) => {
     const ws = chatWsRef.current
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       return false
     }
     ws.send(JSON.stringify(message))
     return true
-  }
+  }, [])
 
   const clearAppendTimer = useCallback(() => {
     if (appendTimerRef.current !== null) {
@@ -1169,7 +1288,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
         width: stroke.width,
       },
     })
-  }, [clearAppendTimer])
+  }, [clearAppendTimer, sendWsMessage])
 
   const scheduleStrokeAppend = useCallback(() => {
     if (appendTimerRef.current !== null) {
@@ -1333,13 +1452,14 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     if (activePointerIdRef.current !== event.pointerId) {
       return
     }
-    if (pointerModeRef.current === 'pan' && panAnchorRef.current) {
-      const deltaX = event.clientX - panAnchorRef.current.x
-      const deltaY = event.clientY - panAnchorRef.current.y
+    const panAnchor = panAnchorRef.current
+    if (pointerModeRef.current === 'pan' && panAnchor) {
+      const deltaX = event.clientX - panAnchor.x
+      const deltaY = event.clientY - panAnchor.y
       setViewport((prev) => ({
         ...prev,
-        x: panAnchorRef.current!.startX + deltaX,
-        y: panAnchorRef.current!.startY + deltaY,
+        x: panAnchor.startX + deltaX,
+        y: panAnchor.startY + deltaY,
       }))
       return
     }
@@ -1482,7 +1602,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     sendWsMessage({ type: WHITEBOARD_CLEAR_TOPIC, payload: {} })
   }
 
-  const undoLastStroke = () => {
+  const undoLastStroke = useCallback(() => {
     const removed = strokes[strokes.length - 1]
     if (!removed) {
       return
@@ -1496,7 +1616,41 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
         clientId: localClientIdRef.current,
       },
     })
-  }
+  }, [sendWsMessage, strokes])
+
+  useEffect(() => {
+    const handleUndoHotkey = (event: KeyboardEvent) => {
+      const isUndoKey = (event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey
+      if (!isUndoKey || event.key.toLowerCase() !== 'z') {
+        return
+      }
+
+      const target = event.target as HTMLElement | null
+      if (target) {
+        const tagName = target.tagName
+        const isEditable =
+          target.isContentEditable ||
+          tagName === 'INPUT' ||
+          tagName === 'TEXTAREA' ||
+          tagName === 'SELECT'
+        if (isEditable) {
+          return
+        }
+      }
+
+      if (strokes.length === 0) {
+        return
+      }
+
+      event.preventDefault()
+      undoLastStroke()
+    }
+
+    window.addEventListener('keydown', handleUndoHotkey)
+    return () => {
+      window.removeEventListener('keydown', handleUndoHotkey)
+    }
+  }, [strokes.length, undoLastStroke])
 
   const sendChatMessage = () => {
     const text = chatInput.trim()
@@ -1702,8 +1856,42 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
             </button>
           </span>
           <span>
-            {t('mapInstance.mapId')}: {instance?.mapId ?? '-'}
+            {t('mapInstance.mapId')}: {instance?.mapId ?? '-'} · {resolveMapLabel(instance?.mapId)}
           </span>
+          <div className="inline-flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900/75 px-3 py-1.5">
+            <span className="text-xs text-slate-300">{t('mapInstance.switchMap')}</span>
+            <select
+              value={selectedMapId ?? ''}
+              onChange={(event) => {
+                const nextValue = Number(event.target.value)
+                setSelectedMapId(Number.isFinite(nextValue) ? nextValue : null)
+              }}
+              disabled={mapPresets.length === 0 || switchingMap}
+              className="h-8 min-w-[11rem] rounded-lg border border-slate-500/70 bg-slate-950/80 px-2 text-xs text-slate-100 outline-none disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              {mapPresets.length === 0 && (
+                <option value="">{t('mapInstance.switchMapEmpty')}</option>
+              )}
+              {mapPresets.map((item) => (
+                <option key={item.mapId} value={item.mapId}>
+                  {item.nameZh || item.nameEn || item.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={handleSwitchMap}
+              disabled={
+                switchingMap ||
+                mapPresets.length === 0 ||
+                !selectedMapId ||
+                selectedMapId === instance?.mapId
+              }
+              className="btn-base h-8 rounded-lg border border-amber-300/45 bg-amber-500/15 px-3 py-1.5 text-xs text-amber-100 disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              {switchingMap ? t('common.loading') : t('mapInstance.switchMapApply')}
+            </button>
+          </div>
           {renderConnectionBadge(t('mapInstance.instanceConnection'), wsConnected)}
           <span>
             {t('mapInstance.zoom')}: {Math.round(viewport.scale * 100)}%
@@ -1822,13 +2010,50 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
                 {t('mapInstance.instanceId')}: {instance?.id ?? instanceId}
               </p>
               <p>
-                {t('mapInstance.mapId')}: {instance?.mapId ?? '-'}
+                {t('mapInstance.mapId')}: {instance?.mapId ?? '-'} · {resolveMapLabel(instance?.mapId)}
               </p>
               <p>
                 {t('mapInstance.zoom')}: {Math.round(viewport.scale * 100)}%
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {renderConnectionBadge(t('mapInstance.instanceConnection'), wsConnected)}
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-xl border border-slate-600 bg-slate-900/75 p-3">
+              <p className="text-xs font-medium text-slate-300">{t('mapInstance.switchMap')}</p>
+              <div className="mt-2 grid gap-2">
+                <select
+                  value={selectedMapId ?? ''}
+                  onChange={(event) => {
+                    const nextValue = Number(event.target.value)
+                    setSelectedMapId(Number.isFinite(nextValue) ? nextValue : null)
+                  }}
+                  disabled={mapPresets.length === 0 || switchingMap}
+                  className="h-9 w-full rounded-lg border border-slate-500/70 bg-slate-950/80 px-2 text-xs text-slate-100 outline-none disabled:cursor-not-allowed disabled:opacity-55"
+                >
+                  {mapPresets.length === 0 && (
+                    <option value="">{t('mapInstance.switchMapEmpty')}</option>
+                  )}
+                  {mapPresets.map((item) => (
+                    <option key={item.mapId} value={item.mapId}>
+                      {item.nameZh || item.nameEn || item.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleSwitchMap}
+                  disabled={
+                    switchingMap ||
+                    mapPresets.length === 0 ||
+                    !selectedMapId ||
+                    selectedMapId === instance?.mapId
+                  }
+                  className="btn-base min-h-8 rounded-lg border border-amber-300/45 bg-amber-500/15 px-3 py-1.5 text-xs text-amber-100 disabled:cursor-not-allowed disabled:opacity-55"
+                >
+                  {switchingMap ? t('common.loading') : t('mapInstance.switchMapApply')}
+                </button>
               </div>
             </div>
 

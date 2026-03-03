@@ -38,7 +38,9 @@ export function AdminShell({
     <main className="app-page flex h-screen min-w-[1200px] flex-col overflow-hidden px-6 pb-6 pt-6">
       <div className="mb-4 flex w-full shrink-0 items-center justify-between">
         <div className="w-64 pl-1">
-          <p className="text-xs font-semibold tracking-[0.14em] text-slate-400">ADMIN</p>
+          <p className="text-xs font-semibold tracking-[0.14em] text-slate-400">
+            {t('admin.portal')}
+          </p>
           <p className="mt-1 text-sm text-slate-300">Tarkov Map Board</p>
         </div>
         <div className="h-9" />

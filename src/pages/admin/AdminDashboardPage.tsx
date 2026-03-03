@@ -45,12 +45,12 @@ export function AdminDashboardPage({ onNavigate, onLogout }: AdminDashboardPageP
     >
       <div className="grid gap-3 lg:grid-cols-2">
         <section className="rounded-xl border border-slate-600/60 bg-slate-900/70 p-5">
-          <p className="text-xs text-slate-300">{t('admin.mapManagement')}</p>
-          <p className="mt-2 text-2xl font-semibold text-white">API Connected</p>
+          <p className="text-xs text-slate-300">{t('admin.apiConnection')}</p>
+          <p className="mt-2 text-2xl font-semibold text-white">{t('admin.apiConnected')}</p>
         </section>
         <section className="rounded-xl border border-slate-600/60 bg-slate-900/70 p-5">
-          <p className="text-xs text-slate-300">Status</p>
-          <p className="mt-2 text-2xl font-semibold text-white">Online</p>
+          <p className="text-xs text-slate-300">{t('admin.systemStatus')}</p>
+          <p className="mt-2 text-2xl font-semibold text-white">{t('admin.online')}</p>
         </section>
       </div>
     </AdminShell>

@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 import { FiCopy } from 'react-icons/fi'
 import { useTranslation } from 'react-i18next'
 import {
+  clearAllAdminWhiteboardInstances,
   deleteAdminWhiteboardInstance,
   listAdminWhiteboardInstances,
 } from '../../api/admin-whiteboard'
@@ -25,7 +26,9 @@ export function AdminInstancesPage({ onNavigate, onLogout }: AdminInstancesPageP
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [clearingAll, setClearingAll] = useState(false)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [pendingClearAll, setPendingClearAll] = useState(false)
   const [copiedInstanceId, setCopiedInstanceId] = useState<string | null>(null)
   const copyFeedbackTimerRef = useRef<number | null>(null)
 
@@ -94,7 +97,9 @@ export function AdminInstancesPage({ onNavigate, onLogout }: AdminInstancesPageP
         setCopiedInstanceId((current) => (current === instanceId ? null : current))
         copyFeedbackTimerRef.current = null
       }, 1600)
-    } catch {}
+    } catch (error) {
+      console.warn('[AdminInstancesPage] Copy instance id failed', error)
+    }
   }
 
   const handleDelete = async (instanceId: string) => {
@@ -105,10 +110,32 @@ export function AdminInstancesPage({ onNavigate, onLogout }: AdminInstancesPageP
       if (result && result.items.length === 0 && page > 1) {
         setPage((prev) => Math.max(1, prev - 1))
       }
-    } catch {
+    } catch (error) {
+      console.warn('[AdminInstancesPage] Delete instance failed', error)
     } finally {
       setDeletingId(null)
       setPendingDeleteId(null)
+    }
+  }
+
+  const handleClearAll = async () => {
+    try {
+      setClearingAll(true)
+      await clearAllAdminWhiteboardInstances()
+      const result = await listAdminWhiteboardInstances({
+        includeExpired,
+        page: 1,
+        size: pageSize,
+      })
+      setInstances(result.items)
+      setTotal(result.total)
+      setTotalPages(Math.max(1, result.pages))
+      setPage(1)
+    } catch (error) {
+      console.warn('[AdminInstancesPage] Clear all instances failed', error)
+    } finally {
+      setClearingAll(false)
+      setPendingClearAll(false)
     }
   }
 
@@ -149,6 +176,14 @@ export function AdminInstancesPage({ onNavigate, onLogout }: AdminInstancesPageP
             className="btn-outline h-9 rounded-lg px-3.5"
           >
             {t('admin.reloadInstances')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setPendingClearAll(true)}
+            disabled={loading || clearingAll}
+            className="h-9 rounded-lg border border-rose-300/45 px-3.5 text-sm font-semibold text-rose-100 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            {clearingAll ? t('common.loading') : t('admin.clearAllInstances')}
           </button>
           <label className="ios-input inline-flex h-9 items-center gap-2 px-2.5 text-xs text-slate-200">
             <span className="shrink-0 text-slate-300">{t('admin.pageSize')}</span>
@@ -265,7 +300,7 @@ export function AdminInstancesPage({ onNavigate, onLogout }: AdminInstancesPageP
                       <button
                         type="button"
                         onClick={() => setPendingDeleteId(item.instanceId)}
-                        disabled={deletingId === item.instanceId}
+                        disabled={deletingId === item.instanceId || clearingAll}
                         className="h-9 rounded-lg border border-rose-300/45 px-3 text-xs font-medium text-rose-100 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-55"
                       >
                         {deletingId === item.instanceId ? t('common.loading') : t('admin.delete')}
@@ -328,6 +363,35 @@ export function AdminInstancesPage({ onNavigate, onLogout }: AdminInstancesPageP
                 className="h-9 rounded-lg border border-rose-300/45 px-3.5 text-sm font-semibold text-rose-100 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-55"
               >
                 {deletingId === pendingDeleteId ? t('common.loading') : t('admin.delete')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingClearAll && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/65 p-6">
+          <div className="w-full max-w-md rounded-2xl border border-slate-600 bg-slate-900 p-6 shadow-[0_18px_40px_rgba(0,0,0,0.42)]">
+            <h2 className="text-xl font-semibold text-white">
+              {t('admin.confirmClearInstancesTitle')}
+            </h2>
+            <p className="mt-2 text-sm text-slate-300">{t('admin.confirmClearInstancesDesc')}</p>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingClearAll(false)}
+                className="btn-outline h-9 rounded-lg px-3.5"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleClearAll()}
+                disabled={clearingAll}
+                className="h-9 rounded-lg border border-rose-300/45 px-3.5 text-sm font-semibold text-rose-100 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-55"
+              >
+                {clearingAll ? t('common.loading') : t('admin.clearAllInstances')}
               </button>
             </div>
           </div>

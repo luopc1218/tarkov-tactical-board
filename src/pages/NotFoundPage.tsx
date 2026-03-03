@@ -18,7 +18,9 @@ export function NotFoundPage({ pathname, onBackHome, onBackPrevious }: NotFoundP
         transition={{ duration: 0.28 }}
         className="panel w-full max-w-2xl p-6 md:p-8"
       >
-        <p className="text-sm font-semibold tracking-[0.12em] text-slate-300">ERROR 404</p>
+        <p className="text-sm font-semibold tracking-[0.12em] text-slate-300">
+          {t('notFound.errorCode')}
+        </p>
         <h1 className="mt-2 text-4xl font-bold leading-tight text-white">{t('notFound.title')}</h1>
         <p className="mt-4 text-slate-300">{t('notFound.desc', { pathname })}</p>
         <div className="mt-7 flex flex-col gap-3 sm:flex-row">

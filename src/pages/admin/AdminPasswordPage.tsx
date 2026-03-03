@@ -85,7 +85,9 @@ export function AdminPasswordPage({ onNavigate, onLogout }: AdminPasswordPagePro
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
-    } catch {
+    } catch (error) {
+      console.warn('[AdminPasswordPage] Change password failed', error)
+      setValidationMessage(t('admin.passwordSubmitError'))
     } finally {
       setSaving(false)
     }

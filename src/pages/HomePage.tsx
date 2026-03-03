@@ -6,11 +6,12 @@ import homeHeroBg from '../assets/images/home_hero_bg.png'
 import { resolveImagePath } from '../api/files'
 import { fetchMapPresets, refreshMapPresets } from '../api/maps'
 import type { TarkovMapPreset } from '../constants/maps'
+import { getRecentInstances, type RecentInstanceRecord } from '../features/recent-instances'
 
 const CUSTOM_MAP_BANNER_URL = resolveImagePath('images/home_hero_bg.png')
 
 interface HomePageProps {
-  onCreateInstance: (mapId: number) => Promise<void>
+  onCreateInstance: (payload: { mapId: number; mapName: string }) => Promise<void>
   onJoinInstance: (instanceId: string) => Promise<void>
 }
 
@@ -22,6 +23,7 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
   const [loadFailed, setLoadFailed] = useState(false)
   const [creatingMapId, setCreatingMapId] = useState<string | null>(null)
   const [instanceIdInput, setInstanceIdInput] = useState('')
+  const [recentInstances, setRecentInstances] = useState<RecentInstanceRecord[]>([])
 
   const loadMapPresets = useCallback(async (forceRefresh = false) => {
     try {
@@ -39,6 +41,10 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
   useEffect(() => {
     void loadMapPresets()
   }, [loadMapPresets])
+
+  useEffect(() => {
+    setRecentInstances(getRecentInstances())
+  }, [])
 
   const renderMapName = (preset: TarkovMapPreset) => {
     const zh = preset.nameZh?.trim()
@@ -99,7 +105,9 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
                 try {
                   setJoinErrorMessage(null)
                   await onJoinInstance(nextId)
-                } catch {}
+                } catch (error) {
+                  console.warn('[HomePage] Join instance failed', error)
+                }
               }}
             >
               <FiArrowRight />
@@ -111,6 +119,40 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
               {joinErrorMessage}
             </p>
           )}
+          <div className="mt-4 border-t border-slate-700/70 pt-3">
+            <p className="text-xs font-medium text-slate-300">{t('home.recentInstancesTitle')}</p>
+            {recentInstances.length === 0 ? (
+              <p className="mt-2 text-xs text-slate-400">{t('home.recentInstancesEmpty')}</p>
+            ) : (
+              <div className="mt-2 space-y-1.5">
+                {recentInstances.map((item) => (
+                  <div
+                    key={item.instanceId}
+                    className="flex items-center justify-between gap-3 rounded-md border border-slate-700/70 bg-slate-900/30 px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm text-slate-100">{item.mapName}</p>
+                      <p className="truncate text-xs text-slate-400">{item.instanceId}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-outline h-8 shrink-0 rounded-md px-3 text-xs"
+                      onClick={async () => {
+                        try {
+                          setJoinErrorMessage(null)
+                          await onJoinInstance(item.instanceId)
+                        } catch (error) {
+                          console.warn('[HomePage] Join recent instance failed', error)
+                        }
+                      }}
+                    >
+                      {t('home.enterInstance')}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {loading && (
@@ -173,8 +215,12 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
                         try {
                           setJoinErrorMessage(null)
                           setCreatingMapId(preset.id)
-                          await onCreateInstance(preset.mapId)
-                        } catch {
+                          await onCreateInstance({
+                            mapId: preset.mapId,
+                            mapName: renderMapName(preset),
+                          })
+                        } catch (error) {
+                          console.warn('[HomePage] Create instance failed', error)
                         } finally {
                           setCreatingMapId(null)
                         }
