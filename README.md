@@ -97,10 +97,15 @@ sudo ./deploy/rebuild-frontend.sh
 
 ```bash
 cd /opt/tarkov-board/frontend
-git fetch --tags origin
-git checkout master
-git pull --ff-only origin master
-sudo ./deploy/rebuild-frontend.sh
+sudo docker compose -f docker-compose.frontend.yml pull
+sudo docker compose -f docker-compose.frontend.yml up -d --force-recreate
+sudo docker compose -f docker-compose.frontend.yml ps
+```
+
+可选：指定镜像版本（便于回滚）
+
+```bash
+FRONTEND_IMAGE=ghcr.io/luopc1218/tarkov-tactical-board-frontend:v1.5.4 sudo docker compose -f docker-compose.frontend.yml up -d --force-recreate
 ```
 
 ## English
@@ -191,8 +196,13 @@ sudo ./deploy/rebuild-frontend.sh
 
 ```bash
 cd /opt/tarkov-board/frontend
-git fetch --tags origin
-git checkout master
-git pull --ff-only origin master
-sudo ./deploy/rebuild-frontend.sh
+sudo docker compose -f docker-compose.frontend.yml pull
+sudo docker compose -f docker-compose.frontend.yml up -d --force-recreate
+sudo docker compose -f docker-compose.frontend.yml ps
+```
+
+Optional: pin a specific image tag for rollback
+
+```bash
+FRONTEND_IMAGE=ghcr.io/luopc1218/tarkov-tactical-board-frontend:v1.5.4 sudo docker compose -f docker-compose.frontend.yml up -d --force-recreate
 ```

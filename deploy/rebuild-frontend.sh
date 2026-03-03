@@ -19,8 +19,13 @@ if ! docker compose version >/dev/null 2>&1; then
   fi
 fi
 
-echo "[INFO] building and restarting frontend container..."
-"${compose_cmd[@]}" -f "$COMPOSE_FILE" up -d --build --force-recreate
+echo "[INFO] pulling frontend image..."
+if ! "${compose_cmd[@]}" -f "$COMPOSE_FILE" pull; then
+  echo "[WARN] image pull failed, continuing with local cached image"
+fi
+
+echo "[INFO] restarting frontend container..."
+"${compose_cmd[@]}" -f "$COMPOSE_FILE" up -d --force-recreate --remove-orphans
 
 echo "[INFO] frontend container status:"
 "${compose_cmd[@]}" -f "$COMPOSE_FILE" ps
