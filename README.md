@@ -6,8 +6,8 @@ Demo (GitHub Pages): https://luopc1218.github.io/tarkov-tactical-board/
 Backend Repository: https://github.com/luopc1218/tarkov-tactical-board-server
 
 > [!IMPORTANT]
-> **首次使用请先配置 API**：前端首次使用时，可能需要打开设置弹窗配置 API 接口地址（例如 `/api` 或 `https://your-domain/api`）。桌面端打开设置快捷键：`Cmd/Ctrl + ,`。
-> **Configure API on first launch**: You may need to open the settings modal and set the API base URL first (for example, `/api` or `https://your-domain/api`). Desktop shortcut: `Cmd/Ctrl + ,`.
+> 首次使用前请先配置 API 地址（例如 `/api` 或 `https://your-domain/api`）。
+> 应用内可通过设置按钮打开配置面板；桌面端快捷键：`Cmd/Ctrl + ,`。
 
 ## Demo 截图 / Screenshots
 
@@ -16,198 +16,99 @@ Backend Repository: https://github.com/luopc1218/tarkov-tactical-board-server
 
 ## 中文
 
-### 技术栈
+### 项目简介
 
-- 前端：React 19、TypeScript 5、Vite 7、Tailwind CSS 4
-- 桌面端：Electron 40、electron-builder 26
-- 网络与状态：Axios、WebSocket
-- 工具链：ESLint、Prettier
-- 部署：Docker、Nginx
+这是一个用于《Escape from Tarkov》战术讨论的共享地图白板前端。
+你可以快速创建房间、分享实例 ID、多人实时标点和画路线。
 
-### 启动
+### 下载与安装
 
-#### 环境要求
+#### Web 版（免安装）
 
-- Node.js 20+
-- npm 10+
+- 直接打开演示站：<https://luopc1218.github.io/tarkov-tactical-board/>
 
-#### 安装依赖
+#### 桌面版（Windows / macOS）
+
+- 下载地址（Releases）：<https://github.com/luopc1218/tarkov-tactical-board/releases>
+- 截至 **2026-03-04**，最新稳定版本为 **v1.5.5**。
+- Windows 用户下载：`Tarkov.Tactical.Board.Setup.*.exe`
+- macOS (Apple Silicon) 用户下载：`Tarkov.Tactical.Board-*-arm64.dmg`
+
+### 快速使用
+
+1. 打开应用后，先进入设置，填写后端 API 地址并保存。
+2. 回到首页，选择地图后点击 `新建房间`。
+3. 在地图实例页复制 `实例 ID`，发给队友。
+4. 队友可在首页通过 `已有房间 ID？直接加入` 进入同一房间。
+5. 在实例页可进行画线、标点、切换地图、聊天等实时协作操作。
+
+### 管理端（可选）
+
+- 入口：`/admin/login`
+- 主要功能：地图管理、实例管理、管理员密码修改
+
+### 常见问题
+
+- 地图列表为空：通常是 API 地址未配置或后端接口不可达。
+- 连接状态显示未连接：请检查后端服务、反向代理和 WebSocket 转发配置。
+- API 地址示例：`/api`、`https://your-domain/api`
+
+### 开发者（可选）
+
+如需本地二次开发，请使用以下最小流程：
 
 ```bash
 npm install
-```
-
-#### Web 开发启动
-
-```bash
 npm run dev
 ```
 
-默认地址：`http://localhost:5173`
-
-#### Electron 开发启动
+桌面端联调：
 
 ```bash
 npm run electron:dev
 ```
 
-### 打包与部署
-
-#### GitHub Pages 演示发布
-
-- 推送到 `master` 后会自动构建并发布到 GitHub Pages。
-- 仓库需要在 `Settings -> Pages` 中选择 `GitHub Actions` 作为 Source。
-- 演示地址：https://luopc1218.github.io/tarkov-tactical-board/
-- 后端仓库：https://github.com/luopc1218/tarkov-tactical-board-server
-
-#### Web 构建
-
-```bash
-npm run build
-```
-
-生产环境默认 API 地址：`https://81.71.150.227/api`（可在设置弹窗中覆盖）。
-
-#### Electron 打包
-
-```bash
-# 默认打包（按 electron-builder 配置生成）
-npm run electron:pack
-
-# 本地快速打包（输出 .app 目录）
-npm run electron:pack:local
-
-# macOS ARM64 DMG
-npm run electron:pack:mac
-
-# Windows 安装包
-npm run electron:pack:win
-
-# 同时打 macOS + Windows
-npm run electron:pack:release
-```
-
-说明：仓库目前默认发布 Windows x64 安装包；理论上支持 macOS / Linux / 其他架构，但需要在对应平台自行构建。
-
-打包产物目录：`release/`
-
-#### Docker 部署（前端）
-
-```bash
-chmod +x deploy/rebuild-frontend.sh
-sudo ./deploy/rebuild-frontend.sh
-```
-
-#### 服务器手动更新并部署
-
-```bash
-cd /opt/tarkov-board/frontend
-sudo docker compose -f docker-compose.frontend.yml pull
-sudo docker compose -f docker-compose.frontend.yml up -d --force-recreate
-sudo docker compose -f docker-compose.frontend.yml ps
-```
-
-可选：指定镜像版本（便于回滚）
-
-```bash
-FRONTEND_IMAGE=ghcr.io/luopc1218/tarkov-tactical-board-frontend:v1.5.4 sudo docker compose -f docker-compose.frontend.yml up -d --force-recreate
-```
+更多构建/打包脚本见 `package.json`。
 
 ## English
 
-### Tech Stack
+### Overview
 
-- Frontend: React 19, TypeScript 5, Vite 7, Tailwind CSS 4
-- Desktop: Electron 40, electron-builder 26
-- Networking and state: Axios, WebSocket
-- Tooling: ESLint, Prettier
-- Deployment: Docker, Nginx
+A shared tactical map whiteboard frontend for Escape from Tarkov.
+Create an instance quickly, share the instance ID, and collaborate in real time.
 
-### Getting Started
+### Download and Install
 
-#### Requirements
+- Web demo: <https://luopc1218.github.io/tarkov-tactical-board/>
+- Desktop downloads (Releases): <https://github.com/luopc1218/tarkov-tactical-board/releases>
+- As of **March 4, 2026**, the latest stable release is **v1.5.5**.
+- Windows package: `Tarkov.Tactical.Board.Setup.*.exe`
+- macOS (Apple Silicon) package: `Tarkov.Tactical.Board-*-arm64.dmg`
 
-- Node.js 20+
-- npm 10+
+### Quick Start
 
-#### Install dependencies
+1. Open settings and configure API base URL (for example `/api` or `https://your-domain/api`).
+2. Choose a map and click `Create Instance`.
+3. Copy and share the instance ID with teammates.
+4. Teammates can join from home by entering the instance ID.
+5. Use drawing/marking/map switching/chat tools for real-time collaboration.
+
+### Admin Portal (Optional)
+
+- Entry: `/admin/login`
+- Features: map management, instance management, admin password update
+
+### Developer Notes (Optional)
 
 ```bash
 npm install
-```
-
-#### Start web development server
-
-```bash
 npm run dev
 ```
 
-Default URL: `http://localhost:5173`
-
-#### Start Electron development
+Electron dev mode:
 
 ```bash
 npm run electron:dev
 ```
 
-### Build and Deploy
-
-#### GitHub Pages Demo Deployment
-
-- Pushing to `master` triggers automatic build and deployment to GitHub Pages.
-- In repository `Settings -> Pages`, set Source to `GitHub Actions`.
-- Demo URL: https://luopc1218.github.io/tarkov-tactical-board/
-- Backend repository: https://github.com/luopc1218/tarkov-tactical-board-server
-
-#### Build web assets
-
-```bash
-npm run build
-```
-
-Default API base URL in production: `https://81.71.150.227/api` (can be overridden in the settings modal).
-
-#### Package Electron app
-
-```bash
-# Default package (based on electron-builder config)
-npm run electron:pack
-
-# Fast local package (outputs .app directory)
-npm run electron:pack:local
-
-# macOS ARM64 DMG
-npm run electron:pack:mac
-
-# Windows installer
-npm run electron:pack:win
-
-# Build both macOS + Windows
-npm run electron:pack:release
-```
-
-Note: this repo currently publishes a Windows x64 installer by default. macOS / Linux / other architectures are theoretically supported, but should be built on the target platform by yourself.
-
-Build output directory: `release/`
-
-#### Docker deployment (frontend)
-
-```bash
-chmod +x deploy/rebuild-frontend.sh
-sudo ./deploy/rebuild-frontend.sh
-```
-
-#### Manual server update and deployment
-
-```bash
-cd /opt/tarkov-board/frontend
-sudo docker compose -f docker-compose.frontend.yml pull
-sudo docker compose -f docker-compose.frontend.yml up -d --force-recreate
-sudo docker compose -f docker-compose.frontend.yml ps
-```
-
-Optional: pin a specific image tag for rollback
-
-```bash
-FRONTEND_IMAGE=ghcr.io/luopc1218/tarkov-tactical-board-frontend:v1.5.4 sudo docker compose -f docker-compose.frontend.yml up -d --force-recreate
-```
+See `package.json` for full build/package scripts.
