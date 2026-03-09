@@ -9,6 +9,11 @@ Backend Repository: https://github.com/luopc1218/tarkov-tactical-board-server
 > **首次使用请先配置 API**：前端首次使用时，可能需要打开设置弹窗配置 API 接口地址（例如 `/api` 或 `https://your-domain/api`）。桌面端打开设置快捷键：`Cmd/Ctrl + ,`。
 > **Configure API on first launch**: You may need to open the settings modal and set the API base URL first (for example, `/api` or `https://your-domain/api`). Desktop shortcut: `Cmd/Ctrl + ,`.
 
+## Demo 截图 / Screenshots
+
+![Demo Screenshot 1](public/example.jpeg)
+![Demo Screenshot 2](public/example2.png)
+
 ## 中文
 
 ### 技术栈
