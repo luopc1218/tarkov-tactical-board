@@ -8,6 +8,8 @@ Backend Repository: https://github.com/luopc1218/tarkov-tactical-board-server
 > [!IMPORTANT]
 > 首次使用前请先配置 API 地址（例如 `/api` 或 `https://your-domain/api`）。
 > 应用内可通过设置按钮打开配置面板；桌面端快捷键：`Cmd/Ctrl + ,`。
+> 默认 API：开发环境为 `/api`，生产环境为 `https://81.71.150.227/api`（可在设置中覆盖）。
+> 当前演示服务资源有限，高峰时段可能出现加载变慢或短时卡顿，请稍后重试。
 
 ## Demo 截图 / Screenshots
 
@@ -51,7 +53,8 @@ Backend Repository: https://github.com/luopc1218/tarkov-tactical-board-server
 
 - 地图列表为空：通常是 API 地址未配置或后端接口不可达。
 - 连接状态显示未连接：请检查后端服务、反向代理和 WebSocket 转发配置。
-- API 地址示例：`/api`、`https://your-domain/api`
+- API 地址示例：`/api`、`https://your-domain/api`，生产环境默认：`https://81.71.150.227/api`
+- 偶发卡顿：当前公开服务资源有限，人数较多时可能出现延迟升高，可稍后重试或自建后端服务。
 
 ### 开发者（可选）
 
@@ -88,10 +91,13 @@ Create an instance quickly, share the instance ID, and collaborate in real time.
 ### Quick Start
 
 1. Open settings and configure API base URL (for example `/api` or `https://your-domain/api`).
+   Default value: `/api` in development and `https://81.71.150.227/api` in production.
 2. Choose a map and click `Create Instance`.
 3. Copy and share the instance ID with teammates.
 4. Teammates can join from home by entering the instance ID.
 5. Use drawing/marking/map switching/chat tools for real-time collaboration.
+
+Note: public demo server resources are limited, so you may experience occasional lag during peak usage.
 
 ### Admin Portal (Optional)
 
