@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FiCopy, FiMessageSquare, FiSend } from 'react-icons/fi'
+import { FiCopy, FiEdit3, FiMessageSquare, FiSend, FiTrash2 } from 'react-icons/fi'
 import type { TarkovMapPreset } from '../constants/maps'
 import { fetchMapPresets } from '../api/maps'
 import {
@@ -29,6 +29,8 @@ interface Stroke {
   color: string
   width: number
 }
+
+type ToolMode = 'draw' | 'erase'
 
 interface Viewport {
   x: number
@@ -64,11 +66,15 @@ const DEFAULT_CANVAS_WIDTH = 1920
 const DEFAULT_CANVAS_HEIGHT = 1080
 const MIN_SCALE = 0.05
 const MAX_SCALE = 8
+const WHEEL_ZOOM_SENSITIVITY = 0.0024
+const WHEEL_ZOOM_FACTOR_MIN = 0.92
+const WHEEL_ZOOM_FACTOR_MAX = 1.08
 const WHITEBOARD_STROKE_START_TOPIC = 'stroke.start'
 const WHITEBOARD_STROKE_APPEND_TOPIC = 'stroke.append'
 const WHITEBOARD_STROKE_END_TOPIC = 'stroke.end'
 const WHITEBOARD_CLEAR_TOPIC = 'board.clear'
 const WHITEBOARD_UNDO_TOPIC = 'stroke.undo'
+const WHITEBOARD_ERASE_TOPIC = 'stroke.erase'
 const WHITEBOARD_CURSOR_MOVE_TOPIC = 'cursor.move'
 const WHITEBOARD_CURSOR_LEAVE_TOPIC = 'cursor.leave'
 const WHITEBOARD_MAP_CHANGED_TOPIC = 'map.changed'
@@ -109,6 +115,35 @@ const midpointBetween = (a: LocalPoint, b: LocalPoint): LocalPoint => ({
   x: (a.x + b.x) / 2,
   y: (a.y + b.y) / 2,
 })
+const distanceToSegment = (point: Point, start: Point, end: Point) => {
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  if (dx === 0 && dy === 0) {
+    return Math.hypot(point.x - start.x, point.y - start.y)
+  }
+
+  const projection = ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)
+  const t = clamp(projection, 0, 1)
+  const nearestX = start.x + dx * t
+  const nearestY = start.y + dy * t
+  return Math.hypot(point.x - nearestX, point.y - nearestY)
+}
+
+const isPointNearStroke = (point: Point, stroke: Stroke, tolerance: number) => {
+  if (stroke.points.length === 0) {
+    return false
+  }
+  if (stroke.points.length === 1) {
+    return Math.hypot(point.x - stroke.points[0].x, point.y - stroke.points[0].y) <= tolerance
+  }
+
+  for (let index = 1; index < stroke.points.length; index += 1) {
+    if (distanceToSegment(point, stroke.points[index - 1], stroke.points[index]) <= tolerance) {
+      return true
+    }
+  }
+  return false
+}
 
 const colorFromId = (value: string) => {
   let hash = 0
@@ -528,6 +563,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   const [mapUrl, setMapUrl] = useState<string | undefined>(undefined)
   const [strokes, setStrokes] = useState<Stroke[]>([])
   const [currentStroke, setCurrentStroke] = useState<Stroke | null>(null)
+  const [toolMode, setToolMode] = useState<ToolMode>('draw')
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 })
   const [wsConnected, setWsConnected] = useState(false)
   const [chatWsConnected, setChatWsConnected] = useState(false)
@@ -556,7 +592,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   const localClientIdRef = useRef(createRealtimeClientId())
   const localDisplayNameRef = useRef(createChatSenderName())
   const lastCursorSentAtRef = useRef(0)
-  const pointerModeRef = useRef<'draw' | 'pan' | 'pinch' | null>(null)
+  const pointerModeRef = useRef<'draw' | 'erase' | 'pan' | 'pinch' | null>(null)
   const activePointerIdRef = useRef<number | null>(null)
   const panAnchorRef = useRef<{ x: number; y: number; startX: number; startY: number } | null>(null)
   const activeTouchPointsRef = useRef<Map<number, LocalPoint>>(new Map())
@@ -574,6 +610,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   const reconnectAttemptRef = useRef(0)
   const chatReconnectTimerRef = useRef<number | null>(null)
   const chatReconnectAttemptRef = useRef(0)
+  const erasedStrokeIdsRef = useRef(new Set<string>())
 
   useEffect(() => {
     currentStrokeRef.current = currentStroke
@@ -1014,6 +1051,16 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
             return
           }
 
+          if (type === WHITEBOARD_ERASE_TOPIC) {
+            const erased = readUndoPayload(actualPayload)
+            if (!erased || erased.clientId === localClientIdRef.current) {
+              return
+            }
+            setStrokes((prev) => prev.filter((item) => item.id !== erased.strokeId))
+            localStrokeIdsRef.current.delete(erased.strokeId)
+            return
+          }
+
           if (type === WHITEBOARD_CLEAR_TOPIC) {
             setStrokes([])
             setCurrentStroke(null)
@@ -1319,6 +1366,35 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     return { x: clientX - rect.left, y: clientY - rect.top }
   }
 
+  const eraseStrokeAtPoint = useCallback(
+    (point: Point) => {
+      const eraseTolerance = Math.max(brushWidth / 2, 12) / viewport.scale
+      const target = [...strokes]
+        .reverse()
+        .find(
+          (stroke) =>
+            !erasedStrokeIdsRef.current.has(stroke.id) && isPointNearStroke(point, stroke, eraseTolerance)
+        )
+
+      if (!target) {
+        return false
+      }
+
+      erasedStrokeIdsRef.current.add(target.id)
+      setStrokes((prev) => prev.filter((item) => item.id !== target.id))
+      localStrokeIdsRef.current.delete(target.id)
+      sendWsMessage({
+        type: WHITEBOARD_ERASE_TOPIC,
+        payload: {
+          strokeId: target.id,
+          clientId: localClientIdRef.current,
+        },
+      })
+      return true
+    },
+    [brushWidth, sendWsMessage, strokes, viewport.scale]
+  )
+
   const onPointerDown: React.PointerEventHandler<HTMLDivElement> = (event) => {
     if (event.cancelable) {
       event.preventDefault()
@@ -1355,7 +1431,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     }
 
     const isPan = event.button === 1 || event.button === 2 || event.shiftKey
-    pointerModeRef.current = isPan ? 'pan' : 'draw'
+    pointerModeRef.current = isPan ? 'pan' : toolMode === 'erase' ? 'erase' : 'draw'
     activePointerIdRef.current = event.pointerId
 
     if (pointerModeRef.current === 'pan') {
@@ -1365,6 +1441,13 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
         startX: viewport.x,
         startY: viewport.y,
       }
+    } else if (pointerModeRef.current === 'erase') {
+      const point = toWorldPoint(event.clientX, event.clientY)
+      if (!point) {
+        return
+      }
+      erasedStrokeIdsRef.current.clear()
+      eraseStrokeAtPoint(point)
     } else {
       const point = toWorldPoint(event.clientX, event.clientY)
       if (!point) {
@@ -1464,6 +1547,14 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
       return
     }
 
+    if (pointerModeRef.current === 'erase') {
+      const point = toWorldPoint(event.clientX, event.clientY)
+      if (point) {
+        eraseStrokeAtPoint(point)
+      }
+      return
+    }
+
     if (pointerModeRef.current !== 'draw' || !currentStroke) {
       return
     }
@@ -1517,6 +1608,9 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     if (pointerModeRef.current === 'draw') {
       finishStroke()
     }
+    if (pointerModeRef.current === 'erase') {
+      erasedStrokeIdsRef.current.clear()
+    }
     pointerModeRef.current = null
     activePointerIdRef.current = null
     panAnchorRef.current = null
@@ -1526,6 +1620,9 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   }
 
   const onPointerLeave: React.PointerEventHandler<HTMLDivElement> = () => {
+    if (pointerModeRef.current === 'erase') {
+      erasedStrokeIdsRef.current.clear()
+    }
     sendWsMessage({
       type: WHITEBOARD_CURSOR_LEAVE_TOPIC,
       payload: { clientId: localClientIdRef.current, x: 0, y: 0 },
@@ -1541,7 +1638,11 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     const rect = element.getBoundingClientRect()
     const mouseX = event.clientX - rect.left
     const mouseY = event.clientY - rect.top
-    const scaleFactor = clamp(Math.exp(-event.deltaY * 0.0012), 0.96, 1.04)
+    const scaleFactor = clamp(
+      Math.exp(-event.deltaY * WHEEL_ZOOM_SENSITIVITY),
+      WHEEL_ZOOM_FACTOR_MIN,
+      WHEEL_ZOOM_FACTOR_MAX,
+    )
 
     setViewport((prev) => {
       const nextScale = clamp(prev.scale * scaleFactor, MIN_SCALE, MAX_SCALE)
@@ -1896,6 +1997,34 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
           <span>
             {t('mapInstance.zoom')}: {Math.round(viewport.scale * 100)}%
           </span>
+          <div className="inline-flex items-center gap-1 rounded-xl border border-slate-600 bg-slate-900/75 p-1">
+            <button
+              type="button"
+              onClick={() => setToolMode('draw')}
+              className={[
+                'btn-base inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs',
+                toolMode === 'draw'
+                  ? 'border border-amber-300/45 bg-amber-500/15 text-amber-100'
+                  : 'border border-slate-500/60 bg-slate-700/35 text-slate-100 hover:bg-slate-600/45',
+              ].join(' ')}
+            >
+              <FiEdit3 />
+              <span>{t('mapInstance.drawTool')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setToolMode('erase')}
+              className={[
+                'btn-base inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs',
+                toolMode === 'erase'
+                  ? 'border border-rose-300/45 bg-rose-500/15 text-rose-100'
+                  : 'border border-slate-500/60 bg-slate-700/35 text-slate-100 hover:bg-slate-600/45',
+              ].join(' ')}
+            >
+              <FiTrash2 />
+              <span>{t('mapInstance.eraserTool')}</span>
+            </button>
+          </div>
           <div className="inline-flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900/75 px-3 py-1.5">
             <span className="text-xs text-slate-300">{t('mapInstance.brushColor')}</span>
             <input
@@ -2058,6 +2187,30 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setToolMode('draw')}
+                className={[
+                  'btn-base min-h-8 rounded-lg px-3 py-1.5 text-xs',
+                  toolMode === 'draw'
+                    ? 'border border-amber-300/45 bg-amber-500/15 text-amber-100'
+                    : 'border border-slate-500/60 bg-slate-700/35 text-slate-100',
+                ].join(' ')}
+              >
+                {t('mapInstance.drawTool')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setToolMode('erase')}
+                className={[
+                  'btn-base min-h-8 rounded-lg px-3 py-1.5 text-xs',
+                  toolMode === 'erase'
+                    ? 'border border-rose-300/45 bg-rose-500/15 text-rose-100'
+                    : 'border border-slate-500/60 bg-slate-700/35 text-slate-100',
+                ].join(' ')}
+              >
+                {t('mapInstance.eraserTool')}
+              </button>
               <button
                 type="button"
                 onClick={() => void copyInstanceId()}

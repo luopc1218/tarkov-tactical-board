@@ -75,6 +75,42 @@ npm run electron:dev
 
 </details>
 
+### Docker Hub 自动发布
+
+项目已改为通过 GitHub Actions 自动构建并发布前端镜像到 Docker Hub，不再依赖 GitHub Pages。
+
+需要先在 GitHub 仓库里配置两个 Actions Secrets：
+
+- `DOCKERHUB_USERNAME`：你的 Docker Hub 用户名
+- `DOCKERHUB_TOKEN`：你的 Docker Hub Access Token
+
+可在本机项目目录通过 `gh` 配置：
+
+```bash
+gh secret set DOCKERHUB_USERNAME --body "你的-dockerhub-用户名"
+gh secret set DOCKERHUB_TOKEN --body "你的-dockerhub-access-token"
+```
+
+配置完成后：
+
+- 推送到 `master` 会自动发布 `latest`
+- 推送 `v*` 标签会自动发布对应版本标签
+- 也可以在 GitHub Actions 页面手动触发
+
+本地手动发布版本的常见流程：
+
+```bash
+git tag v1.5.6
+git push origin master
+git push origin v1.5.6
+```
+
+镜像名默认会发布到：
+
+```text
+docker.io/<DOCKERHUB_USERNAME>/tarkov-tactical-board-frontend
+```
+
 ## English
 
 ### Overview
