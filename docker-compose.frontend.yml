@@ -1,7 +1,7 @@
 services:
   tarkov_frontend:
     container_name: tarkov_frontend
-    image: ${FRONTEND_IMAGE:-ghcr.io/luopc1218/tarkov-tactical-board-frontend:latest}
+    image: ${FRONTEND_IMAGE:-luopc1218docker/tarkov-tactical-board-frontend:latest}
     restart: unless-stopped
     ports:
       - "127.0.0.1:18081:80"
