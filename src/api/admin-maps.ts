@@ -16,12 +16,16 @@ interface AdminMapApiItem {
   banner_url?: string
   bannerPath?: string
   banner_path?: string
+  bannerFileName?: string
+  banner_file_name?: string
   mapObjectName?: string
   map_object_name?: string
   mapUrl?: string
   map_url?: string
   mapPath?: string
   map_path?: string
+  mapFileName?: string
+  map_file_name?: string
 }
 
 interface AdminMapContainer {
@@ -57,6 +61,18 @@ const readNumber = (...values: Array<string | number | undefined>) => {
   return undefined
 }
 
+const extractFileName = (value: string) => {
+  const normalized = value
+    .trim()
+    .replace(/\\/g, '/')
+    .split(/[?#]/)[0]
+    .split('/')
+    .filter(Boolean)
+    .pop()
+
+  return normalized ?? ''
+}
+
 const normalizeAdminMap = (item: AdminMapApiItem): AdminMap | null => {
   const idValue = item.id
   const id =
@@ -71,20 +87,26 @@ const normalizeAdminMap = (item: AdminMapApiItem): AdminMap | null => {
 
   const bannerUrl = readString(item.bannerUrl, item.banner_url, item.bannerPath, item.banner_path)
   const mapUrl = readString(item.mapUrl, item.map_url, item.mapPath, item.map_path)
-  const bannerPath = readString(
+  const rawBannerFileName = readString(
+    item.bannerFileName,
+    item.banner_file_name,
     item.bannerPath,
     item.banner_path,
     item.bannerObjectName,
     item.banner_object_name,
     bannerUrl,
   )
-  const mapPath = readString(
+  const rawMapFileName = readString(
+    item.mapFileName,
+    item.map_file_name,
     item.mapPath,
     item.map_path,
     item.mapObjectName,
     item.map_object_name,
     mapUrl,
   )
+  const bannerFileName = extractFileName(rawBannerFileName)
+  const mapFileName = extractFileName(rawMapFileName)
 
   return {
     id,
@@ -92,9 +114,9 @@ const normalizeAdminMap = (item: AdminMapApiItem): AdminMap | null => {
     nameZh: readString(item.nameZh, item.name_zh),
     nameEn: readString(item.nameEn, item.name_en),
     sortOrder: readNumber(item.sortOrder, item.sort_order),
-    bannerPath,
+    bannerFileName,
     bannerUrl,
-    mapPath,
+    mapFileName,
     mapUrl,
   }
 }
@@ -141,8 +163,8 @@ export const createAdminMap = (payload: AdminMapUpsertRequest) => {
     .post<AdminMapApiItem>('/admin/maps', {
       nameZh: payload.nameZh,
       nameEn: payload.nameEn,
-      bannerPath: payload.bannerPath,
-      mapPath: payload.mapPath,
+      bannerFileName: payload.bannerFileName,
+      mapFileName: payload.mapFileName,
     })
     .then((item) => {
       const normalized = normalizeAdminMap(item)
@@ -158,8 +180,8 @@ export const updateAdminMap = (id: number, payload: AdminMapUpsertRequest) => {
     .put<AdminMapApiItem>(`/admin/maps/${id}`, {
       nameZh: payload.nameZh,
       nameEn: payload.nameEn,
-      bannerPath: payload.bannerPath,
-      mapPath: payload.mapPath,
+      bannerFileName: payload.bannerFileName,
+      mapFileName: payload.mapFileName,
     })
     .then((item) => {
       const normalized = normalizeAdminMap(item)

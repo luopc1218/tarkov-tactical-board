@@ -20,8 +20,18 @@ interface AdminMapsPageProps {
 const EMPTY_FORM: AdminMapUpsertRequest = {
   nameZh: '',
   nameEn: '',
-  bannerPath: '',
-  mapPath: '',
+  bannerFileName: '',
+  mapFileName: '',
+}
+
+const extractFileName = (value: string) => {
+  return value
+    .trim()
+    .replace(/\\/g, '/')
+    .split(/[?#]/)[0]
+    .split('/')
+    .filter(Boolean)
+    .pop() ?? ''
 }
 
 export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
@@ -41,8 +51,8 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
     return Boolean(
       form.nameZh.trim() &&
       form.nameEn.trim() &&
-      (form.bannerPath ?? '').trim() &&
-      (form.mapPath ?? '').trim()
+      (form.bannerFileName ?? '').trim() &&
+      (form.mapFileName ?? '').trim()
     )
   }, [form])
 
@@ -73,8 +83,8 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
     setForm({
       nameZh: item.nameZh ?? '',
       nameEn: item.nameEn ?? '',
-      bannerPath: item.bannerPath ?? item.bannerUrl ?? '',
-      mapPath: item.mapPath ?? item.mapUrl ?? '',
+      bannerFileName: extractFileName(item.bannerFileName ?? item.bannerUrl ?? ''),
+      mapFileName: extractFileName(item.mapFileName ?? item.mapUrl ?? ''),
     })
     setModalOpen(true)
   }
@@ -94,8 +104,8 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
     const payload: AdminMapUpsertRequest = {
       nameZh: form.nameZh.trim(),
       nameEn: form.nameEn.trim(),
-      bannerPath: form.bannerPath.trim(),
-      mapPath: form.mapPath.trim(),
+      bannerFileName: form.bannerFileName.trim(),
+      mapFileName: form.mapFileName.trim(),
     }
 
     try {
@@ -228,7 +238,7 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
 
               {!loading &&
                 maps.map((item) => {
-                  const bannerPreview = resolveImagePath(item.bannerUrl || item.bannerPath)
+                  const bannerPreview = resolveImagePath(item.bannerUrl || item.bannerFileName)
 
                   return (
                     <tr key={item.id} className="border-t border-slate-700/70">
@@ -331,25 +341,25 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="rounded-xl border border-slate-600/70 bg-slate-800/70 p-3">
-                  <p className="text-xs font-medium text-slate-300">{t('admin.bannerPath')}</p>
+                  <p className="text-xs font-medium text-slate-300">{t('admin.bannerFileName')}</p>
                   <input
-                    value={form.bannerPath}
+                    value={form.bannerFileName}
                     onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                      setForm((prev) => ({ ...prev, bannerPath: event.target.value }))
+                      setForm((prev) => ({ ...prev, bannerFileName: event.target.value }))
                     }
-                    placeholder="assets/images/tarkov-maps/banner/Banner_customs.png"
+                    placeholder="Banner_customs.png"
                     className="mt-2 w-full rounded-lg border border-slate-600 bg-slate-950/70 px-3 py-2 text-xs text-white placeholder:text-slate-500 outline-none focus:border-amber-400"
                   />
                 </div>
 
                 <div className="rounded-xl border border-slate-600/70 bg-slate-800/70 p-3">
-                  <p className="text-xs font-medium text-slate-300">{t('admin.mapPath')}</p>
+                  <p className="text-xs font-medium text-slate-300">{t('admin.mapFileName')}</p>
                   <input
-                    value={form.mapPath}
+                    value={form.mapFileName}
                     onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                      setForm((prev) => ({ ...prev, mapPath: event.target.value }))
+                      setForm((prev) => ({ ...prev, mapFileName: event.target.value }))
                     }
-                    placeholder="assets/images/tarkov-maps/Customs.png"
+                    placeholder="Customs.png"
                     className="mt-2 w-full rounded-lg border border-slate-600 bg-slate-950/70 px-3 py-2 text-xs text-white placeholder:text-slate-500 outline-none focus:border-amber-400"
                   />
                 </div>

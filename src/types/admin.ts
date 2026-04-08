@@ -15,17 +15,17 @@ export interface AdminMap {
   nameZh: string
   nameEn: string
   sortOrder?: number
-  bannerPath: string
+  bannerFileName: string
   bannerUrl: string
-  mapPath: string
+  mapFileName: string
   mapUrl: string
 }
 
 export interface AdminMapUpsertRequest {
   nameZh: string
   nameEn: string
-  bannerPath: string
-  mapPath: string
+  bannerFileName: string
+  mapFileName: string
 }
 
 export interface AdminWhiteboardInstance {

@@ -6,6 +6,7 @@
 - Backend Repository: <https://github.com/luopc1218/tarkov-tactical-board-server>
 
 > [!IMPORTANT]
+>
 > - 首次使用前请先配置 API 地址（例如 `/api` 或 `https://your-domain/api`）。
 > - 应用内可通过设置按钮打开配置面板；桌面端快捷键：`Cmd/Ctrl + ,`。
 > - 默认 API：开发环境为 `/api`，生产环境为 `https://81.71.150.227/api`（可在设置中覆盖）。
@@ -26,12 +27,12 @@
 
 当前最新稳定版（截至 **2026-03-04**）：**v1.5.5**
 
-| 方式 | 地址 / 包名 |
-| --- | --- |
-| Web 版（免安装） | <https://luopc1218.github.io/tarkov-tactical-board/> |
-| 桌面版下载（Releases） | <https://github.com/luopc1218/tarkov-tactical-board/releases> |
-| Windows 安装包 | `Tarkov.Tactical.Board.Setup.*.exe` |
-| macOS (Apple Silicon) 安装包 | `Tarkov.Tactical.Board-*-arm64.dmg` |
+| 方式                         | 地址 / 包名                                                   |
+| ---------------------------- | ------------------------------------------------------------- |
+| Web 版（免安装）             | <https://luopc1218.github.io/tarkov-tactical-board/>          |
+| 桌面版下载（Releases）       | <https://github.com/luopc1218/tarkov-tactical-board/releases> |
+| Windows 安装包               | `Tarkov.Tactical.Board.Setup.*.exe`                           |
+| macOS (Apple Silicon) 安装包 | `Tarkov.Tactical.Board-*-arm64.dmg`                           |
 
 ### 默认 API 与性能说明
 
@@ -121,12 +122,12 @@ A shared tactical map whiteboard frontend for Escape from Tarkov. Create an inst
 
 Latest stable version (as of **March 4, 2026**): **v1.5.5**
 
-| Channel | Link / Package |
-| --- | --- |
-| Web demo | <https://luopc1218.github.io/tarkov-tactical-board/> |
-| Desktop downloads (Releases) | <https://github.com/luopc1218/tarkov-tactical-board/releases> |
-| Windows installer | `Tarkov.Tactical.Board.Setup.*.exe` |
-| macOS (Apple Silicon) installer | `Tarkov.Tactical.Board-*-arm64.dmg` |
+| Channel                         | Link / Package                                                |
+| ------------------------------- | ------------------------------------------------------------- |
+| Web demo                        | <https://luopc1218.github.io/tarkov-tactical-board/>          |
+| Desktop downloads (Releases)    | <https://github.com/luopc1218/tarkov-tactical-board/releases> |
+| Windows installer               | `Tarkov.Tactical.Board.Setup.*.exe`                           |
+| macOS (Apple Silicon) installer | `Tarkov.Tactical.Board-*-arm64.dmg`                           |
 
 ### Default API and Performance Notes
 

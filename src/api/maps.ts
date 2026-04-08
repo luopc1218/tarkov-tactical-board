@@ -32,12 +32,16 @@ interface MapApiItem {
   banner_object_name?: string
   bannerPath?: string
   banner_path?: string
+  bannerFileName?: string
+  banner_file_name?: string
   mapUrl?: string
   map_url?: string
   mapObjectName?: string
   map_object_name?: string
   mapPath?: string
   map_path?: string
+  mapFileName?: string
+  map_file_name?: string
 }
 
 interface MapApiContainer {
@@ -52,6 +56,8 @@ interface MapApiContainer {
 
 let mapPresetsCache: TarkovMapPreset[] | null = null
 let mapPresetsInFlight: Promise<TarkovMapPreset[]> | null = null
+const MAP_IMAGE_DIR = 'images/tarkov-maps'
+const MAP_BANNER_DIR = `${MAP_IMAGE_DIR}/banner`
 
 const toKebabCase = (value: string) =>
   value
@@ -97,6 +103,23 @@ const extractMapItems = (payload: unknown): MapApiItem[] => {
   }
 
   return []
+}
+
+const buildAssetPathFromFileName = (fileName: string | undefined, directory: string) => {
+  if (typeof fileName !== 'string') {
+    return ''
+  }
+
+  const trimmed = fileName.trim()
+  if (!trimmed) {
+    return ''
+  }
+
+  if (trimmed.includes('/')) {
+    return trimmed
+  }
+
+  return `${directory}/${trimmed}`
 }
 
 const normalizeMapPreset = (item: MapApiItem): TarkovMapPreset | null => {
@@ -153,12 +176,21 @@ const normalizeMapPreset = (item: MapApiItem): TarkovMapPreset | null => {
   const name = rawName || id
   const rawBannerUrl = item.bannerUrl ?? item.banner_url
   const rawBannerObjectName =
-    item.bannerObjectName ?? item.banner_object_name ?? item.bannerPath ?? item.banner_path
+    item.bannerObjectName ??
+    item.banner_object_name ??
+    buildAssetPathFromFileName(item.bannerFileName ?? item.banner_file_name, MAP_BANNER_DIR) ??
+    item.bannerPath ??
+    item.banner_path
   const bannerUrl = resolveImagePath(
     typeof rawBannerUrl === 'string' && rawBannerUrl.trim() ? rawBannerUrl : rawBannerObjectName,
   )
   const rawMapUrl = item.mapUrl ?? item.map_url
-  const rawMapObjectName = item.mapObjectName ?? item.map_object_name ?? item.mapPath ?? item.map_path
+  const rawMapObjectName =
+    item.mapObjectName ??
+    item.map_object_name ??
+    buildAssetPathFromFileName(item.mapFileName ?? item.map_file_name, MAP_IMAGE_DIR) ??
+    item.mapPath ??
+    item.map_path
   const mapUrl = resolveImagePath(
     typeof rawMapUrl === 'string' && rawMapUrl.trim() ? rawMapUrl : rawMapObjectName,
   )
@@ -207,14 +239,23 @@ export const fetchMapPresets = async (): Promise<TarkovMapPreset[]> => {
             }
 
             const rawBannerObjectName =
-              item.bannerObjectName ?? item.banner_object_name ?? item.bannerPath ?? item.banner_path
+              item.bannerObjectName ??
+              item.banner_object_name ??
+              buildAssetPathFromFileName(item.bannerFileName ?? item.banner_file_name, MAP_BANNER_DIR) ??
+              item.bannerPath ??
+              item.banner_path
             const rawBannerUrl = item.bannerUrl ?? item.banner_url
             const bannerUrl = resolveImagePath(
               typeof rawBannerUrl === 'string' && rawBannerUrl.trim()
                 ? rawBannerUrl
                 : rawBannerObjectName,
             )
-            const rawMapObjectName = item.mapObjectName ?? item.map_object_name ?? item.mapPath ?? item.map_path
+            const rawMapObjectName =
+              item.mapObjectName ??
+              item.map_object_name ??
+              buildAssetPathFromFileName(item.mapFileName ?? item.map_file_name, MAP_IMAGE_DIR) ??
+              item.mapPath ??
+              item.map_path
             const rawMapUrl = item.mapUrl ?? item.map_url
             const mapUrl = resolveImagePath(
               typeof rawMapUrl === 'string' && rawMapUrl.trim() ? rawMapUrl : rawMapObjectName,
