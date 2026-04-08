@@ -19,9 +19,18 @@ export const isElectronApp = () => {
   return Boolean(window.desktopApp?.isElectron) || navigator.userAgent.includes('Electron')
 }
 
-export const getDefaultApiBaseUrl = () =>
-  import.meta.env.VITE_API_BASE_URL ??
-  (import.meta.env.PROD ? APP_CONFIG.productionApiBaseUrl : APP_CONFIG.defaultApiBaseUrl)
+export const getDefaultApiBaseUrl = () => {
+  const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
+  if (configuredApiBaseUrl) {
+    return configuredApiBaseUrl
+  }
+
+  if (import.meta.env.PROD) {
+    return APP_CONFIG.productionApiBaseUrl
+  }
+
+  return APP_CONFIG.defaultApiBaseUrl
+}
 
 export const getApiBaseUrl = () => {
   const stored = window.localStorage.getItem(API_BASE_URL_STORAGE_KEY)
