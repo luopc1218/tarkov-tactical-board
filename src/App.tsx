@@ -52,9 +52,7 @@ const stripBasePath = (pathname: string) => {
 }
 
 const shouldUseHashRouting = () => {
-  const isElectronFilePage = window.location.protocol === 'file:'
-  const isGithubPagesBuild = getWebBasePath().length > 0
-  return isElectronFilePage || isGithubPagesBuild
+  return window.location.protocol === 'file:'
 }
 
 const navigateTo = (path: string) => {
