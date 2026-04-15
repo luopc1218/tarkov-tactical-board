@@ -40,8 +40,8 @@ jobs:
       - name: Build web assets
         run: npm run electron:build:web
 
-      - name: Build Windows x86 installer
-        run: npx electron-builder --win --ia32 --publish never
+      - name: Build Windows x64 installer
+        run: npx electron-builder --win --x64 --publish never
 
       - name: Upload installer to release
         uses: softprops/action-gh-release@v2
