@@ -55,12 +55,27 @@ const shouldUseHashRouting = () => {
   return window.location.protocol === 'file:'
 }
 
-const navigateTo = (path: string) => {
+const buildNavigationUrl = (path: string) => {
   if (shouldUseHashRouting()) {
-    window.history.pushState(null, '', `#${path}`)
-  } else {
-    window.history.pushState(null, '', path)
+    return `#${path}`
   }
+
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  const basePath = getWebBasePath()
+
+  if (!basePath) {
+    return normalizedPath
+  }
+
+  if (normalizedPath === ROUTES.home) {
+    return `${basePath}/`
+  }
+
+  return `${basePath}${normalizedPath}`
+}
+
+const navigateTo = (path: string) => {
+  window.history.pushState(null, '', buildNavigationUrl(path))
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
