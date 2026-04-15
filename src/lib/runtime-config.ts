@@ -1,4 +1,5 @@
 import { APP_CONFIG } from '../config/app-config'
+import { getInitialDesktopEnvironment } from './desktop'
 
 const API_BASE_URL_STORAGE_KEY = 'tarkov.apiBaseUrl'
 
@@ -16,7 +17,8 @@ const normalizeBaseUrl = (value: string) => {
 }
 
 export const isElectronApp = () => {
-  return Boolean(window.desktopApp?.isElectron) || navigator.userAgent.includes('Electron')
+  const desktopEnvironment = getInitialDesktopEnvironment()
+  return desktopEnvironment.isElectron || desktopEnvironment.isTauri
 }
 
 export const getDefaultApiBaseUrl = () => {

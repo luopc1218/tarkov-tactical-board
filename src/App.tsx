@@ -6,6 +6,12 @@ import { createWhiteboardInstance } from './api/whiteboard'
 import { ApiSettingsDialog } from './components/ApiSettingsDialog'
 import { isAdminAuthenticated, setAdminAuthenticated } from './features/admin-auth'
 import { saveRecentInstance } from './features/recent-instances'
+import {
+  addOpenSettingsListener,
+  getInitialDesktopEnvironment,
+  isDesktopHashRouting,
+  resolveDesktopEnvironment,
+} from './lib/desktop'
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
 import { AdminInstancesPage } from './pages/admin/AdminInstancesPage'
 import { AdminLoginPage } from './pages/admin/AdminLoginPage'
@@ -52,7 +58,7 @@ const stripBasePath = (pathname: string) => {
 }
 
 const shouldUseHashRouting = () => {
-  return window.location.protocol === 'file:'
+  return window.location.protocol === 'file:' || isDesktopHashRouting()
 }
 
 const buildNavigationUrl = (path: string) => {
@@ -121,8 +127,9 @@ const getNormalizedLocation = () => {
 function App() {
   const { t } = useTranslation()
   const prefersReducedMotion = useReducedMotion()
-  const desktopPlatform = window.desktopApp?.platform
-  const isDesktopApp = Boolean(window.desktopApp?.isElectron)
+  const [desktopEnvironment, setDesktopEnvironment] = useState(() => getInitialDesktopEnvironment())
+  const desktopPlatform = desktopEnvironment.platform
+  const isDesktopApp = desktopEnvironment.isDesktopApp
   const isWindowsDesktop = desktopPlatform === 'win32'
   const isWebApp = !isDesktopApp
   const [pathname, setPathname] = useState(() => getNormalizedLocation().pathname)
@@ -131,7 +138,21 @@ function App() {
   const [adminLoginLoading, setAdminLoginLoading] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
-  const shouldShowSettingsEntry = desktopPlatform !== 'darwin'
+  const shouldShowSettingsEntry = desktopPlatform !== 'darwin' || desktopEnvironment.isTauri
+
+  useEffect(() => {
+    let mounted = true
+
+    void resolveDesktopEnvironment().then((environment) => {
+      if (mounted) {
+        setDesktopEnvironment(environment)
+      }
+    })
+
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   useEffect(() => {
     const onPopState = () => {
@@ -202,10 +223,9 @@ function App() {
       return
     }
 
-    const platform = window.desktopApp?.platform
-    const safeTop = platform === 'darwin' ? 48 : platform === 'win32' ? 40 : 0
-    const safeRight = platform === 'win32' ? 144 : 0
-    const windowControlsWidth = platform === 'win32' ? 138 : 0
+    const safeTop = desktopPlatform === 'darwin' ? 48 : desktopPlatform === 'win32' ? 40 : 0
+    const safeRight = desktopPlatform === 'win32' ? 144 : 0
+    const windowControlsWidth = desktopPlatform === 'win32' ? 138 : 0
     document.documentElement.style.setProperty('--desktop-titlebar-safe-top', `${safeTop}px`)
     document.documentElement.style.setProperty('--desktop-titlebar-safe-right', `${safeRight}px`)
     document.documentElement.style.setProperty(
@@ -218,19 +238,18 @@ function App() {
       document.documentElement.style.setProperty('--desktop-titlebar-safe-right', '0px')
       document.documentElement.style.setProperty('--desktop-window-controls-width', '0px')
     }
-  }, [shouldShowSettingsEntry])
+  }, [desktopPlatform, shouldShowSettingsEntry])
 
   useEffect(() => {
-    const platform = window.desktopApp?.platform ?? 'web'
-    document.documentElement.setAttribute('data-platform', platform)
+    document.documentElement.setAttribute('data-platform', desktopPlatform)
 
     return () => {
       document.documentElement.removeAttribute('data-platform')
     }
-  }, [])
+  }, [desktopPlatform])
 
   useEffect(() => {
-    const unsubscribe = window.desktopApp?.onOpenSettings?.(() => {
+    const unsubscribe = addOpenSettingsListener(() => {
       setSettingsOpen(true)
     })
 

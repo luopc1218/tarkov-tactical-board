@@ -39,4 +39,5 @@ interface Window {
     platform?: string
     onOpenSettings?: (callback: () => void) => () => void
   }
+  __TAURI_INTERNALS__?: unknown
 }
