@@ -40,6 +40,9 @@ body {
     radial-gradient(circle at 82% 0%, rgba(115, 110, 92, 0.2), transparent 32%),
     linear-gradient(180deg, var(--theme-bg-0) 0%, var(--theme-bg-1) 56%, var(--theme-bg-2) 100%);
   background-attachment: fixed;
+  transition:
+    background 0.22s var(--ios-ease-out),
+    color 0.18s var(--ios-ease-out);
 }
 
 button {
@@ -70,6 +73,12 @@ button:disabled {
   background: rgba(21, 23, 24, 0.78);
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.38);
   backdrop-filter: blur(18px) saturate(130%);
+  transition:
+    transform 0.18s var(--ios-ease-out),
+    border-color 0.16s var(--ios-ease-out),
+    background-color 0.16s var(--ios-ease-out),
+    box-shadow 0.18s var(--ios-ease-out),
+    opacity 0.16s var(--ios-ease-out);
 }
 
 .ios-card {
@@ -78,6 +87,12 @@ button:disabled {
   background: rgba(17, 19, 21, 0.78);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.42);
   backdrop-filter: blur(20px) saturate(135%);
+  transition:
+    transform 0.18s var(--ios-ease-out),
+    border-color 0.16s var(--ios-ease-out),
+    background-color 0.16s var(--ios-ease-out),
+    box-shadow 0.18s var(--ios-ease-out),
+    opacity 0.16s var(--ios-ease-out);
 }
 
 .btn-base,
@@ -95,6 +110,18 @@ button:disabled {
   line-height: 1;
   transition: all 0.2s var(--ios-ease-out);
   white-space: nowrap;
+}
+
+.btn-base:hover,
+.btn-primary:hover,
+.btn-outline:hover {
+  transform: translateY(-1px);
+}
+
+.btn-base:active,
+.btn-primary:active,
+.btn-outline:active {
+  transform: translateY(0);
 }
 
 .btn-primary {
@@ -135,13 +162,47 @@ button:disabled {
   border: 1px solid rgba(112, 115, 121, 0.76);
   background: rgba(10, 10, 10, 0.5);
   transition:
-    border-color 0.18s var(--ios-ease-out),
-    box-shadow 0.18s var(--ios-ease-out);
+    border-color 0.14s var(--ios-ease-out),
+    box-shadow 0.14s var(--ios-ease-out),
+    background-color 0.14s var(--ios-ease-out),
+    transform 0.14s var(--ios-ease-out);
 }
 
 .ios-input:focus-within {
   border-color: rgba(204, 184, 140, 0.84);
   box-shadow: 0 0 0 3px var(--theme-accent-ring);
+  transform: translateY(-1px);
+}
+
+button,
+a,
+input,
+select,
+textarea,
+img,
+svg,
+[role='button'] {
+  transition:
+    opacity 0.14s var(--ios-ease-out),
+    transform 0.14s var(--ios-ease-out),
+    border-color 0.14s var(--ios-ease-out),
+    background-color 0.14s var(--ios-ease-out),
+    color 0.14s var(--ios-ease-out),
+    box-shadow 0.16s var(--ios-ease-out),
+    filter 0.16s var(--ios-ease-out);
+}
+
+.motion-soft-enter {
+  animation-duration: 0.2s;
+  animation-fill-mode: both;
+}
+
+.motion-soft-delay-1 {
+  animation-delay: 0.03s;
+}
+
+.motion-soft-delay-2 {
+  animation-delay: 0.06s;
 }
 
 .ios-segment {

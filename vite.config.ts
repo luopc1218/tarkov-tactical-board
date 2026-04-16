@@ -6,15 +6,10 @@ export default defineConfig({
   base: '/eftboard/',
   plugins: [react()],
   server: {
-    port: 10001,
+    port: 3000,
     proxy: {
-      '/api': {
-        target: 'http://localhost:10002/eftboard-server',
-        changeOrigin: true,
-        ws: true,
-      },
-      '/ws': {
-        target: 'http://localhost:10002/eftboard-server',
+      '/eftboard/api': {
+        target: 'http://localhost:8081',
         changeOrigin: true,
         ws: true,
       },

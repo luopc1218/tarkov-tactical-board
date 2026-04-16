@@ -1,4 +1,3 @@
-import { APP_CONFIG } from '../config/app-config'
 import { getInitialDesktopEnvironment } from './desktop'
 
 const API_BASE_URL_STORAGE_KEY = 'tarkov.apiBaseUrl'
@@ -21,17 +20,28 @@ export const isElectronApp = () => {
   return desktopEnvironment.isElectron || desktopEnvironment.isTauri
 }
 
+const getDefaultApiBaseUrlFromBase = () => {
+  const baseUrl = import.meta.env.BASE_URL?.trim() || '/'
+
+  if (baseUrl === './') {
+    return './api'
+  }
+
+  if (baseUrl === '/') {
+    return '/api'
+  }
+
+  const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
+  return `${normalizedBase}/api`
+}
+
 export const getDefaultApiBaseUrl = () => {
   const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
   if (configuredApiBaseUrl) {
-    return configuredApiBaseUrl
+    return normalizeBaseUrl(configuredApiBaseUrl) || getDefaultApiBaseUrlFromBase()
   }
 
-  if (import.meta.env.PROD) {
-    return APP_CONFIG.productionApiBaseUrl
-  }
-
-  return APP_CONFIG.defaultApiBaseUrl
+  return getDefaultApiBaseUrlFromBase()
 }
 
 export const getApiBaseUrl = () => {
@@ -43,7 +53,7 @@ export const getApiBaseUrl = () => {
     }
   }
 
-  return normalizeBaseUrl(getDefaultApiBaseUrl()) || APP_CONFIG.defaultApiBaseUrl
+  return normalizeBaseUrl(getDefaultApiBaseUrl()) || getDefaultApiBaseUrlFromBase()
 }
 
 export const setApiBaseUrl = (value: string) => {

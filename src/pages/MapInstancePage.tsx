@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { FiCopy, FiEdit3, FiMessageSquare, FiSend, FiTrash2 } from 'react-icons/fi'
+import { FiCopy, FiEdit3, FiTrash2 } from 'react-icons/fi'
 import type { TarkovMapPreset } from '../constants/maps'
 import { fetchMapPresets } from '../api/maps'
 import {
+  getWhiteboardMapIntel,
   getWhiteboardInstance,
   getWhiteboardState,
   saveWhiteboardState,
   switchWhiteboardMap,
+  type ExtractionIntelItem,
+  type HighValueLootIntelItem,
+  type MapIntelResponse,
 } from '../api/whiteboard'
 import { saveRecentInstance } from '../features/recent-instances'
 import { getApiBaseUrl } from '../lib/runtime-config'
@@ -52,14 +57,26 @@ interface RemoteCursor {
   updatedAt: number
 }
 
-interface ChatMessage {
-  id: string
-  clientId: string
-  text: string
-  displayName: string
-  sentAt: number
-  isLocal: boolean
-  failed?: boolean
+const renderIntelBool = (value: boolean | null, t: (key: string) => string) => {
+  if (value === null) {
+    return t('mapInstance.notProvided')
+  }
+  return value ? t('mapInstance.yes') : t('mapInstance.no')
+}
+
+const getIntelTagTone = (index: number) => {
+  const tones = [
+    'border-cyan-300/30 bg-cyan-400/10 text-cyan-100',
+    'border-amber-300/30 bg-amber-400/10 text-amber-100',
+    'border-lime-300/30 bg-lime-400/10 text-lime-100',
+    'border-fuchsia-300/30 bg-fuchsia-400/10 text-fuchsia-100',
+  ]
+  return tones[index % tones.length]
+}
+
+const isGuaranteedSpawnChance = (value: string) => {
+  const normalized = value.replace(/\s+/g, '').trim()
+  return normalized === '100%'
 }
 
 const DEFAULT_CANVAS_WIDTH = 1920
@@ -78,24 +95,8 @@ const WHITEBOARD_ERASE_TOPIC = 'stroke.erase'
 const WHITEBOARD_CURSOR_MOVE_TOPIC = 'cursor.move'
 const WHITEBOARD_CURSOR_LEAVE_TOPIC = 'cursor.leave'
 const WHITEBOARD_MAP_CHANGED_TOPIC = 'map.changed'
-const CHAT_MESSAGE_TOPIC = 'chat.message'
-const CHAT_HISTORY_TOPIC = 'chat.history'
 const STROKE_APPEND_INTERVAL_MS = 40
 const WS_RECONNECT_BACKOFF_MS = [1000, 2000, 5000]
-const CHAT_MAX_MESSAGES = 200
-const CHAT_MESSAGE_TOPIC_ALIASES = new Set([
-  CHAT_MESSAGE_TOPIC,
-  'chat.send',
-  'chat.broadcast',
-  'chat.receive',
-  'chat.push',
-])
-const CHAT_HISTORY_TOPIC_ALIASES = new Set([
-  CHAT_HISTORY_TOPIC,
-  'chat.sync',
-  'chat.messages',
-  'chat.init',
-])
 
 const buildPathData = (points: Point[]) => {
   if (points.length === 0) {
@@ -155,8 +156,6 @@ const colorFromId = (value: string) => {
 }
 
 const resolveWsUrl = (wsPath: string) => {
-  const normalizedWsPath = wsPath.startsWith('/') ? wsPath : `/${wsPath}`
-
   if (/^wss?:\/\//i.test(wsPath)) {
     return wsPath
   }
@@ -165,56 +164,26 @@ const resolveWsUrl = (wsPath: string) => {
     return wsPath.replace(/^http/i, 'ws')
   }
 
-  const tryBuildWsFromHttpBase = (baseValue: string) => {
-    try {
-      const base = new URL(baseValue)
-      const protocol = base.protocol === 'https:' || base.protocol === 'wss:' ? 'wss:' : 'ws:'
-      return new URL(normalizedWsPath, `${protocol}//${base.host}`).toString()
-    } catch {
-      return null
-    }
+  try {
+    const apiBase = new URL(getApiBaseUrl(), window.location.origin)
+    const protocol = apiBase.protocol === 'https:' ? 'wss:' : 'ws:'
+    const normalizedWsPath = wsPath.startsWith('/') ? wsPath : `/${wsPath}`
+    const apiPath = apiBase.pathname.replace(/\/+$/, '')
+    const resolvedPath = `${apiPath}/ws${normalizedWsPath}`.replace(/\/{2,}/g, '/')
+    return `${protocol}//${apiBase.host}${resolvedPath}`
+  } catch {
+    return null
   }
-
-  const wsBase = import.meta.env.VITE_WS_BASE_URL?.trim() ?? ''
-  const apiBase = getApiBaseUrl().trim()
-  const candidates = [
-    wsBase,
-    apiBase,
-    window.location.origin,
-    // Electron packaged app commonly loads from file://, fallback to local backend default.
-    'http://127.0.0.1:8080',
-  ]
-
-  for (const candidate of candidates) {
-    if (!candidate) {
-      continue
-    }
-    const built = tryBuildWsFromHttpBase(candidate)
-    if (built) {
-      return built
-    }
-  }
-
-  return null
 }
 
-const buildChatWsPath = (instanceId: string) => `/ws/chat/${encodeURIComponent(instanceId)}`
+const buildWhiteboardWsPath = (instanceId: string) =>
+  `/whiteboard/${encodeURIComponent(instanceId)}`
 
 const createRealtimeClientId = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return `c-${crypto.randomUUID()}`
   }
   return `c-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
-}
-
-const createChatSenderName = () => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return `U-${crypto.randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase()}`
-  }
-  return `U-${Date.now().toString(36).toUpperCase()}${Math.random()
-    .toString(36)
-    .slice(2, 8)
-    .toUpperCase()}`
 }
 
 const readStrokePayload = (payload: unknown): Stroke | null => {
@@ -391,26 +360,9 @@ const readString = (value: unknown): string | null => {
   return trimmed.length > 0 ? trimmed : null
 }
 
-const readIdentifier = (value: unknown): string | null => {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return String(Math.trunc(value))
-  }
-  return readString(value)
-}
-
 const pickString = (source: Record<string, unknown>, keys: string[]): string | null => {
   for (const key of keys) {
     const value = readString(source[key])
-    if (value) {
-      return value
-    }
-  }
-  return null
-}
-
-const pickIdentifier = (source: Record<string, unknown>, keys: string[]): string | null => {
-  for (const key of keys) {
-    const value = readIdentifier(source[key])
     if (value) {
       return value
     }
@@ -431,98 +383,6 @@ const resolveEventType = (source: Record<string, unknown>) => {
   ).toLowerCase()
 }
 
-const parseChatTimestamp = (source: Record<string, unknown>) => {
-  const timestampCandidates = [source.sentAt, source.timestamp, source.createdAt, source.time]
-  for (const candidate of timestampCandidates) {
-    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
-      return candidate
-    }
-    if (typeof candidate === 'string' && candidate.trim()) {
-      const parsed = Date.parse(candidate)
-      if (Number.isFinite(parsed)) {
-        return parsed
-      }
-    }
-  }
-  return Date.now()
-}
-
-const normalizeChatMessage = (payload: unknown): Omit<ChatMessage, 'isLocal' | 'failed'> | null => {
-  if (!payload || typeof payload !== 'object') {
-    return null
-  }
-
-  const source = payload as Record<string, unknown>
-  const text = pickString(source, ['text', 'message', 'content', 'msg'])
-  if (!text) {
-    return null
-  }
-
-  const explicitClientId = pickString(source, ['clientId', 'senderId', 'userId', 'from'])
-  const displayName =
-    pickString(source, ['displayName', 'senderName', 'nickname', 'username', 'name']) ??
-    (explicitClientId ? `User-${explicitClientId.slice(0, 4).toUpperCase()}` : 'User')
-  const clientId =
-    explicitClientId ?? `name:${displayName}`
-  const sentAt = parseChatTimestamp(source)
-  const id =
-    pickIdentifier(source, ['messageId', 'id', 'clientMessageId']) ??
-    `${clientId}-${sentAt}-${text.slice(0, 16)}`
-
-  return {
-    id,
-    clientId,
-    text,
-    displayName,
-    sentAt,
-  }
-}
-
-const readChatMessagesPayload = (payload: unknown): Omit<ChatMessage, 'isLocal' | 'failed'>[] => {
-  if (Array.isArray(payload)) {
-    return payload
-      .map((item) => normalizeChatMessage(item))
-      .filter((item): item is Omit<ChatMessage, 'isLocal' | 'failed'> => item !== null)
-  }
-
-  if (!payload || typeof payload !== 'object') {
-    return []
-  }
-
-  const source = payload as Record<string, unknown>
-  const listKeys = ['messages', 'items', 'list', 'history', 'records']
-  for (const key of listKeys) {
-    const value = source[key]
-    if (Array.isArray(value)) {
-      return value
-        .map((item) => normalizeChatMessage(item))
-        .filter((item): item is Omit<ChatMessage, 'isLocal' | 'failed'> => item !== null)
-    }
-  }
-
-  const objectKeys = ['message', 'item', 'record']
-  for (const key of objectKeys) {
-    const value = source[key]
-    const normalized = normalizeChatMessage(value)
-    if (normalized) {
-      return [normalized]
-    }
-  }
-
-  const single = normalizeChatMessage(payload)
-  return single ? [single] : []
-}
-
-const isLocalChatMessage = (
-  message: Omit<ChatMessage, 'isLocal' | 'failed'>,
-  localClientId: string,
-  localDisplayName: string
-) => {
-  if (message.clientId === localClientId) {
-    return true
-  }
-  return message.displayName.trim().toLowerCase() === localDisplayName.trim().toLowerCase()
-}
 
 const copyText = async (value: string): Promise<boolean> => {
   if (navigator.clipboard && window.isSecureContext) {
@@ -566,7 +426,6 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   const [toolMode, setToolMode] = useState<ToolMode>('draw')
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 })
   const [wsConnected, setWsConnected] = useState(false)
-  const [chatWsConnected, setChatWsConnected] = useState(false)
   const [contentSize, setContentSize] = useState({
     width: DEFAULT_CANVAS_WIDTH,
     height: DEFAULT_CANVAS_HEIGHT,
@@ -576,21 +435,19 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   const [cursorScale, setCursorScale] = useState(1.8)
   const [copied, setCopied] = useState(false)
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
-  const [chatVisible, setChatVisible] = useState(false)
-  const [chatInput, setChatInput] = useState('')
-  const [chatUnread, setChatUnread] = useState(0)
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [intelDrawerOpen, setIntelDrawerOpen] = useState(false)
+  const [mapIntel, setMapIntel] = useState<MapIntelResponse | null>(null)
+  const [mapIntelLoadError, setMapIntelLoadError] = useState<string | null>(null)
+  const [mapIntelPanelOpen, setMapIntelPanelOpen] = useState(true)
+  const [bossIntelOpen, setBossIntelOpen] = useState(true)
+  const [extractionsOpen, setExtractionsOpen] = useState(true)
+  const [highValueLootOpen, setHighValueLootOpen] = useState(true)
   const [remoteCursors, setRemoteCursors] = useState<Record<string, RemoteCursor>>({})
   const [remoteInProgressStrokes, setRemoteInProgressStrokes] = useState<Record<string, Stroke>>({})
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const chatScrollRef = useRef<HTMLDivElement | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
-  const chatWsRef = useRef<WebSocket | null>(null)
   const localStrokeIdsRef = useRef(new Set<string>())
-  const chatMessageIdsRef = useRef(new Set<string>())
-  const chatVisibleRef = useRef(false)
   const localClientIdRef = useRef(createRealtimeClientId())
-  const localDisplayNameRef = useRef(createChatSenderName())
   const lastCursorSentAtRef = useRef(0)
   const pointerModeRef = useRef<'draw' | 'erase' | 'pan' | 'pinch' | null>(null)
   const activePointerIdRef = useRef<number | null>(null)
@@ -608,96 +465,11 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   const appendTimerRef = useRef<number | null>(null)
   const reconnectTimerRef = useRef<number | null>(null)
   const reconnectAttemptRef = useRef(0)
-  const chatReconnectTimerRef = useRef<number | null>(null)
-  const chatReconnectAttemptRef = useRef(0)
   const erasedStrokeIdsRef = useRef(new Set<string>())
 
   useEffect(() => {
     currentStrokeRef.current = currentStroke
   }, [currentStroke])
-
-  useEffect(() => {
-    chatVisibleRef.current = chatVisible
-  }, [chatVisible])
-
-  useEffect(() => {
-    if (!chatVisible) {
-      return
-    }
-
-    const timer = window.setTimeout(() => {
-      const container = chatScrollRef.current
-      if (!container) {
-        return
-      }
-      container.scrollTop = container.scrollHeight
-    }, 0)
-
-    return () => {
-      window.clearTimeout(timer)
-    }
-  }, [chatMessages, chatVisible])
-
-  useEffect(() => {
-    queueMicrotask(() => {
-      setChatVisible(false)
-      setChatInput('')
-      setChatUnread(0)
-      setChatMessages([])
-    })
-    chatMessageIdsRef.current.clear()
-    if (instanceId) {
-      localDisplayNameRef.current = createChatSenderName()
-    }
-  }, [instanceId])
-
-  const appendChatMessages = useCallback(
-    (messages: ChatMessage[], options?: { countUnread?: boolean }) => {
-      const countUnread = options?.countUnread ?? true
-      if (messages.length === 0) {
-        return
-      }
-
-      const nextItems: ChatMessage[] = []
-      for (const message of messages) {
-        if (!message.id || chatMessageIdsRef.current.has(message.id)) {
-          continue
-        }
-        chatMessageIdsRef.current.add(message.id)
-        nextItems.push(message)
-      }
-
-      if (nextItems.length === 0) {
-        return
-      }
-
-      setChatMessages((prev) => [...prev, ...nextItems].slice(-CHAT_MAX_MESSAGES))
-
-      if (countUnread && !chatVisibleRef.current) {
-        const unreadDelta = nextItems.reduce((count, item) => count + (item.isLocal ? 0 : 1), 0)
-        if (unreadDelta > 0) {
-          setChatUnread((prev) => prev + unreadDelta)
-        }
-      }
-    },
-    []
-  )
-
-  const toggleChatVisibility = () => {
-    setMobileDrawerOpen(false)
-    const nextVisible = !chatVisibleRef.current
-    if (nextVisible) {
-      setChatUnread(0)
-    }
-    setChatVisible(nextVisible)
-  }
-
-  const formatChatTime = (timestamp: number) => {
-    return new Date(timestamp).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }
 
   const renderConnectionBadge = (label: string, connected: boolean) => (
     <span
@@ -848,14 +620,15 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   }, [instance?.mapId])
 
   useEffect(() => {
-    if (!instance?.wsPath) {
+    if (!instance?.id) {
       return
     }
 
-    const resolvedWsUrl = resolveWsUrl(instance.wsPath)
+    const whiteboardWsPath = buildWhiteboardWsPath(instance.id)
+    const resolvedWsUrl = resolveWsUrl(whiteboardWsPath)
     if (!resolvedWsUrl) {
       console.warn('[MapInstancePage] Unable to resolve websocket url', {
-        wsPath: instance.wsPath,
+        whiteboardWsPath,
         apiBaseUrl: getApiBaseUrl(),
       })
       return
@@ -893,7 +666,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
           wsRef.current = null
         }
         console.warn('[MapInstancePage] WebSocket closed', {
-          wsPath: instance.wsPath,
+          whiteboardWsPath,
           resolvedWsUrl,
           code: event.code,
           reason: event.reason,
@@ -915,7 +688,7 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
       ws.onerror = () => {
         setWsConnected(false)
         console.warn('[MapInstancePage] WebSocket connection error', {
-          wsPath: instance.wsPath,
+          whiteboardWsPath,
           resolvedWsUrl,
         })
       }
@@ -1105,129 +878,41 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
       setRemoteCursors({})
       setRemoteInProgressStrokes({})
     }
-  }, [instance?.wsPath])
+  }, [instance?.id])
 
   useEffect(() => {
-    if (!instance?.id) {
-      return
-    }
-
-    const chatWsPath = buildChatWsPath(instance.id)
-    const resolvedChatWsUrl = resolveWsUrl(chatWsPath)
-    if (!resolvedChatWsUrl) {
-      console.warn('[MapInstancePage] Unable to resolve chat websocket url', {
-        chatWsPath,
-        apiBaseUrl: getApiBaseUrl(),
-      })
-      return
-    }
-
-    let destroyed = false
-    const clearReconnectTimer = () => {
-      if (chatReconnectTimerRef.current !== null) {
-        window.clearTimeout(chatReconnectTimerRef.current)
-        chatReconnectTimerRef.current = null
-      }
-    }
-
-    const connect = () => {
-      let ws: WebSocket
-      try {
-        ws = new WebSocket(resolvedChatWsUrl)
-      } catch {
-        return
-      }
-
-      chatWsRef.current = ws
+    if (!instance?.id || !instance?.mapId) {
       queueMicrotask(() => {
-        setChatWsConnected(false)
+        setMapIntel(null)
+        setMapIntelLoadError(null)
       })
+      return
+    }
 
-      ws.onopen = () => {
-        chatReconnectAttemptRef.current = 0
-        clearReconnectTimer()
-        setChatWsConnected(true)
-      }
-      ws.onclose = (event) => {
-        setChatWsConnected(false)
-        if (chatWsRef.current === ws) {
-          chatWsRef.current = null
-        }
-        console.warn('[MapInstancePage] Chat WebSocket closed', {
-          chatWsPath,
-          resolvedChatWsUrl,
-          code: event.code,
-          reason: event.reason,
-          wasClean: event.wasClean,
-        })
-        if (destroyed) {
+    let active = true
+    queueMicrotask(() => {
+      setMapIntelLoadError(null)
+    })
+
+    void getWhiteboardMapIntel(instance.id)
+      .then((response) => {
+        if (!active) {
           return
         }
-        const retryDelay =
-          WS_RECONNECT_BACKOFF_MS[
-            Math.min(chatReconnectAttemptRef.current, WS_RECONNECT_BACKOFF_MS.length - 1)
-          ]
-        chatReconnectAttemptRef.current += 1
-        clearReconnectTimer()
-        chatReconnectTimerRef.current = window.setTimeout(() => {
-          connect()
-        }, retryDelay)
-      }
-      ws.onerror = () => {
-        setChatWsConnected(false)
-        console.warn('[MapInstancePage] Chat WebSocket connection error', {
-          chatWsPath,
-          resolvedChatWsUrl,
-        })
-      }
-      ws.onmessage = (event) => {
-        try {
-          const payload = JSON.parse(event.data as string) as {
-            type?: string
-            payload?: unknown
-            data?: unknown
-          }
-          const type = resolveEventType(payload as unknown as Record<string, unknown>)
-          const actualPayload = payload.payload ?? payload.data ?? payload
-          const isChatHistoryType =
-            CHAT_HISTORY_TOPIC_ALIASES.has(type) || type.startsWith('chat.history')
-          const isChatMessageType =
-            CHAT_MESSAGE_TOPIC_ALIASES.has(type) ||
-            type.startsWith('chat.message') ||
-            type.startsWith('chat.send')
-
-          if (isChatHistoryType || isChatMessageType || !type) {
-            const chatItems = readChatMessagesPayload(actualPayload).map((item) => ({
-              ...item,
-              isLocal: isLocalChatMessage(
-                item,
-                localClientIdRef.current,
-                localDisplayNameRef.current
-              ),
-            }))
-            appendChatMessages(chatItems, { countUnread: !isChatHistoryType })
-          }
-        } catch {
-          // Ignore non-JSON messages.
+        setMapIntel(response)
+      })
+      .catch((error) => {
+        if (!active) {
+          return
         }
-      }
-    }
-
-    chatReconnectAttemptRef.current = 0
-    clearReconnectTimer()
-    connect()
+        setMapIntel(null)
+        setMapIntelLoadError(error instanceof Error ? error.message : t('mapInstance.mapIntelLoadError'))
+      })
 
     return () => {
-      destroyed = true
-      clearReconnectTimer()
-      const ws = chatWsRef.current
-      if (ws) {
-        ws.close()
-      }
-      chatWsRef.current = null
-      setChatWsConnected(false)
+      active = false
     }
-  }, [appendChatMessages, instance?.id])
+  }, [instance?.id, instance?.mapId, t])
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -1287,15 +972,6 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
 
   const sendWsMessage = useCallback((message: Record<string, unknown>) => {
     const ws = wsRef.current
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      return false
-    }
-    ws.send(JSON.stringify(message))
-    return true
-  }, [])
-
-  const sendChatWsMessage = useCallback((message: Record<string, unknown>) => {
-    const ws = chatWsRef.current
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       return false
     }
@@ -1753,35 +1429,6 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     }
   }, [strokes.length, undoLastStroke])
 
-  const sendChatMessage = () => {
-    const text = chatInput.trim()
-    if (!text) {
-      return
-    }
-
-    const sent = sendChatWsMessage({
-      senderName: localDisplayNameRef.current,
-      content: text,
-    })
-
-    setChatInput('')
-    if (sent) {
-      return
-    }
-
-    const localFailedMessage: ChatMessage = {
-      id: `chat-failed-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      clientId: localClientIdRef.current,
-      text,
-      displayName: localDisplayNameRef.current,
-      sentAt: Date.now(),
-      isLocal: true,
-      failed: true,
-    }
-    chatMessageIdsRef.current.add(localFailedMessage.id)
-    setChatMessages((prev) => [...prev, localFailedMessage].slice(-CHAT_MAX_MESSAGES))
-  }
-
   const copyInstanceId = async () => {
     const value = instance?.id ?? instanceId
     if (!value) {
@@ -1894,6 +1541,407 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     ))
   }, [cursorScale, remoteCursors])
 
+  const renderExtraDetails = useCallback(
+    (details: Array<{ label: string; value: string }>) => {
+      if (details.length === 0) {
+        return null
+      }
+
+      return (
+        <dl className="grid gap-2 sm:grid-cols-2">
+          {details.map((detail) => (
+            <div
+              key={`${detail.label}-${detail.value}`}
+              className="rounded-xl border border-slate-700/70 bg-slate-900/70 px-3 py-2"
+            >
+              <dt className="text-[10px] uppercase tracking-[0.18em] text-slate-500">{detail.label}</dt>
+              <dd className="mt-1 break-words text-[11px] leading-5 text-slate-200">{detail.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )
+    },
+    [],
+  )
+
+  const renderSectionToggle = useCallback(
+    (
+      label: string,
+      meta: string,
+      open: boolean,
+      onToggle: () => void,
+      stickyClassName = '',
+    ) => {
+      return (
+        <button
+          type="button"
+          onClick={onToggle}
+          className={[
+            'flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-700/80 bg-slate-950/92 px-4 py-3 text-left shadow-[0_10px_30px_rgba(2,6,23,0.22)] backdrop-blur-md transition hover:border-slate-500/80 hover:bg-slate-900/95',
+            stickyClassName,
+          ].join(' ')}
+        >
+          <div className="min-w-0">
+            <div className="text-sm font-semibold tracking-[0.01em] text-white">{label}</div>
+            <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-slate-500">{meta}</div>
+          </div>
+          <span className="shrink-0 rounded-full border border-slate-600/80 bg-slate-900/90 px-2.5 py-1 text-[11px] font-medium text-slate-200">
+            {open ? '−' : '+'}
+          </span>
+        </button>
+      )
+    },
+    [],
+  )
+
+  const renderExtractionCard = useCallback(
+    (item: ExtractionIntelItem) => {
+      return (
+        <article
+          key={item.id}
+          className="overflow-hidden rounded-[1.45rem] border border-slate-700/80 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_28%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.94))] p-4 text-xs text-slate-200 shadow-[0_22px_50px_rgba(2,6,23,0.24)]"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300/70">{t('mapInstance.extractionsTitle')}</p>
+              <h4 className="mt-1 text-base font-semibold leading-6 text-white">{item.name}</h4>
+              {item.location && <p className="mt-1 text-[12px] text-slate-400">{item.location}</p>}
+              {item.factions.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {item.factions.map((faction, index) => (
+                    <span
+                      key={faction}
+                      className={['rounded-full border px-2 py-0.5 text-[11px]', getIntelTagTone(index)].join(' ')}
+                    >
+                      {faction}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="grid gap-2 text-right text-[11px] text-slate-300">
+              <span className="rounded-full border border-slate-600/80 bg-slate-900/85 px-3 py-1 font-medium">
+                {t('mapInstance.alwaysAvailable')}: {renderIntelBool(item.alwaysAvailable, t)}
+              </span>
+              <span className="rounded-full border border-slate-600/80 bg-slate-900/85 px-3 py-1 font-medium">
+                {t('mapInstance.oneTime')}: {renderIntelBool(item.oneTime, t)}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 text-[12px] text-slate-300">
+            {item.requirement && (
+              <p className="rounded-xl border border-amber-300/20 bg-amber-400/8 px-3 py-2.5 leading-5">
+                <span className="mr-2 text-[10px] uppercase tracking-[0.18em] text-amber-200/70">{t('mapInstance.requirement')}</span>
+                <span className="text-slate-100">{item.requirement}</span>
+              </p>
+            )}
+            {item.description && (
+              <p className="rounded-xl border border-slate-700/70 bg-slate-900/55 px-3 py-2.5 leading-6">
+                <span className="mr-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">{t('mapInstance.description')}</span>
+                <span className="text-slate-200">{item.description}</span>
+              </p>
+            )}
+            {renderExtraDetails(item.extraDetails)}
+          </div>
+
+          {item.detailUrl && (
+            <a
+              href={item.detailUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-4 inline-flex rounded-full border border-cyan-300/35 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-medium text-cyan-100"
+            >
+              查看详情页
+            </a>
+          )}
+
+          {item.detailImageUrls.length > 0 && (
+            <div className="mt-3 overflow-hidden rounded-xl border border-slate-700/70">
+              <img
+                src={item.detailImageUrls[0]}
+                alt={`${item.name}-${t('mapInstance.detailImage')}`}
+                className="block max-h-48 w-full object-cover"
+                loading="lazy"
+              />
+              {item.detailImageUrls.length > 1 && (
+                <div className="border-t border-slate-700/70 px-3 py-2 text-[10px] text-slate-400">
+                  {t('mapInstance.detailImage')} {item.detailImageUrls.length} 张
+                </div>
+              )}
+            </div>
+          )}
+        </article>
+      )
+    },
+    [renderExtraDetails, t],
+  )
+
+  const renderLootCard = useCallback(
+    (item: HighValueLootIntelItem) => {
+      return (
+        <article
+          key={item.id}
+          className="overflow-hidden rounded-[1.45rem] border border-slate-700/80 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.13),transparent_28%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.94))] p-4 text-xs text-slate-200 shadow-[0_22px_50px_rgba(2,6,23,0.24)]"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-amber-300/70">{t('mapInstance.highValueLootTitle')}</p>
+              <h4 className="mt-1 text-base font-semibold leading-6 text-white">{item.title}</h4>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {item.category && (
+                  <span className="inline-flex rounded-full border border-amber-300/35 bg-amber-400/10 px-2.5 py-1 text-[11px] font-medium text-amber-100">
+                    {item.category}
+                  </span>
+                )}
+                {item.priority && (
+                  <span className="inline-flex rounded-full border border-rose-300/35 bg-rose-400/10 px-2.5 py-1 text-[11px] font-medium text-rose-100">
+                    {item.priority}
+                  </span>
+                )}
+              </div>
+            </div>
+            {item.keyNames.length > 0 && (
+              <div className="flex flex-wrap justify-end gap-1.5">
+                {item.keyNames.map((keyName) => (
+                  <span
+                    key={keyName}
+                    className="rounded-full border border-lime-300/30 bg-lime-400/10 px-2.5 py-1 text-[11px] font-medium text-lime-100"
+                  >
+                    {keyName}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 grid gap-3 text-[12px] text-slate-300">
+            {item.location && (
+              <p className="rounded-xl border border-slate-700/70 bg-slate-900/55 px-3 py-2.5 leading-5">
+                <span className="mr-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">{t('mapInstance.location')}</span>
+                <span className="text-slate-100">{item.location}</span>
+              </p>
+            )}
+            {item.itemNames.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {item.itemNames.map((lootName, index) => (
+                  <span
+                    key={lootName}
+                    className={['rounded-full border px-2.5 py-1 text-[11px] font-medium', getIntelTagTone(index)].join(' ')}
+                  >
+                    {lootName}
+                  </span>
+                ))}
+              </div>
+            )}
+            {item.notes && (
+              <p className="rounded-xl border border-slate-700/70 bg-slate-900/55 px-3 py-2.5 leading-6">
+                <span className="mr-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">{t('mapInstance.description')}</span>
+                <span className="text-slate-200">{item.notes}</span>
+              </p>
+            )}
+            {renderExtraDetails(item.extraDetails)}
+          </div>
+
+          {item.imageUrl && (
+            <div className="mt-3 overflow-hidden rounded-xl border border-slate-700/70">
+              <img
+                src={item.imageUrl}
+                alt={item.title}
+                className="block max-h-48 w-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          )}
+        </article>
+      )
+    },
+    [renderExtraDetails, t],
+  )
+
+  const renderMapIntelPanel = useCallback((onClose?: () => void) => {
+      return (
+          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[1.7rem] border border-slate-700/80 bg-[linear-gradient(180deg,rgba(15,23,42,0.985),rgba(2,6,23,0.96))] px-3 py-3 shadow-[0_28px_70px_rgba(2,6,23,0.38)]">
+            <div className="mb-0 shrink-0 rounded-2xl border border-slate-700/80 bg-slate-950/55 px-4 py-4">
+              <div className="flex items-start justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setMapIntelPanelOpen((current) => !current)}
+                  className="min-w-0 flex-1 text-left transition"
+                >
+                  <p className="text-[10px] uppercase tracking-[0.24em] text-amber-300/75">Tactical Intel</p>
+                  <h3 className="mt-2 text-lg font-semibold text-white">{t('mapInstance.mapIntelTitle')}</h3>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">{t('mapInstance.mapIntelSubtitle')}</p>
+                  {(mapIntel?.mapNameZh || mapIntel?.mapNameEn) && (
+                    <p className="mt-2 text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                      {[mapIntel.mapNameZh, mapIntel.mapNameEn].filter(Boolean).join(' / ')}
+                    </p>
+                  )}
+                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="rounded-full border border-slate-600/80 bg-slate-900/90 px-2.5 py-1 text-[11px] font-medium text-slate-200">
+                    {mapIntelPanelOpen ? '−' : '+'}
+                  </span>
+                  {onClose && (
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="btn-base min-h-7 rounded-full border border-slate-600/80 bg-slate-900/85 px-2.5 py-1 text-[11px] text-slate-100"
+                    >
+                      {t('mapInstance.closeTools')}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {mapIntelPanelOpen && <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1 scrollbar-tactical">
+              {mapIntelLoadError && (
+                <div className="rounded-xl border border-rose-300/35 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
+                  {mapIntelLoadError || t('mapInstance.mapIntelLoadError')}
+                </div>
+              )}
+
+              {mapIntel?.errorMessage && (
+                <div className="rounded-xl border border-amber-300/35 bg-amber-400/10 px-3 py-2 text-xs text-amber-50">
+                  <span className="font-medium">{t('mapInstance.mapIntelModuleError')}:</span>{' '}
+                  {mapIntel.errorMessage}
+                </div>
+              )}
+
+              <section className="space-y-3">
+                {renderSectionToggle(
+                  t('mapInstance.bossRefreshTitle'),
+                  `${(mapIntel?.bossRefresh.regular.length ?? 0) + (mapIntel?.bossRefresh.pve.length ?? 0)} entries`,
+                  bossIntelOpen,
+                  () => setBossIntelOpen((current) => !current),
+                  'sticky top-0 z-30',
+                )}
+                {bossIntelOpen && (
+                  <div className="grid gap-2">
+                    {[
+                      {
+                        key: 'regular',
+                        title: t('mapInstance.bossRefreshRegular'),
+                        items: mapIntel?.bossRefresh.regular ?? [],
+                      },
+                      {
+                        key: 'pve',
+                        title: t('mapInstance.bossRefreshPve'),
+                        items: mapIntel?.bossRefresh.pve ?? [],
+                      },
+                    ].map((group) => (
+                      <div key={group.key} className="rounded-2xl border border-slate-700/80 bg-slate-950/60 p-3">
+                        <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{group.title}</p>
+                        {group.items.length === 0 ? (
+                          <p className="mt-2 text-[11px] text-slate-400">{t('mapInstance.bossRefreshEmpty')}</p>
+                        ) : (
+                          <ul className="mt-3 space-y-2">
+                            {group.items.map((item) => (
+                              <li
+                                key={item.id}
+                                className="flex items-center justify-between gap-4 rounded-xl border border-slate-700/70 bg-slate-900/75 px-3 py-3"
+                              >
+                                <div className="min-w-0">
+                                  <span className="block truncate text-[13px] font-semibold text-slate-100">{item.name}</span>
+                                  {item.nameSecondary && (
+                                    <span className="mt-0.5 block truncate text-[11px] uppercase tracking-[0.12em] text-slate-500">
+                                      {item.nameSecondary}
+                                    </span>
+                                  )}
+                                </div>
+                                <div
+                                  className={[
+                                    'shrink-0 rounded-2xl px-3 py-2 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]',
+                                    isGuaranteedSpawnChance(item.chanceText)
+                                      ? 'border border-rose-300/40 bg-[linear-gradient(180deg,rgba(251,113,133,0.22),rgba(190,24,93,0.14))]'
+                                      : 'border border-amber-300/35 bg-[linear-gradient(180deg,rgba(251,191,36,0.18),rgba(245,158,11,0.12))]',
+                                  ].join(' ')}
+                                >
+                                  <span
+                                    className={[
+                                      'block text-[10px] uppercase tracking-[0.18em]',
+                                      isGuaranteedSpawnChance(item.chanceText)
+                                        ? 'text-rose-200/75'
+                                        : 'text-amber-200/70',
+                                    ].join(' ')}
+                                  >
+                                    Spawn
+                                  </span>
+                                  <span
+                                    className={[
+                                      'block text-[18px] leading-none font-extrabold tabular-nums md:text-[20px]',
+                                      isGuaranteedSpawnChance(item.chanceText)
+                                        ? 'text-rose-100'
+                                        : 'text-amber-100',
+                                    ].join(' ')}
+                                  >
+                                    {item.chanceText}
+                                  </span>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="space-y-3">
+                {renderSectionToggle(
+                  t('mapInstance.extractionsTitle'),
+                  `${mapIntel?.extractions.length ?? 0} entries`,
+                  extractionsOpen,
+                  () => setExtractionsOpen((current) => !current),
+                  'sticky top-0 z-20',
+                )}
+                {extractionsOpen &&
+                  (mapIntel?.extractions.length ? (
+                    <div className="space-y-3">{mapIntel.extractions.map(renderExtractionCard)}</div>
+                  ) : (
+                    <p className="rounded-2xl border border-slate-700/80 bg-slate-950/60 px-4 py-3 text-[11px] text-slate-400">
+                      {t('mapInstance.extractionsEmpty')}
+                    </p>
+                  ))}
+              </section>
+
+              <section className="space-y-3">
+                {renderSectionToggle(
+                  t('mapInstance.highValueLootTitle'),
+                  `${mapIntel?.highValueLoot.length ?? 0} entries`,
+                  highValueLootOpen,
+                  () => setHighValueLootOpen((current) => !current),
+                  'sticky top-0 z-10',
+                )}
+                {highValueLootOpen &&
+                  (mapIntel?.highValueLoot.length ? (
+                    <div className="space-y-3">{mapIntel.highValueLoot.map(renderLootCard)}</div>
+                  ) : (
+                    <p className="rounded-2xl border border-slate-700/80 bg-slate-950/60 px-4 py-3 text-[11px] text-slate-400">
+                      {t('mapInstance.highValueLootEmpty')}
+                    </p>
+                  ))}
+              </section>
+            </div>}
+          </div>
+      )
+    },
+    [
+      bossIntelOpen,
+      extractionsOpen,
+      highValueLootOpen,
+      mapIntelPanelOpen,
+      mapIntel,
+      mapIntelLoadError,
+      renderExtractionCard,
+      renderLootCard,
+      renderSectionToggle,
+      t,
+    ],
+  )
+
   if (!instanceId || (!loading && !instance)) {
     return (
       <main className="app-page grid place-items-center px-4 py-8">
@@ -1908,6 +1956,34 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
     )
   }
 
+  const intelDrawer =
+    typeof document === 'undefined'
+      ? null
+      : createPortal(
+          <div className={`fixed inset-0 z-[70] ${intelDrawerOpen ? '' : 'pointer-events-none'}`}>
+            <button
+              type="button"
+              aria-label={t('mapInstance.mapIntelTitle')}
+              onClick={() => setIntelDrawerOpen(false)}
+              className={[
+                'absolute inset-0 bg-black/42 backdrop-blur-[1px] transition-opacity duration-150 ease-out',
+                intelDrawerOpen ? 'opacity-100' : 'opacity-0',
+              ].join(' ')}
+            />
+            <aside
+              className={[
+                'absolute right-0 top-0 h-full w-full max-w-[min(94vw,34rem)] p-2 md:p-3 transition-transform duration-200 ease-out will-change-transform',
+                intelDrawerOpen ? 'translate-x-0' : 'translate-x-[102%]',
+              ].join(' ')}
+            >
+              <div className="h-full transform-gpu">
+                {renderMapIntelPanel(() => setIntelDrawerOpen(false))}
+              </div>
+            </aside>
+          </div>,
+          document.body,
+        )
+
   return (
     <main className="app-page box-border h-screen h-[100dvh] overflow-hidden px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-14 md:h-screen md:px-3 md:pb-3 md:pt-16">
       <section className="mx-auto flex h-full w-full max-w-none flex-col gap-2">
@@ -1918,19 +1994,13 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
           <div className="hidden items-center gap-1 sm:flex">
             {renderConnectionBadge(t('mapInstance.instanceConnection'), wsConnected)}
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={toggleChatVisibility}
-              className="btn-base relative min-h-8 rounded-lg border border-amber-300/45 bg-amber-500/15 px-2.5 py-1 text-xs text-amber-100"
+              onClick={() => setIntelDrawerOpen(true)}
+              className="btn-base min-h-8 rounded-lg border border-amber-300/45 bg-amber-500/12 px-3 py-1 text-xs text-amber-100"
             >
-              <FiMessageSquare />
-              <span>{chatVisible ? t('mapInstance.hideChat') : t('mapInstance.showChat')}</span>
-              {chatUnread > 0 && (
-                <span className="absolute -right-1.5 -top-1.5 min-w-4 rounded-full bg-amber-400 px-1 text-[10px] font-semibold text-slate-900">
-                  {chatUnread > 99 ? '99+' : chatUnread}
-                </span>
-              )}
+              {t('mapInstance.mapIntelTitle')}
             </button>
             <button
               type="button"
@@ -2065,23 +2135,17 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
           </div>
           <button
             type="button"
-            onClick={toggleChatVisibility}
-            className="btn-base relative rounded-lg border border-amber-300/45 bg-amber-500/15 px-3 py-1.5 text-amber-100 hover:bg-amber-400/25"
-          >
-            <FiMessageSquare />
-            <span>{chatVisible ? t('mapInstance.hideChat') : t('mapInstance.showChat')}</span>
-            {chatUnread > 0 && (
-              <span className="absolute -right-1.5 -top-1.5 min-w-4 rounded-full bg-amber-400 px-1 text-[10px] font-semibold text-slate-900">
-                {chatUnread > 99 ? '99+' : chatUnread}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
             onClick={() => fitViewportToContent(contentSize.width, contentSize.height)}
             className="btn-base rounded-lg border border-amber-300/45 bg-amber-500/15 px-3 py-1.5 text-amber-100 hover:bg-amber-400/25"
           >
             {t('mapInstance.resetView')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setIntelDrawerOpen(true)}
+            className="btn-base rounded-lg border border-amber-300/45 bg-amber-500/12 px-3 py-1.5 text-amber-100 hover:bg-amber-400/25"
+          >
+            {t('mapInstance.mapIntelTitle')}
           </button>
           <button
             type="button"
@@ -2220,13 +2284,6 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
               </button>
               <button
                 type="button"
-                onClick={toggleChatVisibility}
-                className="btn-base min-h-8 rounded-lg border border-amber-300/45 bg-amber-500/15 px-3 py-1.5 text-xs text-amber-100"
-              >
-                {chatVisible ? t('mapInstance.hideChat') : t('mapInstance.showChat')}
-              </button>
-              <button
-                type="button"
                 onClick={() => {
                   fitViewportToContent(contentSize.width, contentSize.height)
                   setMobileDrawerOpen(false)
@@ -2311,161 +2368,69 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
         )}
 
         {!loading && (
-          <div className="flex min-h-0 flex-1 flex-col gap-2 md:flex-row">
-            <div
-              ref={containerRef}
-              className="relative min-h-[52vh] min-w-0 flex-1 touch-none overflow-hidden rounded-2xl border border-slate-600 bg-[#0b1220] select-none md:min-h-0"
-              onContextMenu={(event) => event.preventDefault()}
-              onDragStart={(event) => event.preventDefault()}
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onPointerCancel={onPointerUp}
-              onPointerLeave={onPointerLeave}
-            >
+          <div className="flex min-h-0 flex-1 flex-col gap-2">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
               <div
-                className="absolute left-0 top-0 select-none"
+                ref={containerRef}
+                className="relative min-h-[52vh] min-w-0 flex-1 touch-none overflow-hidden rounded-2xl border border-slate-600 bg-[#0b1220] select-none md:min-h-0"
+                onContextMenu={(event) => event.preventDefault()}
                 onDragStart={(event) => event.preventDefault()}
-                style={{
-                  width: `${contentSize.width}px`,
-                  height: `${contentSize.height}px`,
-                  transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
-                  transformOrigin: '0 0',
-                }}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onPointerCancel={onPointerUp}
+                onPointerLeave={onPointerLeave}
               >
-                {mapUrl ? (
-                  <img
-                    src={mapUrl}
-                    alt={instance?.mapId ? `${t('mapInstance.mapId')} ${instance.mapId}` : 'map'}
-                    className="pointer-events-none block h-full w-full select-none object-contain"
-                    draggable={false}
-                    onDragStart={(event) => event.preventDefault()}
-                    onLoad={(event) => {
-                      const image = event.currentTarget
-                      const nextWidth = image.naturalWidth || DEFAULT_CANVAS_WIDTH
-                      const nextHeight = image.naturalHeight || DEFAULT_CANVAS_HEIGHT
-                      setContentSize({
-                        width: nextWidth,
-                        height: nextHeight,
-                      })
-                      fitViewportToContent(nextWidth, nextHeight)
-                    }}
-                  />
-                ) : (
-                  <div className="grid h-full w-full place-items-center bg-[linear-gradient(120deg,#0f172a,#1f2937)] text-slate-100/80">
-                    {t('mapInstance.noMapBackground')}
-                  </div>
-                )}
-                <svg
-                  className="absolute inset-0 pointer-events-none"
-                  viewBox={`0 0 ${contentSize.width} ${contentSize.height}`}
-                  preserveAspectRatio="none"
+                <div
+                  className="absolute left-0 top-0 select-none"
+                  onDragStart={(event) => event.preventDefault()}
+                  style={{
+                    width: `${contentSize.width}px`,
+                    height: `${contentSize.height}px`,
+                    transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
+                    transformOrigin: '0 0',
+                  }}
+                >
+                  {mapUrl ? (
+                    <img
+                      src={mapUrl}
+                      alt={instance?.mapId ? `${t('mapInstance.mapId')} ${instance.mapId}` : 'map'}
+                      className="pointer-events-none block h-full w-full select-none object-contain"
+                      draggable={false}
+                      onDragStart={(event) => event.preventDefault()}
+                      onLoad={(event) => {
+                        const image = event.currentTarget
+                        const nextWidth = image.naturalWidth || DEFAULT_CANVAS_WIDTH
+                        const nextHeight = image.naturalHeight || DEFAULT_CANVAS_HEIGHT
+                        setContentSize({
+                          width: nextWidth,
+                          height: nextHeight,
+                        })
+                        fitViewportToContent(nextWidth, nextHeight)
+                      }}
+                    />
+                  ) : (
+                    <div className="grid h-full w-full place-items-center bg-[linear-gradient(120deg,#0f172a,#1f2937)] text-slate-100/80">
+                      {t('mapInstance.noMapBackground')}
+                    </div>
+                  )}
+                  <svg
+                    className="absolute inset-0 pointer-events-none"
+                    viewBox={`0 0 ${contentSize.width} ${contentSize.height}`}
+                    preserveAspectRatio="none"
                 >
                   {renderedStrokes}
                   {renderedRemoteInProgressStrokes}
                   {renderedRemoteCursors}
-                </svg>
+                  </svg>
+                </div>
               </div>
             </div>
-
-            {chatVisible && (
-              <>
-                <button
-                  type="button"
-                  aria-label={t('mapInstance.closeChat')}
-                  onClick={() => setChatVisible(false)}
-                  className="fixed inset-0 z-40 bg-black/45 md:hidden"
-                />
-                <aside className="panel fixed inset-x-2 top-16 bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-50 flex min-h-0 flex-col overflow-hidden md:static md:inset-auto md:z-auto md:w-[22rem] md:max-w-[42vw] md:shrink-0">
-                  <div className="flex items-center justify-between border-b border-slate-700/70 px-3 py-2">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-100">{t('mapInstance.chat')}</p>
-                      <div className="mt-1 flex flex-wrap gap-1.5">
-                        {renderConnectionBadge(t('mapInstance.chatConnection'), chatWsConnected)}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setChatVisible(false)}
-                      className="btn-base min-h-7 rounded-lg border border-slate-500/70 bg-slate-700/45 px-2.5 py-1 text-[11px] text-slate-100 md:hidden"
-                    >
-                      {t('mapInstance.closeChat')}
-                    </button>
-                  </div>
-
-                  <div
-                    ref={chatScrollRef}
-                    className="scrollbar-tactical flex-1 space-y-2 overflow-auto px-2.5 py-2.5"
-                  >
-                    {chatMessages.length === 0 && (
-                      <p className="rounded-lg border border-slate-700/70 bg-slate-900/70 px-3 py-2 text-xs text-slate-400">
-                        {t('mapInstance.chatEmpty')}
-                      </p>
-                    )}
-
-                    {chatMessages.map((item) => (
-                      <div
-                        key={item.id}
-                        className={`flex ${item.isLocal ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div
-                          className={[
-                            'max-w-[92%] rounded-lg border px-2.5 py-2',
-                            item.isLocal
-                              ? 'border-amber-300/45 bg-amber-500/14 text-amber-50'
-                              : 'border-slate-600/80 bg-slate-800/75 text-slate-100',
-                          ].join(' ')}
-                        >
-                          <p className="text-[11px] text-slate-300/80">
-                            {item.isLocal ? t('mapInstance.you') : item.displayName}
-                          </p>
-                          <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-5">
-                            {item.text}
-                          </p>
-                          <p className="mt-1 text-right text-[10px] text-slate-400">
-                            {formatChatTime(item.sentAt)}
-                            {item.failed ? ` · ${t('mapInstance.chatSendFailed')}` : ''}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="border-t border-slate-700/70 p-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] md:pb-2.5">
-                    <div className="ios-input flex items-center gap-2 px-2 py-1.5">
-                      <input
-                        value={chatInput}
-                        onChange={(event) => setChatInput(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' && !event.shiftKey) {
-                            event.preventDefault()
-                            sendChatMessage()
-                          }
-                        }}
-                        placeholder={t('mapInstance.chatPlaceholder')}
-                        className="h-8 flex-1 bg-transparent px-1 text-sm text-slate-100 outline-none placeholder:text-slate-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={sendChatMessage}
-                        className="btn-base min-h-8 rounded-lg border border-amber-300/45 bg-amber-500/14 px-2.5 py-1 text-xs text-amber-100"
-                      >
-                        <FiSend />
-                        <span>{t('mapInstance.sendMessage')}</span>
-                      </button>
-                    </div>
-                    {!chatWsConnected && (
-                      <p className="mt-2 text-[11px] text-amber-200/80">
-                        {t('mapInstance.chatOfflineHint')}
-                      </p>
-                    )}
-                  </div>
-                </aside>
-              </>
-            )}
           </div>
         )}
       </section>
+
+      {intelDrawer}
     </main>
   )
 }

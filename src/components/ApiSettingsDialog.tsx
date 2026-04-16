@@ -9,7 +9,7 @@ interface ApiSettingsDialogProps {
 }
 
 const isValidApiBaseUrl = (value: string) => {
-  if (value.startsWith('/')) {
+  if (value.startsWith('/') || value.startsWith('./')) {
     return true
   }
 
