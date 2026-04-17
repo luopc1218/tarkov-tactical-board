@@ -23,6 +23,7 @@ import { resolveImagePath } from '../api/files'
 import { fetchMapPresets, refreshMapPresets } from '../api/maps'
 import type { TarkovMapPreset } from '../constants/maps'
 import { getRecentInstances, type RecentInstanceRecord } from '../features/recent-instances'
+import packageJson from '../../package.json'
 
 const CUSTOM_MAP_BANNER_URL = resolveImagePath('images/home_hero_bg.png')
 
@@ -381,7 +382,7 @@ export function HomePage({ onCreateInstance, onJoinInstance, onOpenSettings }: H
                 color="text.secondary"
                 sx={{ mt: 1.25, display: 'block' }}
               >
-                {t('home.copyrightTitle')}
+                {t('home.copyrightTitle')} | v{packageJson.version}
               </Typography>
             </Box>
             <Button
