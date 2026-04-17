@@ -67,7 +67,7 @@ export function MapIntelPanel({
         boxShadow: '0 24px 64px rgba(0,0,0,0.28)',
       }}
     >
-      <Box sx={{ p: 2.5, borderBottom: 1, borderColor: 'divider' }}>
+      <Box sx={{ p: 2.5, borderBottom: 1, borderColor: 'divider', position: 'relative' }}>
         <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="overline" color="primary.light">
@@ -102,21 +102,31 @@ export function MapIntelPanel({
                   ),
                 },
               }}
+              fullWidth
               sx={{
                 mt: 1.5,
-                maxWidth: 360,
                 '& .MuiOutlinedInput-root': {
                   backgroundColor: 'rgba(15, 23, 42, 0.3)',
                 },
               }}
             />
           </Box>
-          {onClose ? (
-            <Button variant="text" size="small" color="inherit" onClick={onClose}>
-              {t('mapInstance.closeTools')}
-            </Button>
-          ) : null}
         </Stack>
+        {onClose ? (
+          <Button 
+            variant="text" 
+            size="small" 
+            color="inherit" 
+            onClick={onClose}
+            sx={{
+              position: 'absolute',
+              top: 16,
+              right: 16,
+            }}
+          >
+            {t('mapInstance.closeTools')}
+          </Button>
+        ) : null}
       </Box>
 
       <Box sx={{ p: 2 }}>
