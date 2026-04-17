@@ -1,64 +1,29 @@
 {
   "name": "tarkov-tactical-board",
   "private": true,
-  "version": "1.5.6",
+  "version": "2.0.0",
   "type": "module",
-  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite --host",
-    "build": "npm run electron:build:web",
-    "electron:dev": "concurrently -k \"vite --host\" \"wait-on tcp:5173 && electron ./electron/main.cjs\"",
-    "electron:build:web": "tsc -b && vite build",
-    "electron:pack": "npm run electron:build:web && electron-builder",
-    "electron:pack:local": "npm run electron:build:web && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir",
-    "electron:pack:mac": "npm run electron:build:web && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --publish never -c.mac.identity=null",
-    "electron:pack:win": "npm run electron:build:web && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --publish never",
-    "electron:pack:release": "npm run electron:build:web && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --win --publish never -c.mac.identity=null",
+    "build": "tsc -b && vite build",
+    "tauri:build:web": "tsc -b && vite build --mode tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build --target x86_64-pc-windows-msvc --bundles nsis",
     "lint": "eslint .",
     "preview": "vite preview",
     "format": "prettier . --write",
     "format:check": "prettier . --check"
   },
-  "build": {
-    "appId": "site.tarkov.tacticalboard.desktop",
-    "productName": "Tarkov Tactical Board",
-    "icon": "public/app-icons/icon.png",
-    "compression": "maximum",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "electron/**/*",
-      "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "public/app-icons/icon.ico",
-        "to": "icon.ico"
-      }
-    ],
-    "asar": true,
-    "mac": {
-      "icon": "public/app-icons/icon.png",
-      "target": [
-        "dmg"
-      ]
-    },
-    "win": {
-      "icon": "public/app-icons/icon.ico",
-      "target": [
-        "nsis"
-      ]
-    },
-    "linux": {
-      "icon": "public/app-icons/icon.png",
-      "target": [
-        "AppImage"
-      ]
-    }
-  },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/noto-sans-sc": "^5.2.9",
+    "@mui/icons-material": "^9.0.0",
+    "@mui/material": "^9.0.0",
+    "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/plugin-os": "^2.3.2",
+    "animate.css": "^4.1.1",
     "axios": "^1.13.2",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.19",
@@ -66,6 +31,7 @@
     "i18next": "^25.8.4",
     "lodash": "^4.17.21",
     "lodash-es": "^4.17.21",
+    "notistack": "^3.0.2",
     "qs": "^6.14.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -76,14 +42,12 @@
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@tailwindcss/postcss": "^4.1.18",
+    "@tauri-apps/cli": "^2.10.1",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.24",
-    "concurrently": "^9.2.1",
-    "electron": "^40.6.1",
-    "electron-builder": "^26.8.1",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
@@ -93,7 +57,6 @@
     "tailwindcss": "^4.1.18",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4",
-    "wait-on": "^9.0.4"
+    "vite": "^7.2.4"
   }
 }

@@ -4,170 +4,263 @@
 
 - Web Demo: <https://luopc1218.github.io/tarkov-tactical-board/>
 - Backend Repository: <https://github.com/luopc1218/tarkov-tactical-board-server>
-
-> [!IMPORTANT]
->
-> - 首次使用前请先配置 API 地址（例如 `/api` 或 `https://your-domain/api`）。
-> - 应用内可通过设置按钮打开配置面板；桌面端快捷键：`Cmd/Ctrl + ,`。
-> - 生产环境前端静态资源基础路径固定为 `/eftboard/`，默认 API 为 `/eftboard/api`（可在设置中覆盖）。
-> - 当前演示服务资源有限，高峰时段可能出现加载变慢或短时卡顿，请稍后重试。
-
-## Demo 截图 / Screenshots
-
-![Demo Screenshot 1](public/example.jpeg)
-![Demo Screenshot 2](public/example2.png)
+- Releases: <https://github.com/luopc1218/tarkov-tactical-board/releases>
 
 ## 中文
 
 ### 项目简介
 
-这是一个用于《Escape from Tarkov》战术讨论的共享地图白板前端。你可以快速创建房间、分享实例 ID、多人实时标点和画路线。
+Tarkov Tactical Board 是一个面向《Escape from Tarkov》战术沟通场景的共享地图白板前端。
 
-### 下载与安装
+它的核心目标很直接：
 
-当前最新稳定版（截至 **2026-03-04**）：**v1.5.5**
+- 快速创建地图协作房间
+- 通过实例 ID 邀请队友加入
+- 在同一张地图上实时同步标注、路线和战术草图
+- 在桌面端和 Web 端保持一致的操作体验
 
-| 方式                         | 地址 / 包名                                                   |
-| ---------------------------- | ------------------------------------------------------------- |
-| Web 版（免安装）             | <https://luopc1218.github.io/tarkov-tactical-board/>          |
-| 桌面版下载（Releases）       | <https://github.com/luopc1218/tarkov-tactical-board/releases> |
-| Windows 安装包               | `Tarkov.Tactical.Board.Setup.*.exe`                           |
-| macOS (Apple Silicon) 安装包 | `Tarkov.Tactical.Board-*-arm64.dmg`                           |
+### 当前版本
 
-### 默认 API 与性能说明
+当前版本：**v1.5.7-1**
 
-- 开发环境默认 API：`/api`
-- 生产环境静态资源基础路径：`/eftboard/`
-- 生产环境默认 API：`/eftboard/api`
-- 可在应用设置中覆盖默认值
-- 公开演示服务资源有限，人数较多时可能出现延迟升高
+这一版主要聚焦前端体验细节：
 
-### 快速使用
+- 强化了实例页“实时同步已连接 / 未连接”的可见性
+- 为页面切换、按钮、卡片和抽屉补充了更轻量的过渡动效
+- 修复了首页背景图在滚动时随内容离开视口的问题
+- 调整了首页卡片透明度，让背景层次更自然，同时保留可读性
 
-1. 打开应用后，进入设置并填写后端 API 地址（可选）。
-2. 回到首页，选择地图并点击 `新建房间`。
-3. 在地图实例页复制 `实例 ID` 并分享给队友。
-4. 队友在首页通过 `已有房间 ID？直接加入` 进入同一房间。
-5. 在实例页进行画线、标点、切换地图、聊天等实时协作操作。
+### 支持平台
 
-### 管理端（可选）
+- Web 前端
+- Tauri Windows x64 桌面版
 
-- 入口：`/admin/login`
-- 功能：地图管理、实例管理、管理员密码修改
+当前正式桌面发布渠道只保留 **Tauri Windows x64**，Electron 已停止维护与发布。
 
-### 常见问题
+### 下载与使用
 
-- **地图列表为空**：通常是 API 地址未配置或后端接口不可达。
-- **连接状态未连接**：请检查后端服务、反向代理和 WebSocket 转发配置。
-- **API 地址如何填写**：可使用 `/api` 或 `https://your-domain/api`，生产默认值为 `https://81.71.150.227/api`。
-- **出现卡顿**：公开服务资源有限，高峰期可能有波动；可稍后重试或自建后端服务。
+| 渠道 | 说明 |
+| --- | --- |
+| Web | <https://luopc1218.github.io/tarkov-tactical-board/> |
+| Windows 桌面版 | 在 GitHub Releases 下载对应版本的 Windows 安装包 |
 
-### 开发者（可选）
+### 主要功能
 
-<details>
-<summary>展开开发命令</summary>
+- 房间创建与实例 ID 分享
+- 多人实时白板同步
+- 地图切换与基础绘制工具
+- 地图情报侧边抽屉
+- 可覆盖的 API 地址设置
+- 桌面端窗口安全区与路由适配
+
+### API 与运行配置
+
+- Web 生产环境基础路径默认是 `/eftboard/`
+- Web 生产环境 API 默认是 `/eftboard/api`
+- 本地开发默认 API 是 `/api`
+- 可以在应用设置中覆盖 API 地址，例如 `/api` 或 `https://your-domain/api`
+
+### 本地开发
 
 ```bash
 npm install
 npm run dev
-npm run electron:dev
 ```
 
-更多构建/打包脚本见 `package.json`。
-
-</details>
-
-### Docker Hub 自动发布
-
-项目已改为通过 GitHub Actions 自动构建并发布前端镜像到 Docker Hub，不再依赖 GitHub Pages。
-
-需要先在 GitHub 仓库里配置两个 Actions Secrets：
-
-- `DOCKERHUB_USERNAME`：你的 Docker Hub 用户名
-- `DOCKERHUB_TOKEN`：你的 Docker Hub Access Token
-
-可在本机项目目录通过 `gh` 配置：
+如需启动桌面端调试：
 
 ```bash
-gh secret set DOCKERHUB_USERNAME --body "你的-dockerhub-用户名"
-gh secret set DOCKERHUB_TOKEN --body "你的-dockerhub-access-token"
+npm run tauri:dev
 ```
 
-配置完成后：
-
-- 推送到 `master` 会自动发布 `latest`
-- 推送 `v*` 标签会自动发布对应版本标签
-- 也可以在 GitHub Actions 页面手动触发
-
-本地手动发布版本的常见流程：
+### 构建命令
 
 ```bash
-git tag v1.5.6
-git push origin master
-git push origin v1.5.6
+# Web 构建（Docker / 静态部署）
+npm run build
+
+# Tauri Web 资源构建
+npm run tauri:build:web
+
+# Tauri Windows x64 安装包构建
+npm run tauri:build
 ```
 
-镜像名默认会发布到：
+### 自动发布
+
+#### 1. Docker 镜像
+
+GitHub Actions 会自动构建并推送前端镜像到 Docker Hub：
+
+- 推送到 `master`：发布 `edge` 和 `sha-*`
+- 推送 `v*` 标签：发布版本标签和 `latest`
+
+需要配置以下 GitHub Secrets：
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
+
+默认镜像名：
 
 ```text
 docker.io/<DOCKERHUB_USERNAME>/tarkov-tactical-board-frontend
 ```
 
+#### 2. Windows Release
+
+推送 `v*` 标签后，GitHub Actions 会自动：
+
+- 安装前端依赖
+- 运行 `npm run lint`
+- 构建 Tauri Windows x64 NSIS 安装包
+- 将 `.exe` 安装包上传到对应 GitHub Release
+
+### 推荐发版流程
+
+```bash
+git push origin <your-branch>
+git tag v1.5.7-1
+git push origin v1.5.7-1
+```
+
+### Docker 部署建议
+
+`docker-compose.frontend.yml` 默认跟踪 `edge`，适合测试环境。
+
+生产环境建议显式指定版本镜像，例如：
+
+```bash
+FRONTEND_IMAGE=luopc1218docker/tarkov-tactical-board-frontend:v1.5.7-1 docker compose -f docker-compose.frontend.yml up -d
+```
+
+### 常见问题
+
+- **地图列表为空**：通常是 API 地址未配置，或后端接口不可达。
+- **连接状态未连接**：请检查后端服务、反向代理和 WebSocket 转发配置。
+- **首页背景滚动时位置异常**：请确认当前版本包含首页固定背景修复，旧版本可能仍会受页面动画影响。
+- **桌面版打不开资源**：当前正式桌面构建仅支持 Tauri Windows x64，请使用 Releases 中的 Tauri 安装包。
+- **地图情报看不到内容**：当前实例页使用抽屉式地图情报面板，打开后会在侧边显示内容。
+
 ## English
 
 ### Overview
 
-A shared tactical map whiteboard frontend for Escape from Tarkov. Create an instance quickly, share the instance ID, and collaborate in real time.
+Tarkov Tactical Board is a shared tactical map whiteboard frontend for Escape from Tarkov.
 
-### Download and Install
+It is built for a simple workflow:
 
-Latest stable version (as of **March 4, 2026**): **v1.5.5**
+- create a collaborative room quickly
+- share the instance ID with teammates
+- draw routes, marks, and plans on the same map in real time
+- keep the desktop and web experience aligned
 
-| Channel                         | Link / Package                                                |
-| ------------------------------- | ------------------------------------------------------------- |
-| Web demo                        | <https://luopc1218.github.io/tarkov-tactical-board/>          |
-| Desktop downloads (Releases)    | <https://github.com/luopc1218/tarkov-tactical-board/releases> |
-| Windows installer               | `Tarkov.Tactical.Board.Setup.*.exe`                           |
-| macOS (Apple Silicon) installer | `Tarkov.Tactical.Board-*-arm64.dmg`                           |
+### Current Version
 
-### Default API and Performance Notes
+Current version: **v1.5.7-1**
 
-- Default API in development: `/api`
-- Default API in production: `https://81.71.150.227/api`
-- You can override the API base URL in settings
-- Public demo server resources are limited, so occasional lag may happen during peak usage
+This release mainly focuses on frontend usability polish:
 
-### Quick Start
+- improved visibility for the realtime connection status on the instance page
+- added lighter transitions for page switches, buttons, cards, and drawers
+- fixed the homepage background so it stays pinned to the viewport while scrolling
+- tuned homepage card transparency for a softer layered look without hurting readability
 
-1. Open settings and configure the API base URL.
-2. Choose a map and click `Create Instance`.
-3. Copy and share the instance ID with teammates.
-4. Teammates can join from home by entering the instance ID.
-5. Use drawing, marking, map switching, and chat tools for real-time collaboration.
+### Supported Platforms
 
-### Admin Portal (Optional)
+- Web frontend
+- Tauri Windows x64 desktop build
 
-- Entry: `/admin/login`
-- Features: map management, instance management, admin password update
+Electron is no longer maintained or released.
 
-### Troubleshooting
+### Download
 
-- **No maps loaded**: API base URL is not configured correctly, or backend is unreachable.
-- **Disconnected status**: check backend health, reverse proxy, and WebSocket forwarding.
-- **API URL examples**: `/api` or `https://your-domain/api` (production default: `https://81.71.150.227/api`).
-- **Lag spikes**: public server resources are limited; retry later or deploy your own backend.
+| Channel | Description |
+| --- | --- |
+| Web | <https://luopc1218.github.io/tarkov-tactical-board/> |
+| Windows desktop | Download the Windows installer from GitHub Releases |
 
-### Developer Notes (Optional)
+### Main Features
 
-<details>
-<summary>Show development commands</summary>
+- room creation and instance ID sharing
+- realtime collaborative whiteboard sync
+- map switching and drawing controls
+- map intel side drawer
+- configurable API base URL
+- desktop-safe routing and window chrome handling
+
+### API and Runtime Notes
+
+- Web production base path defaults to `/eftboard/`
+- Web production API defaults to `/eftboard/api`
+- Local development API defaults to `/api`
+- You can override the API base URL in app settings
+
+### Local Development
 
 ```bash
 npm install
 npm run dev
-npm run electron:dev
 ```
 
-See `package.json` for full build/package scripts.
+For desktop development:
 
-</details>
+```bash
+npm run tauri:dev
+```
+
+### Build Commands
+
+```bash
+# Web build
+npm run build
+
+# Build web assets for Tauri
+npm run tauri:build:web
+
+# Build the Tauri Windows x64 installer
+npm run tauri:build
+```
+
+### Automated Publishing
+
+#### Docker image
+
+GitHub Actions publishes the frontend image to Docker Hub:
+
+- push to `master`: publish `edge` and `sha-*`
+- push a `v*` tag: publish the version tag and `latest`
+
+#### Windows release
+
+Pushing a `v*` tag triggers a workflow that:
+
+- installs dependencies
+- runs `npm run lint`
+- builds the Tauri Windows x64 NSIS installer
+- uploads the generated `.exe` bundle to the matching GitHub Release
+
+### Recommended Release Flow
+
+```bash
+git push origin <your-branch>
+git tag v1.5.7-1
+git push origin v1.5.7-1
+```
+
+### Docker Deployment Tip
+
+`docker-compose.frontend.yml` tracks `edge` by default, which is convenient for testing.
+
+For production, pin an explicit version image instead:
+
+```bash
+FRONTEND_IMAGE=luopc1218docker/tarkov-tactical-board-frontend:v1.5.7-1 docker compose -f docker-compose.frontend.yml up -d
+```
+
+### Troubleshooting
+
+- **Map list is empty**: usually the API base URL is not configured correctly, or the backend is unreachable.
+- **Connection status shows disconnected**: check backend availability, reverse proxy rules, and WebSocket forwarding.
+- **Homepage background still scrolls away**: older builds may still be affected by the previous page transition behavior.
+- **Desktop build cannot load assets**: the supported desktop release channel is Tauri Windows x64 only.
+- **Map intel panel looks empty**: the current instance page uses a drawer-based intel panel on the side.

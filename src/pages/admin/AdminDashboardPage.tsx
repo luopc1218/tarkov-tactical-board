@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { Box, Button, Paper, Stack, Typography } from '@mui/material'
 import { ROUTES } from '../../router/routes'
 import { AdminShell } from './AdminShell'
 
@@ -18,41 +19,37 @@ export function AdminDashboardPage({ onNavigate, onLogout }: AdminDashboardPageP
       onNavigate={onNavigate}
       onLogout={onLogout}
       headerActions={
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => onNavigate(ROUTES.adminMaps)}
-            className="btn-outline h-9 rounded-lg px-3.5"
-          >
+        <Stack direction="row" spacing={1}>
+          <Button onClick={() => onNavigate(ROUTES.adminMaps)} color="inherit" variant="outlined">
             {t('admin.mapManagement')}
-          </button>
-          <button
-            type="button"
-            onClick={() => onNavigate(ROUTES.adminInstances)}
-            className="btn-outline h-9 rounded-lg px-3.5"
-          >
+          </Button>
+          <Button onClick={() => onNavigate(ROUTES.adminInstances)} color="inherit" variant="outlined">
             {t('admin.instanceManagement')}
-          </button>
-          <button
-            type="button"
-            onClick={() => onNavigate(ROUTES.adminPassword)}
-            className="btn-outline h-9 rounded-lg px-3.5"
-          >
+          </Button>
+          <Button onClick={() => onNavigate(ROUTES.adminPassword)} color="inherit" variant="outlined">
             {t('admin.changePassword')}
-          </button>
-        </div>
+          </Button>
+        </Stack>
       }
     >
-      <div className="grid gap-3 lg:grid-cols-2">
-        <section className="rounded-xl border border-slate-600/60 bg-slate-900/70 p-5">
-          <p className="text-xs text-slate-300">{t('admin.apiConnection')}</p>
-          <p className="mt-2 text-2xl font-semibold text-white">{t('admin.apiConnected')}</p>
-        </section>
-        <section className="rounded-xl border border-slate-600/60 bg-slate-900/70 p-5">
-          <p className="text-xs text-slate-300">{t('admin.systemStatus')}</p>
-          <p className="mt-2 text-2xl font-semibold text-white">{t('admin.online')}</p>
-        </section>
-      </div>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' } }}>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="caption" color="text.secondary">
+            {t('admin.apiConnection')}
+          </Typography>
+          <Typography variant="h5" sx={{ mt: 1 }}>
+            {t('admin.apiConnected')}
+          </Typography>
+        </Paper>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="caption" color="text.secondary">
+            {t('admin.systemStatus')}
+          </Typography>
+          <Typography variant="h5" sx={{ mt: 1 }}>
+            {t('admin.online')}
+          </Typography>
+        </Paper>
+      </Box>
     </AdminShell>
   )
 }

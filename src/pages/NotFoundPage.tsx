@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
+import { Box, Button, Paper, Stack, Typography } from '@mui/material'
 
 interface NotFoundPageProps {
   pathname: string
@@ -11,35 +12,33 @@ export function NotFoundPage({ pathname, onBackHome, onBackPrevious }: NotFoundP
   const { t } = useTranslation()
 
   return (
-    <main className="app-page grid place-items-center px-4 py-8">
+    <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', px: 2, py: 4 }}>
       <motion.section
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.28 }}
-        className="panel w-full max-w-2xl p-6 md:p-8"
+        style={{ width: '100%', maxWidth: 760 }}
       >
-        <p className="text-sm font-semibold tracking-[0.12em] text-slate-300">
-          {t('notFound.errorCode')}
-        </p>
-        <h1 className="mt-2 text-4xl font-bold leading-tight text-white">{t('notFound.title')}</h1>
-        <p className="mt-4 text-slate-300">{t('notFound.desc', { pathname })}</p>
-        <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-          <button
-            type="button"
-            onClick={onBackHome}
-            className="btn-primary h-10 rounded-lg px-4 text-[0.92rem]"
-          >
-            {t('common.backHome')}
-          </button>
-          <button
-            type="button"
-            onClick={onBackPrevious}
-            className="btn-outline h-10 rounded-lg px-4 text-[0.92rem]"
-          >
-            {t('common.backPrevious')}
-          </button>
-        </div>
+        <Paper sx={{ p: { xs: 3, md: 4 } }}>
+          <Typography variant="overline" color="text.secondary">
+            {t('notFound.errorCode')}
+          </Typography>
+          <Typography variant="h3" sx={{ mt: 1 }}>
+            {t('notFound.title')}
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
+            {t('notFound.desc', { pathname })}
+          </Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 3 }}>
+            <Button variant="contained" onClick={onBackHome}>
+              {t('common.backHome')}
+            </Button>
+            <Button variant="outlined" color="inherit" onClick={onBackPrevious}>
+              {t('common.backPrevious')}
+            </Button>
+          </Stack>
+        </Paper>
       </motion.section>
-    </main>
+    </Box>
   )
 }

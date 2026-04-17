@@ -3,6 +3,30 @@ import dayjs from 'dayjs'
 import { FiCopy } from 'react-icons/fi'
 import { useTranslation } from 'react-i18next'
 import {
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from '@mui/material'
+import {
   clearAllAdminWhiteboardInstances,
   deleteAdminWhiteboardInstance,
   listAdminWhiteboardInstances,
@@ -31,6 +55,7 @@ export function AdminInstancesPage({ onNavigate, onLogout }: AdminInstancesPageP
   const [pendingClearAll, setPendingClearAll] = useState(false)
   const [copiedInstanceId, setCopiedInstanceId] = useState<string | null>(null)
   const copyFeedbackTimerRef = useRef<number | null>(null)
+  const hasLoadedRef = useRef(false)
 
   const formatDateTime = (value?: string | null) => {
     if (!value) {
@@ -50,9 +75,9 @@ export function AdminInstancesPage({ onNavigate, onLogout }: AdminInstancesPageP
     const en = item.mapNameEn?.trim()
     const fallback = item.mapName?.trim()
     if (i18n.language.startsWith('zh')) {
-      return zh || en || fallback || (item.mapId != null ? String(item.mapId) : '-')
+      return zh || fallback || (item.mapId != null ? String(item.mapId) : '-')
     }
-    return en || zh || fallback || (item.mapId != null ? String(item.mapId) : '-')
+    return en || fallback || (item.mapId != null ? String(item.mapId) : '-')
   }
 
   const loadInstances = useCallback(async () => {
@@ -75,7 +100,10 @@ export function AdminInstancesPage({ onNavigate, onLogout }: AdminInstancesPageP
   }, [includeExpired, page, pageSize])
 
   useEffect(() => {
-    void loadInstances()
+    if (!hasLoadedRef.current) {
+      hasLoadedRef.current = true
+      void loadInstances()
+    }
   }, [loadInstances])
 
   useEffect(() => {
@@ -147,255 +175,206 @@ export function AdminInstancesPage({ onNavigate, onLogout }: AdminInstancesPageP
       onNavigate={onNavigate}
       onLogout={onLogout}
       headerActions={
-        <div className="flex items-center gap-2">
-          <div className="ios-segment">
-            <button
-              type="button"
-              onClick={() => {
-                setIncludeExpired(false)
-                setPage(1)
-              }}
-              className={['ios-segment-button', includeExpired ? '' : 'is-active'].join(' ')}
-            >
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <ToggleButtonGroup
+            exclusive
+            value={includeExpired ? 'all' : 'active'}
+            onChange={(_, value) => {
+              if (!value) return
+              setIncludeExpired(value === 'all')
+              setPage(1)
+            }}
+            size="small"
+          >
+            <ToggleButton value="active">
               {t('admin.active')}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setIncludeExpired(true)
-                setPage(1)
-              }}
-              className={['ios-segment-button', includeExpired ? 'is-active' : ''].join(' ')}
-            >
+            </ToggleButton>
+            <ToggleButton value="all">
               {t('admin.includeExpired')}
-            </button>
-          </div>
-          <button
-            type="button"
-            onClick={() => void loadInstances()}
-            className="btn-outline h-9 rounded-lg px-3.5"
-          >
+            </ToggleButton>
+          </ToggleButtonGroup>
+          <Button onClick={() => void loadInstances()} variant="outlined" color="inherit">
             {t('admin.reloadInstances')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setPendingClearAll(true)}
-            disabled={loading || clearingAll}
-            className="h-9 rounded-lg border border-rose-300/45 px-3.5 text-sm font-semibold text-rose-100 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-55"
-          >
+          </Button>
+          <Button onClick={() => setPendingClearAll(true)} disabled={loading || clearingAll} color="error" variant="outlined">
             {clearingAll ? t('common.loading') : t('admin.clearAllInstances')}
-          </button>
-          <label className="ios-input inline-flex h-9 items-center gap-2 px-2.5 text-xs text-slate-200">
-            <span className="shrink-0 text-slate-300">{t('admin.pageSize')}</span>
-            <select
+          </Button>
+          <FormControl size="small" sx={{ minWidth: 110 }}>
+            <InputLabel>{t('admin.pageSize')}</InputLabel>
+            <Select
+              label={t('admin.pageSize')}
               value={pageSize}
               onChange={(event) => {
                 setPageSize(Number(event.target.value))
                 setPage(1)
               }}
-              className="h-7 rounded-md bg-transparent px-2 text-xs text-slate-100 outline-none"
             >
               {PAGE_SIZE_OPTIONS.map((size) => (
-                <option key={size} value={size} className="bg-slate-900 text-slate-100">
+                <MenuItem key={size} value={size}>
                   {size}
-                </option>
+                </MenuItem>
               ))}
-            </select>
-          </label>
-        </div>
+            </Select>
+          </FormControl>
+        </Stack>
       }
     >
-      <div className="flex h-full min-h-0 flex-col gap-4">
-        <div className="scrollbar-tactical min-h-0 flex-1 overflow-auto rounded-xl border border-slate-600/70">
-          <table className="w-full min-w-[1280px] table-fixed text-left text-sm">
-            <colgroup>
-              <col className="w-[25%]" />
-              <col className="w-[12%]" />
-              <col className="w-[9%]" />
-              <col className="w-[8%]" />
-              <col className="w-[14%]" />
-              <col className="w-[14%]" />
-              <col className="w-[14%]" />
-              <col className="w-[8%]" />
-            </colgroup>
-            <thead className="sticky top-0 z-10 bg-slate-900/98 text-slate-200 backdrop-blur">
-              <tr>
-                <th className="px-4 py-3 whitespace-nowrap">{t('admin.instanceId')}</th>
-                <th className="px-4 py-3 whitespace-nowrap">{t('admin.mapName')}</th>
-                <th className="px-4 py-3 whitespace-nowrap">{t('admin.status')}</th>
-                <th className="px-4 py-3 whitespace-nowrap">{t('admin.hasState')}</th>
-                <th className="px-4 py-3 whitespace-nowrap">{t('admin.createdAt')}</th>
-                <th className="px-4 py-3 whitespace-nowrap">{t('admin.updatedAt')}</th>
-                <th className="px-4 py-3 whitespace-nowrap">{t('admin.expireAt')}</th>
-                <th className="px-4 py-3 whitespace-nowrap">{t('admin.actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
+      <Box sx={{ display: 'flex', height: '100%', minHeight: 0, flexDirection: 'column', gap: 2 }}>
+        <TableContainer component={Paper} variant="outlined" sx={{ flex: 1, minHeight: 0 }}>
+          <Table stickyHeader size="small" sx={{ minWidth: 1280 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell>{t('admin.instanceId')}</TableCell>
+                <TableCell>{t('admin.mapName')}</TableCell>
+                <TableCell>{t('admin.status')}</TableCell>
+                <TableCell>{t('admin.hasState')}</TableCell>
+                <TableCell>{t('admin.createdAt')}</TableCell>
+                <TableCell>{t('admin.updatedAt')}</TableCell>
+                <TableCell>{t('admin.expireAt')}</TableCell>
+                <TableCell>{t('admin.actions')}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {loading && (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-300">
+                <TableRow>
+                  <TableCell colSpan={8} align="center">
                     {t('common.loading')}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
 
               {!loading && instances.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-300">
+                <TableRow>
+                  <TableCell colSpan={8} align="center">
                     {t('admin.instancesEmpty')}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
 
               {!loading &&
                 instances.map((item) => (
-                  <tr key={item.instanceId} className="border-t border-slate-700/70">
-                    <td className="px-4 py-3">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span
-                          className="min-w-0 flex-1 truncate text-slate-100"
-                          title={item.instanceId}
-                        >
+                  <TableRow key={item.instanceId}>
+                    <TableCell>
+                      <Stack direction="row" spacing={1} sx={{ minWidth: 0, alignItems: 'center' }}>
+                        <Typography variant="body2" noWrap title={item.instanceId} sx={{ minWidth: 0, flex: 1 }}>
                           {item.instanceId}
-                        </span>
-                        <button
-                          type="button"
+                        </Typography>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="inherit"
                           onClick={() => void handleCopyInstanceId(item.instanceId)}
-                          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-lg border border-slate-500/80 bg-slate-800/70 px-2 text-[11px] font-medium text-slate-200 transition hover:border-amber-300/70 hover:text-white"
                           title={t('admin.copyInstanceId')}
                           aria-label={`${t('admin.copyInstanceId')}: ${item.instanceId}`}
+                          startIcon={<FiCopy />}
                         >
-                          <FiCopy className="text-[0.78rem]" />
-                          <span>
-                            {copiedInstanceId === item.instanceId
-                              ? t('admin.copied')
-                              : t('admin.copyInstanceId')}
-                          </span>
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-white">
-                      <span className="block truncate" title={resolveMapName(item)}>
+                          {copiedInstanceId === item.instanceId ? t('admin.copied') : t('admin.copyInstanceId')}
+                        </Button>
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" noWrap title={resolveMapName(item)}>
                         {resolveMapName(item)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={
-                          item.active
-                            ? 'rounded-full border border-slate-400/45 bg-slate-500/15 px-2 py-1 text-xs text-slate-100'
-                            : 'rounded-full border border-rose-300/45 bg-rose-300/15 px-2 py-1 text-xs text-rose-100'
-                        }
-                      >
-                        {item.active ? t('admin.active') : t('admin.expired')}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-300">
-                      {item.hasState ? t('admin.yes') : t('admin.no')}
-                    </td>
-                    <td className="px-4 py-3 text-slate-300">{formatDateTime(item.createdAt)}</td>
-                    <td className="px-4 py-3 text-slate-300">{formatDateTime(item.updatedAt)}</td>
-                    <td className="px-4 py-3 text-slate-300">{formatDateTime(item.expireAt)}</td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        color={item.active ? 'success' : 'error'}
+                        variant="outlined"
+                        label={item.active ? t('admin.active') : t('admin.expired')}
+                      />
+                    </TableCell>
+                    <TableCell>{item.hasState ? t('admin.yes') : t('admin.no')}</TableCell>
+                    <TableCell>{formatDateTime(item.createdAt)}</TableCell>
+                    <TableCell>{formatDateTime(item.updatedAt)}</TableCell>
+                    <TableCell>{formatDateTime(item.expireAt)}</TableCell>
+                    <TableCell>
+                      <Button
+                        size="small"
                         onClick={() => setPendingDeleteId(item.instanceId)}
                         disabled={deletingId === item.instanceId || clearingAll}
-                        className="h-9 rounded-lg border border-rose-300/45 px-3 text-xs font-medium text-rose-100 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-55"
+                        variant="outlined"
+                        color="error"
                       >
                         {deletingId === item.instanceId ? t('common.loading') : t('admin.delete')}
-                      </button>
-                    </td>
-                  </tr>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 text-xs text-slate-300 md:text-sm">
-          <span>{t('admin.instancesTotal', { total })}</span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            {t('admin.instancesTotal', { total })}
+          </Typography>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <Button
+              size="small"
               onClick={() => setPage((prev) => Math.max(1, prev - 1))}
               disabled={loading || page <= 1}
-              className="btn-outline h-8 rounded-lg px-3 text-xs disabled:cursor-not-allowed disabled:opacity-55"
+              variant="outlined"
+              color="inherit"
             >
               {t('admin.prevPage')}
-            </button>
-            <span className="min-w-28 text-center">
+            </Button>
+            <Typography variant="body2" sx={{ minWidth: 120, textAlign: 'center' }}>
               {t('admin.pageInfo', { page, pages: Math.max(1, totalPages) })}
-            </span>
-            <button
-              type="button"
+            </Typography>
+            <Button
+              size="small"
               onClick={() => setPage((prev) => prev + 1)}
               disabled={loading || page >= totalPages}
-              className="btn-outline h-8 rounded-lg px-3 text-xs disabled:cursor-not-allowed disabled:opacity-55"
+              variant="outlined"
+              color="inherit"
             >
               {t('admin.nextPage')}
-            </button>
-          </div>
-        </div>
-      </div>
+            </Button>
+          </Stack>
+        </Stack>
+      </Box>
 
       {pendingDeleteId && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/65 p-6">
-          <div className="w-full max-w-md rounded-2xl border border-slate-600 bg-slate-900 p-6 shadow-[0_18px_40px_rgba(0,0,0,0.42)]">
-            <h2 className="text-xl font-semibold text-white">
-              {t('admin.confirmDeleteInstanceTitle')}
-            </h2>
-            <p className="mt-2 text-sm text-slate-300">
+        <Dialog open onClose={() => setPendingDeleteId(null)} fullWidth maxWidth="xs">
+          <DialogTitle>{t('admin.confirmDeleteInstanceTitle')}</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary">
               {t('admin.confirmDeleteInstanceDesc', { instanceId: pendingDeleteId })}
-            </p>
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setPendingDeleteId(null)}
-                className="btn-outline h-9 rounded-lg px-3.5"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button"
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setPendingDeleteId(null)}>{t('common.cancel')}</Button>
+            <Button
                 onClick={() => void handleDelete(pendingDeleteId)}
                 disabled={deletingId === pendingDeleteId}
-                className="h-9 rounded-lg border border-rose-300/45 px-3.5 text-sm font-semibold text-rose-100 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-55"
+                color="error"
+                variant="outlined"
               >
                 {deletingId === pendingDeleteId ? t('common.loading') : t('admin.delete')}
-              </button>
-            </div>
-          </div>
-        </div>
+            </Button>
+          </DialogActions>
+        </Dialog>
       )}
 
       {pendingClearAll && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/65 p-6">
-          <div className="w-full max-w-md rounded-2xl border border-slate-600 bg-slate-900 p-6 shadow-[0_18px_40px_rgba(0,0,0,0.42)]">
-            <h2 className="text-xl font-semibold text-white">
-              {t('admin.confirmClearInstancesTitle')}
-            </h2>
-            <p className="mt-2 text-sm text-slate-300">{t('admin.confirmClearInstancesDesc')}</p>
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setPendingClearAll(false)}
-                className="btn-outline h-9 rounded-lg px-3.5"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button"
+        <Dialog open onClose={() => setPendingClearAll(false)} fullWidth maxWidth="xs">
+          <DialogTitle>{t('admin.confirmClearInstancesTitle')}</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary">{t('admin.confirmClearInstancesDesc')}</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setPendingClearAll(false)}>{t('common.cancel')}</Button>
+            <Button
                 onClick={() => void handleClearAll()}
                 disabled={clearingAll}
-                className="h-9 rounded-lg border border-rose-300/45 px-3.5 text-sm font-semibold text-rose-100 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-55"
+                color="error"
+                variant="outlined"
               >
                 {clearingAll ? t('common.loading') : t('admin.clearAllInstances')}
-              </button>
-            </div>
-          </div>
-        </div>
+            </Button>
+          </DialogActions>
+        </Dialog>
       )}
     </AdminShell>
   )

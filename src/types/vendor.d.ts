@@ -34,9 +34,5 @@ interface ImportMeta {
 }
 
 interface Window {
-  desktopApp?: {
-    isElectron: boolean
-    platform?: string
-    onOpenSettings?: (callback: () => void) => () => void
-  }
+  __TAURI_INTERNALS__?: unknown
 }

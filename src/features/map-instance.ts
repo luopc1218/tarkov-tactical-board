@@ -6,7 +6,6 @@ export const createMapInstance = (mapId: number): MapInstance => {
   return {
     id: `${mapId}-${Date.now()}-${unique}`,
     mapId,
-    wsPath: '',
     createdAt: new Date().toISOString(),
   }
 }

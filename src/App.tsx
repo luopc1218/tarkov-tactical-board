@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { FiSettings } from 'react-icons/fi'
+import { Box, Paper } from '@mui/material'
 import { loginAdmin } from './api/admin-auth'
 import { createWhiteboardInstance } from './api/whiteboard'
 import { ApiSettingsDialog } from './components/ApiSettingsDialog'
 import { isAdminAuthenticated, setAdminAuthenticated } from './features/admin-auth'
 import { saveRecentInstance } from './features/recent-instances'
+import {
+  addOpenSettingsListener,
+  getInitialDesktopEnvironment,
+  isDesktopHashRouting,
+  resolveDesktopEnvironment,
+} from './lib/desktop'
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
 import { AdminInstancesPage } from './pages/admin/AdminInstancesPage'
 import { AdminLoginPage } from './pages/admin/AdminLoginPage'
@@ -15,8 +21,8 @@ import { HomePage } from './pages/HomePage'
 import { MapInstancePage } from './pages/MapInstancePage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { buildMapInstancePath, resolveRoute, ROUTES } from './router/routes'
-import { useTranslation } from 'react-i18next'
 
+// App owns lightweight route resolution, desktop shell integration, and top-level page switching.
 const normalizePathname = (value: string) => {
   const trimmed = value.replace(/\/+$/, '')
   return trimmed || ROUTES.home
@@ -52,7 +58,7 @@ const stripBasePath = (pathname: string) => {
 }
 
 const shouldUseHashRouting = () => {
-  return window.location.protocol === 'file:'
+  return window.location.protocol === 'file:' || isDesktopHashRouting()
 }
 
 const buildNavigationUrl = (path: string) => {
@@ -81,7 +87,7 @@ const navigateTo = (path: string) => {
 
 const getNormalizedLocation = () => {
   const { pathname, protocol, hash, search } = window.location
-  const isElectronFilePage = protocol === 'file:'
+  const isFilePage = protocol === 'file:'
   const hashRoute = hash.startsWith('#') ? hash.slice(1) : ''
   if (shouldUseHashRouting() && hashRoute.startsWith('/')) {
     const queryIndex = hashRoute.indexOf('?')
@@ -94,7 +100,7 @@ const getNormalizedLocation = () => {
     }
   }
 
-  if (!isElectronFilePage) {
+  if (!isFilePage) {
     return { pathname: stripBasePath(pathname), search }
   }
 
@@ -119,19 +125,32 @@ const getNormalizedLocation = () => {
 }
 
 function App() {
-  const { t } = useTranslation()
   const prefersReducedMotion = useReducedMotion()
-  const desktopPlatform = window.desktopApp?.platform
-  const isDesktopApp = Boolean(window.desktopApp?.isElectron)
+  const [desktopEnvironment, setDesktopEnvironment] = useState(() => getInitialDesktopEnvironment())
+  const desktopPlatform = desktopEnvironment.platform
+  const isDesktopApp = desktopEnvironment.isDesktopApp
   const isWindowsDesktop = desktopPlatform === 'win32'
-  const isWebApp = !isDesktopApp
   const [pathname, setPathname] = useState(() => getNormalizedLocation().pathname)
   const [search, setSearch] = useState(() => getNormalizedLocation().search)
   const [adminLoggedIn, setAdminLoggedIn] = useState(() => isAdminAuthenticated())
   const [adminLoginLoading, setAdminLoginLoading] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
-  const shouldShowSettingsEntry = desktopPlatform !== 'darwin'
+  const shouldShowSettingsEntry = desktopPlatform !== 'darwin' || desktopEnvironment.isTauri
+
+  useEffect(() => {
+    let mounted = true
+
+    void resolveDesktopEnvironment().then((environment) => {
+      if (mounted) {
+        setDesktopEnvironment(environment)
+      }
+    })
+
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   useEffect(() => {
     const onPopState = () => {
@@ -202,10 +221,9 @@ function App() {
       return
     }
 
-    const platform = window.desktopApp?.platform
-    const safeTop = platform === 'darwin' ? 48 : platform === 'win32' ? 40 : 0
-    const safeRight = platform === 'win32' ? 144 : 0
-    const windowControlsWidth = platform === 'win32' ? 138 : 0
+    const safeTop = desktopPlatform === 'darwin' ? 48 : desktopPlatform === 'win32' ? 40 : 0
+    const safeRight = desktopPlatform === 'win32' ? 144 : 0
+    const windowControlsWidth = desktopPlatform === 'win32' ? 138 : 0
     document.documentElement.style.setProperty('--desktop-titlebar-safe-top', `${safeTop}px`)
     document.documentElement.style.setProperty('--desktop-titlebar-safe-right', `${safeRight}px`)
     document.documentElement.style.setProperty(
@@ -218,19 +236,18 @@ function App() {
       document.documentElement.style.setProperty('--desktop-titlebar-safe-right', '0px')
       document.documentElement.style.setProperty('--desktop-window-controls-width', '0px')
     }
-  }, [shouldShowSettingsEntry])
+  }, [desktopPlatform, shouldShowSettingsEntry])
 
   useEffect(() => {
-    const platform = window.desktopApp?.platform ?? 'web'
-    document.documentElement.setAttribute('data-platform', platform)
+    document.documentElement.setAttribute('data-platform', desktopPlatform)
 
     return () => {
       document.documentElement.removeAttribute('data-platform')
     }
-  }, [])
+  }, [desktopPlatform])
 
   useEffect(() => {
-    const unsubscribe = window.desktopApp?.onOpenSettings?.(() => {
+    const unsubscribe = addOpenSettingsListener(() => {
       setSettingsOpen(true)
     })
 
@@ -330,11 +347,19 @@ function App() {
 
   if (route.name === 'home') {
     content = (
-      <HomePage onCreateInstance={handleCreateInstance} onJoinInstance={handleJoinInstance} />
+      <HomePage
+        onCreateInstance={handleCreateInstance}
+        onJoinInstance={handleJoinInstance}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
     )
   } else if (route.name === 'map-instance') {
     content = (
-      <MapInstancePage instanceId={route.instanceId} onBackHome={() => navigateTo(ROUTES.home)} />
+      <MapInstancePage
+        key={route.instanceId}
+        instanceId={route.instanceId}
+        onBackHome={() => navigateTo(ROUTES.home)}
+      />
     )
   } else if (route.name === 'admin-login') {
     content = <AdminLoginPage onLogin={handleAdminLogin} loading={adminLoginLoading} />
@@ -372,68 +397,33 @@ function App() {
     )
   }
 
-  const pageTransition = prefersReducedMotion
-    ? {
-        initial: { opacity: 0 },
-        animate: { opacity: 1 },
-        exit: { opacity: 0 },
-        transition: { duration: 0.12, ease: [0.22, 1, 0.36, 1] as const },
-      }
-    : {
-        initial: { opacity: 0, y: 14, filter: 'blur(8px)' },
-        animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
-        exit: { opacity: 0, y: -10, filter: 'blur(6px)' },
-        transition: { duration: 0.26, ease: [0.22, 1, 0.36, 1] as const },
-      }
+  const shouldKeepViewportFixedChildren = route.name === 'home'
+  const pageTransition =
+    prefersReducedMotion || shouldKeepViewportFixedChildren
+      ? {
+          initial: { opacity: 0 },
+          animate: { opacity: 1 },
+          exit: { opacity: 0 },
+          transition: {
+            duration: prefersReducedMotion ? 0.12 : 0.18,
+            ease: [0.22, 1, 0.36, 1] as const,
+          },
+        }
+      : {
+          initial: { opacity: 0, y: 14, filter: 'blur(8px)' },
+          animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
+          exit: { opacity: 0, y: -10, filter: 'blur(6px)' },
+          transition: { duration: 0.26, ease: [0.22, 1, 0.36, 1] as const },
+        }
 
   return (
     <>
       {isDesktopApp && isWindowsDesktop && (
-        <div
-          className="fixed inset-x-0 top-0 z-30 h-10"
+        <Box
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+          sx={{ position: 'fixed', inset: '0 0 auto 0', zIndex: 30, height: 40 }}
         />
       )}
-      {shouldShowSettingsEntry &&
-        (isWindowsDesktop || isWebApp ? (
-          <button
-            type="button"
-            aria-label={t('settings.title')}
-            title={`${t('settings.title')} (Cmd/Ctrl + ,)`}
-            onClick={() => setSettingsOpen(true)}
-            className="group fixed z-40 inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-500/75 bg-slate-900/65 text-slate-200 backdrop-blur transition hover:border-amber-300/70 hover:text-white"
-            style={
-              {
-                top: isWindowsDesktop ? 1 : 12,
-                left: isWindowsDesktop ? 6 : undefined,
-                right: isWindowsDesktop ? undefined : 16,
-                ...(isWindowsDesktop
-                  ? ({ WebkitAppRegion: 'no-drag' } as React.CSSProperties)
-                  : {}),
-              } as React.CSSProperties
-            }
-          >
-            <FiSettings className="text-[0.92rem] transition" />
-          </button>
-        ) : (
-          <div
-            className="fixed right-4 z-40 flex items-center rounded-full border border-slate-500/75 bg-slate-900/65 px-2 py-1 text-slate-200 shadow-sm backdrop-blur"
-            style={{
-              top: 'calc(0.75rem + var(--desktop-titlebar-safe-top))',
-              right: 'calc(1rem + var(--desktop-titlebar-safe-right))',
-            }}
-          >
-            <button
-              type="button"
-              aria-label={t('settings.title')}
-              title={`${t('settings.title')} (Cmd/Ctrl + ,)`}
-              onClick={() => setSettingsOpen(true)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-500/80 bg-slate-800/90 text-slate-100 transition hover:border-amber-300/70 hover:bg-slate-700"
-            >
-              <FiSettings />
-            </button>
-          </div>
-        ))}
       {isAdminShellRoute ? (
         content
       ) : (
@@ -460,9 +450,22 @@ function App() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
             transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed bottom-6 right-6 z-[80] max-w-md rounded-xl border border-rose-400/45 bg-rose-950/92 px-4 py-3 text-sm text-rose-100 shadow-lg"
+            style={{ position: 'fixed', right: 24, bottom: 24, zIndex: 80, maxWidth: 440 }}
           >
-            {toastMessage}
+            <Paper
+              variant="outlined"
+              sx={{
+                px: 2,
+                py: 1.5,
+                borderRadius: 3,
+                borderColor: 'error.main',
+                backgroundColor: 'rgba(70, 17, 17, 0.94)',
+                color: 'error.contrastText',
+                boxShadow: '0 16px 36px rgba(0, 0, 0, 0.28)',
+              }}
+            >
+              {toastMessage}
+            </Paper>
           </motion.div>
         )}
       </AnimatePresence>

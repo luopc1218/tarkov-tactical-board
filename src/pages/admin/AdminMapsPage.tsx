@@ -1,6 +1,24 @@
-import { type ChangeEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FiArrowDown, FiArrowUp } from 'react-icons/fi'
 import { useTranslation } from 'react-i18next'
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from '@mui/material'
 import {
   createAdminMap,
   deleteAdminMap,
@@ -35,7 +53,7 @@ const extractFileName = (value: string) => {
 }
 
 export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [maps, setMaps] = useState<AdminMap[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -46,6 +64,7 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [movingId, setMovingId] = useState<number | null>(null)
   const [pendingDeleteMap, setPendingDeleteMap] = useState<AdminMap | null>(null)
+  const hasLoadedRef = useRef(false)
 
   const canSubmit = useMemo(() => {
     return Boolean(
@@ -69,7 +88,10 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
   }, [])
 
   useEffect(() => {
-    void loadMaps()
+    if (!hasLoadedRef.current) {
+      hasLoadedRef.current = true
+      void loadMaps()
+    }
   }, [loadMaps])
 
   const openCreateModal = () => {
@@ -146,6 +168,13 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
     setPendingDeleteMap(null)
   }
 
+  const resolveLocalizedMapName = (item: AdminMap) => {
+    if (i18n.language.startsWith('zh')) {
+      return item.nameZh?.trim() || String(item.id)
+    }
+    return item.nameEn?.trim() || String(item.id)
+  }
+
   const confirmDelete = async () => {
     if (!pendingDeleteMap) {
       return
@@ -189,51 +218,43 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
       onNavigate={onNavigate}
       onLogout={onLogout}
       headerActions={
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void loadMaps()}
-            className="btn-outline h-9 rounded-lg px-3.5"
-          >
+        <Stack direction="row" spacing={1}>
+          <Button onClick={() => void loadMaps()} variant="outlined" color="inherit">
             {t('admin.reloadMaps')}
-          </button>
-          <button
-            type="button"
-            onClick={openCreateModal}
-            className="btn-primary h-9 rounded-lg px-3.5"
-          >
+          </Button>
+          <Button onClick={openCreateModal} variant="contained">
             {t('admin.createMap')}
-          </button>
-        </div>
+          </Button>
+        </Stack>
       }
     >
-      <div className="flex h-full min-h-0 flex-col gap-4">
-        <div className="scrollbar-tactical min-h-0 flex-1 overflow-auto rounded-xl border border-slate-600/70">
-          <table className="w-full min-w-[860px] text-left text-sm">
-            <thead className="sticky top-0 z-10 bg-slate-900/98 text-slate-200 backdrop-blur">
-              <tr>
-                <th className="px-4 py-3">{t('admin.id')}</th>
-                <th className="px-4 py-3">{t('admin.banner')}</th>
-                <th className="px-4 py-3">{t('admin.mapNameZh')}</th>
-                <th className="px-4 py-3">{t('admin.mapNameEn')}</th>
-                <th className="px-4 py-3">{t('admin.actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+        <TableContainer component={Paper} variant="outlined" sx={{ flex: 1, minHeight: 0 }}>
+          <Table stickyHeader size="small" sx={{ minWidth: 860 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell>{t('admin.id')}</TableCell>
+                <TableCell>{t('admin.banner')}</TableCell>
+                <TableCell>{t('admin.mapNameZh')}</TableCell>
+                <TableCell>{t('admin.mapNameEn')}</TableCell>
+                <TableCell>{t('admin.actions')}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {loading && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-slate-300">
+                <TableRow>
+                  <TableCell colSpan={5} align="center">
                     {t('common.loading')}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
 
               {!loading && maps.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-slate-300">
+                <TableRow>
+                  <TableCell colSpan={5} align="center">
                     {t('admin.mapsEmpty')}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
 
               {!loading &&
@@ -241,181 +262,141 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
                   const bannerPreview = resolveImagePath(item.bannerUrl || item.bannerFileName)
 
                   return (
-                    <tr key={item.id} className="border-t border-slate-700/70">
-                      <td className="px-4 py-3 text-slate-300">{item.id}</td>
-                      <td className="px-4 py-3">
-                        <div className="h-14 w-24 overflow-hidden rounded-md border border-slate-600/70 bg-slate-900/80">
+                    <TableRow key={item.id}>
+                      <TableCell>{item.id}</TableCell>
+                      <TableCell>
+                        <Box sx={{ height: 56, width: 96, overflow: 'hidden', borderRadius: 1, border: 1, borderColor: 'divider' }}>
                           {bannerPreview ? (
                             <img
                               src={bannerPreview}
                               alt={item.nameEn || item.nameZh || `map-${item.id}`}
-                              className="h-full w-full object-cover"
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             />
                           ) : (
-                            <div className="grid h-full w-full place-items-center text-[11px] text-slate-400">
-                              {t('common.notAvailable')}
-                            </div>
+                            <Typography variant="caption">{t('common.notAvailable')}</Typography>
                           )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-white">{item.nameZh}</td>
-                      <td className="px-4 py-3 text-white">{item.nameEn}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
+                        </Box>
+                      </TableCell>
+                      <TableCell>{item.nameZh}</TableCell>
+                      <TableCell>{item.nameEn}</TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={1}>
+                          <Button
+                            size="small"
                             onClick={() => void handleMove(item.id, 'up')}
                             disabled={movingId !== null || maps[0]?.id === item.id}
-                            className="btn-outline inline-flex h-9 items-center gap-1 rounded-lg px-3 text-xs disabled:cursor-not-allowed disabled:opacity-55"
+                            variant="outlined"
+                            color="inherit"
+                            startIcon={<FiArrowUp />}
                           >
-                            <FiArrowUp />
                             {t('admin.moveUp')}
-                          </button>
-                          <button
-                            type="button"
+                          </Button>
+                          <Button
+                            size="small"
                             onClick={() => void handleMove(item.id, 'down')}
                             disabled={movingId !== null || maps[maps.length - 1]?.id === item.id}
-                            className="btn-outline inline-flex h-9 items-center gap-1 rounded-lg px-3 text-xs disabled:cursor-not-allowed disabled:opacity-55"
+                            variant="outlined"
+                            color="inherit"
+                            startIcon={<FiArrowDown />}
                           >
-                            <FiArrowDown />
                             {t('admin.moveDown')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(item)}
-                            className="btn-outline h-9 rounded-lg px-3 text-xs"
-                          >
+                          </Button>
+                          <Button size="small" onClick={() => openEditModal(item)} variant="outlined" color="inherit">
                             {t('admin.editMap')}
-                          </button>
-                          <button
-                            type="button"
+                          </Button>
+                          <Button
+                            size="small"
                             onClick={() => openDeleteConfirm(item)}
                             disabled={deletingId === item.id}
-                            className="h-9 rounded-lg border border-rose-300/45 px-3 text-xs font-medium text-rose-100 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-55"
+                            variant="outlined"
+                            color="error"
                           >
                             {deletingId === item.id ? t('common.loading') : t('admin.delete')}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                          </Button>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
                   )
                 })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
 
       {modalOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/65 p-6">
-          <div className="w-full max-w-3xl rounded-2xl border border-slate-600 bg-slate-900 p-6 shadow-[0_18px_40px_rgba(0,0,0,0.42)]">
-            <h2 className="text-xl font-semibold text-white">
-              {editingMap ? t('admin.editMap') : t('admin.createMap')}
-            </h2>
-            <p className="mt-1 text-sm text-slate-300">{t('admin.mapFormHint')}</p>
-
-            <div className="mt-5 grid gap-4">
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="space-y-1.5">
-                  <span className="text-xs font-medium text-slate-300">{t('admin.mapNameZh')}</span>
-                  <input
+        <Dialog open onClose={closeModal} fullWidth maxWidth="md">
+          <DialogTitle>{editingMap ? t('admin.editMap') : t('admin.createMap')}</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('admin.mapFormHint')}
+            </Typography>
+            <Stack spacing={2}>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <TextField
+                  fullWidth
+                  label={t('admin.mapNameZh')}
                     value={form.nameZh}
                     onChange={(event) =>
                       setForm((prev) => ({ ...prev, nameZh: event.target.value }))
                     }
-                    placeholder={t('admin.mapNameZh')}
-                    className="w-full rounded-xl border border-slate-600 bg-slate-950/70 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:border-amber-400"
-                  />
-                </label>
-                <label className="space-y-1.5">
-                  <span className="text-xs font-medium text-slate-300">{t('admin.mapNameEn')}</span>
-                  <input
+                />
+                <TextField
+                  fullWidth
+                  label={t('admin.mapNameEn')}
                     value={form.nameEn}
                     onChange={(event) =>
                       setForm((prev) => ({ ...prev, nameEn: event.target.value }))
                     }
-                    placeholder={t('admin.mapNameEn')}
-                    className="w-full rounded-xl border border-slate-600 bg-slate-950/70 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:border-amber-400"
-                  />
-                </label>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-xl border border-slate-600/70 bg-slate-800/70 p-3">
-                  <p className="text-xs font-medium text-slate-300">{t('admin.bannerFileName')}</p>
-                  <input
+                />
+              </Stack>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <TextField
+                  fullWidth
+                  label={t('admin.bannerFileName')}
                     value={form.bannerFileName}
                     onChange={(event: ChangeEvent<HTMLInputElement>) =>
                       setForm((prev) => ({ ...prev, bannerFileName: event.target.value }))
                     }
-                    placeholder="Banner_customs.png"
-                    className="mt-2 w-full rounded-lg border border-slate-600 bg-slate-950/70 px-3 py-2 text-xs text-white placeholder:text-slate-500 outline-none focus:border-amber-400"
-                  />
-                </div>
-
-                <div className="rounded-xl border border-slate-600/70 bg-slate-800/70 p-3">
-                  <p className="text-xs font-medium text-slate-300">{t('admin.mapFileName')}</p>
-                  <input
+                  placeholder="Banner_customs.png"
+                />
+                <TextField
+                  fullWidth
+                  label={t('admin.mapFileName')}
                     value={form.mapFileName}
                     onChange={(event: ChangeEvent<HTMLInputElement>) =>
                       setForm((prev) => ({ ...prev, mapFileName: event.target.value }))
                     }
-                    placeholder="Customs.png"
-                    className="mt-2 w-full rounded-lg border border-slate-600 bg-slate-950/70 px-3 py-2 text-xs text-white placeholder:text-slate-500 outline-none focus:border-amber-400"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeModal}
-                className="btn-outline h-9 rounded-lg px-3.5"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleSubmit()}
-                disabled={saving || !canSubmit}
-                className="btn-primary h-9 rounded-lg px-3.5 disabled:cursor-not-allowed disabled:opacity-55"
-              >
-                {saving ? t('common.loading') : editingMap ? t('admin.update') : t('admin.create')}
-              </button>
-            </div>
-          </div>
-        </div>
+                  placeholder="Customs.png"
+                />
+              </Stack>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={closeModal}>{t('common.cancel')}</Button>
+            <Button onClick={() => void handleSubmit()} disabled={saving || !canSubmit} variant="contained">
+              {saving ? t('common.loading') : editingMap ? t('admin.update') : t('admin.create')}
+            </Button>
+          </DialogActions>
+        </Dialog>
       )}
 
       {pendingDeleteMap && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/65 p-6">
-          <div className="w-full max-w-md rounded-2xl border border-slate-600 bg-slate-900 p-6 shadow-[0_18px_40px_rgba(0,0,0,0.42)]">
-            <h2 className="text-xl font-semibold text-white">{t('admin.confirmDeleteTitle')}</h2>
-            <p className="mt-2 text-sm text-slate-300">
+        <Dialog open onClose={closeDeleteConfirm} fullWidth maxWidth="xs">
+          <DialogTitle>{t('admin.confirmDeleteTitle')}</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary">
               {t('admin.confirmDeleteDesc', {
-                mapName: pendingDeleteMap.nameZh || pendingDeleteMap.nameEn || pendingDeleteMap.id,
+                mapName: resolveLocalizedMapName(pendingDeleteMap),
               })}
-            </p>
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeDeleteConfirm}
-                className="btn-outline h-9 rounded-lg px-3.5"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={() => void confirmDelete()}
-                disabled={deletingId === pendingDeleteMap.id}
-                className="h-9 rounded-lg border border-rose-300/45 px-3.5 text-sm font-semibold text-rose-100 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-55"
-              >
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={closeDeleteConfirm}>{t('common.cancel')}</Button>
+            <Button onClick={() => void confirmDelete()} disabled={deletingId === pendingDeleteMap.id} color="error" variant="outlined">
                 {deletingId === pendingDeleteMap.id ? t('common.loading') : t('admin.delete')}
-              </button>
-            </div>
-          </div>
-        </div>
+            </Button>
+          </DialogActions>
+        </Dialog>
       )}
     </AdminShell>
   )

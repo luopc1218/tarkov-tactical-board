@@ -40,6 +40,26 @@ const normalizeAssetKey = (value: string) => {
   return ''
 }
 
+const joinBaseUrl = (value: string) => {
+  const normalizedValue = value.replace(/^\/+/, '')
+  const baseUrl = import.meta.env.BASE_URL || '/'
+
+  if (!normalizedValue) {
+    return baseUrl
+  }
+
+  if (!baseUrl || baseUrl === '/') {
+    return `/${normalizedValue}`
+  }
+
+  if (baseUrl === './') {
+    return `./${normalizedValue}`
+  }
+
+  const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`
+  return `${normalizedBase}${normalizedValue}`
+}
+
 export const resolveImagePath = (value?: string | null) => {
   if (typeof value !== 'string') {
     return undefined
@@ -92,8 +112,8 @@ export const resolveImagePath = (value?: string | null) => {
   }
 
   if (trimmed.startsWith('/')) {
-    return trimmed
+    return joinBaseUrl(trimmed)
   }
 
-  return `/${trimmed}`
+  return joinBaseUrl(trimmed)
 }

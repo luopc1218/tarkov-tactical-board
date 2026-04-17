@@ -9,13 +9,6 @@ export interface ApiResponse<T> {
   data: T
 }
 
-const emitHttpError = (message: string) => {
-  if (typeof window === 'undefined') {
-    return
-  }
-  window.dispatchEvent(new CustomEvent('http-error', { detail: { message } }))
-}
-
 const httpInstance = axios.create({
   baseURL: getApiBaseUrl(),
   timeout: 15000,
@@ -30,7 +23,9 @@ httpInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     const message = error?.response?.data?.message ?? error.message ?? 'Request failed'
-    emitHttpError(message)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('http-error', { detail: { message } }))
+    }
     return Promise.reject(new Error(message))
   },
 )
