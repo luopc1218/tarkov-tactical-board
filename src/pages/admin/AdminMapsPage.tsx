@@ -53,7 +53,7 @@ const extractFileName = (value: string) => {
 }
 
 export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [maps, setMaps] = useState<AdminMap[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -166,6 +166,13 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
 
   const closeDeleteConfirm = () => {
     setPendingDeleteMap(null)
+  }
+
+  const resolveLocalizedMapName = (item: AdminMap) => {
+    if (i18n.language.startsWith('zh')) {
+      return item.nameZh?.trim() || String(item.id)
+    }
+    return item.nameEn?.trim() || String(item.id)
   }
 
   const confirmDelete = async () => {
@@ -379,7 +386,7 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
           <DialogContent>
             <Typography variant="body2" color="text.secondary">
               {t('admin.confirmDeleteDesc', {
-                mapName: pendingDeleteMap.nameZh || pendingDeleteMap.nameEn || pendingDeleteMap.id,
+                mapName: resolveLocalizedMapName(pendingDeleteMap),
               })}
             </Typography>
           </DialogContent>

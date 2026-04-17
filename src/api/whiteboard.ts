@@ -35,19 +35,6 @@ export interface ExtractionIntelItem {
   extraDetails: Array<{ label: string; value: string }>
 }
 
-export interface HighValueLootIntelItem {
-  id: string
-  title: string
-  category?: string
-  location?: string
-  keyNames: string[]
-  itemNames: string[]
-  priority?: string
-  notes?: string
-  imageUrl?: string
-  extraDetails: Array<{ label: string; value: string }>
-}
-
 export interface MapIntelResponse {
   errorMessage?: string
   mapNameZh?: string
@@ -57,7 +44,6 @@ export interface MapIntelResponse {
     pve: BossRefreshIntelItem[]
   }
   extractions: ExtractionIntelItem[]
-  highValueLoot: HighValueLootIntelItem[]
 }
 
 const asRecord = (value: unknown): Record<string, unknown> | null => {
@@ -360,118 +346,14 @@ const normalizeExtractions = (value: unknown): ExtractionIntelItem[] => {
   return normalized
 }
 
-const collectLabeledRecords = (
-  value: unknown,
-): Array<{ source: Record<string, unknown>; category?: string }> => {
-  if (Array.isArray(value)) {
-    const normalized: Array<{ source: Record<string, unknown>; category?: string }> = []
-    value.forEach((item) => {
-      const source = asRecord(item)
-      if (source) {
-        normalized.push({ source })
-      }
-    })
-    return normalized
-  }
-
-  const source = asRecord(value)
-  if (!source) {
-    return []
-  }
-
-  const normalized: Array<{ source: Record<string, unknown>; category?: string }> = []
-  Object.entries(source).forEach(([category, entry]) => {
-    if (Array.isArray(entry)) {
-      entry.forEach((item) => {
-        const nested = asRecord(item)
-        if (nested) {
-          normalized.push({ source: nested, category })
-        }
-      })
-      return
-    }
-    const nested = asRecord(entry)
-    if (nested) {
-      normalized.push({ source: nested, category })
-    }
-  })
-  return normalized
-}
-
-const normalizeHighValueLoot = (value: unknown): HighValueLootIntelItem[] => {
-  const sourceRoot = asRecord(value)
-  const points = sourceRoot && Array.isArray(sourceRoot.points) ? sourceRoot.points : value
-
-  return collectLabeledRecords(points)
-    .map(({ source, category }, index) => {
-      const title =
-        pickString(source, ['area', 'title', 'name', 'label', 'spotName', 'lootName']) ??
-        category ??
-        `Loot-${index + 1}`
-      const keyNames = pickStringArray(source, ['keys', 'keyNames'])
-      const itemNames = pickStringArray(source, ['items', 'itemNames', 'lootItems'])
-      return {
-        id: pickString(source, ['id', 'lootId', 'key']) ?? `loot-${index}-${title}`,
-        title,
-        category:
-          pickString(source, ['category', 'group', 'type']) ??
-          (category ? humanizeKey(category) : undefined),
-        location: pickString(source, ['location', 'area', 'position', 'region']),
-        keyNames,
-        itemNames,
-        priority: pickString(source, ['priority', 'level']),
-        notes: pickString(source, ['notes', 'description', 'detail', 'details', 'remark']),
-        imageUrl: pickString(source, ['imageUrl', 'image', 'detailImageUrl']),
-        extraDetails: collectExtraDetails(source, [
-          'id',
-          'lootId',
-          'key',
-          'title',
-          'name',
-          'label',
-          'spotName',
-          'lootName',
-          'category',
-          'group',
-          'type',
-          'location',
-          'area',
-          'position',
-          'region',
-          'keys',
-          'keyNames',
-          'items',
-          'itemNames',
-          'lootItems',
-          'keyName',
-          'requiredKey',
-          'unlockKey',
-          'priority',
-          'level',
-          'notes',
-          'description',
-          'detail',
-          'details',
-          'remark',
-          'imageUrl',
-          'image',
-          'detailImageUrl',
-        ]),
-      }
-    })
-    .filter((item) => item.title.trim().length > 0)
-}
-
 const normalizeMapIntel = (payload: unknown): MapIntelResponse => {
   const source = asRecord(payload) ?? {}
   const bossRefresh = asRecord(source.bossRefresh) ?? {}
   const extractions = asRecord(source.extractions) ?? {}
-  const highValueLoot = asRecord(source.highValueLoot) ?? {}
   const errorMessage =
     pickString(source, ['errorMessage', 'message']) ??
     pickString(bossRefresh, ['errorMessage']) ??
-    pickString(extractions, ['errorMessage']) ??
-    pickString(highValueLoot, ['errorMessage'])
+    pickString(extractions, ['errorMessage'])
 
   return {
     errorMessage,
@@ -482,7 +364,6 @@ const normalizeMapIntel = (payload: unknown): MapIntelResponse => {
       pve: normalizeBossRefreshGroup(bossRefresh.pve, 'pve'),
     },
     extractions: normalizeExtractions(source.extractions),
-    highValueLoot: normalizeHighValueLoot(source.highValueLoot),
   }
 }
 

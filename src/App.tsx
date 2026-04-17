@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
-import { Box, IconButton, Paper } from '@mui/material'
+import { Box, Paper } from '@mui/material'
 import { loginAdmin } from './api/admin-auth'
 import { createWhiteboardInstance } from './api/whiteboard'
 import { ApiSettingsDialog } from './components/ApiSettingsDialog'
@@ -22,8 +21,8 @@ import { HomePage } from './pages/HomePage'
 import { MapInstancePage } from './pages/MapInstancePage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { buildMapInstancePath, resolveRoute, ROUTES } from './router/routes'
-import { useTranslation } from 'react-i18next'
 
+// App owns lightweight route resolution, desktop shell integration, and top-level page switching.
 const normalizePathname = (value: string) => {
   const trimmed = value.replace(/\/+$/, '')
   return trimmed || ROUTES.home
@@ -126,13 +125,11 @@ const getNormalizedLocation = () => {
 }
 
 function App() {
-  const { t } = useTranslation()
   const prefersReducedMotion = useReducedMotion()
   const [desktopEnvironment, setDesktopEnvironment] = useState(() => getInitialDesktopEnvironment())
   const desktopPlatform = desktopEnvironment.platform
   const isDesktopApp = desktopEnvironment.isDesktopApp
   const isWindowsDesktop = desktopPlatform === 'win32'
-  const isWebApp = !isDesktopApp
   const [pathname, setPathname] = useState(() => getNormalizedLocation().pathname)
   const [search, setSearch] = useState(() => getNormalizedLocation().search)
   const [adminLoggedIn, setAdminLoggedIn] = useState(() => isAdminAuthenticated())
@@ -350,11 +347,19 @@ function App() {
 
   if (route.name === 'home') {
     content = (
-      <HomePage onCreateInstance={handleCreateInstance} onJoinInstance={handleJoinInstance} />
+      <HomePage
+        onCreateInstance={handleCreateInstance}
+        onJoinInstance={handleJoinInstance}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
     )
   } else if (route.name === 'map-instance') {
     content = (
-      <MapInstancePage instanceId={route.instanceId} onBackHome={() => navigateTo(ROUTES.home)} />
+      <MapInstancePage
+        key={route.instanceId}
+        instanceId={route.instanceId}
+        onBackHome={() => navigateTo(ROUTES.home)}
+      />
     )
   } else if (route.name === 'admin-login') {
     content = <AdminLoginPage onLogin={handleAdminLogin} loading={adminLoginLoading} />
@@ -414,75 +419,6 @@ function App() {
           sx={{ position: 'fixed', inset: '0 0 auto 0', zIndex: 30, height: 40 }}
         />
       )}
-      {shouldShowSettingsEntry &&
-        (isWindowsDesktop || isWebApp ? (
-          <IconButton
-            aria-label={t('settings.title')}
-            onClick={() => setSettingsOpen(true)}
-            style={
-              {
-                top: isWindowsDesktop ? 1 : 12,
-                left: isWindowsDesktop ? 6 : undefined,
-                right: isWindowsDesktop ? undefined : 16,
-                ...(isWindowsDesktop
-                  ? ({ WebkitAppRegion: 'no-drag' } as React.CSSProperties)
-                  : {}),
-              } as React.CSSProperties
-            }
-            title={`${t('settings.title')} (Cmd/Ctrl + ,)`}
-            sx={{
-              position: 'fixed',
-              zIndex: 40,
-              width: 36,
-              height: 36,
-              border: 1,
-              borderColor: 'divider',
-              color: 'text.secondary',
-              backgroundColor: 'rgba(16, 22, 30, 0.7)',
-              backdropFilter: 'blur(14px)',
-              '&:hover': {
-                borderColor: 'primary.main',
-                color: 'text.primary',
-                backgroundColor: 'rgba(23, 31, 41, 0.88)',
-              },
-            }}
-          >
-            <SettingsOutlinedIcon fontSize="small" />
-          </IconButton>
-        ) : (
-          <Paper
-            variant="outlined"
-            style={{
-              top: 'calc(0.75rem + var(--desktop-titlebar-safe-top))',
-              right: 'calc(1rem + var(--desktop-titlebar-safe-right))',
-            }}
-            sx={{
-              position: 'fixed',
-              zIndex: 40,
-              display: 'flex',
-              alignItems: 'center',
-              p: 0.5,
-              borderRadius: 999,
-              backgroundColor: 'rgba(16, 22, 30, 0.7)',
-              backdropFilter: 'blur(14px)',
-            }}
-          >
-            <IconButton
-              aria-label={t('settings.title')}
-              title={`${t('settings.title')} (Cmd/Ctrl + ,)`}
-              onClick={() => setSettingsOpen(true)}
-              sx={{
-                width: 32,
-                height: 32,
-                border: 1,
-                borderColor: 'divider',
-                borderRadius: 999,
-              }}
-            >
-              <SettingsOutlinedIcon fontSize="small" />
-            </IconButton>
-          </Paper>
-        ))}
       {isAdminShellRoute ? (
         content
       ) : (

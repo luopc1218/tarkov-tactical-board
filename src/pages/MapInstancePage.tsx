@@ -1,8 +1,11 @@
+import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined'
+import InsightsOutlinedIcon from '@mui/icons-material/InsightsOutlined'
 import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined'
 import {
   Alert,
   Box,
   Button,
+  Chip,
   Drawer,
   Grid,
   Paper,
@@ -21,6 +24,7 @@ interface MapInstancePageProps {
   onBackHome: () => void
 }
 
+// The page keeps layout concerns here and delegates whiteboard state orchestration to the controller hook.
 export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps) {
   const { t } = useTranslation()
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
@@ -80,10 +84,6 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
         controller.contentSize.width,
         controller.contentSize.height,
       ),
-    onOpenIntel: () => {
-      controller.setMapIntelPanelOpen(true)
-      setIntelDrawerOpen(true)
-    },
     onClearBoard: controller.clearBoard,
     onUndo: controller.undoLastStroke,
     onBackHome,
@@ -106,31 +106,101 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
         <Paper
           variant="outlined"
           sx={{
-            display: { xs: 'flex', md: 'none' },
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 1,
-            px: 1.5,
-            py: 1,
-            borderRadius: 3,
+            px: { xs: 1.5, md: 2 },
+            py: { xs: 1.25, md: 1.5 },
+            borderRadius: 2,
+            backgroundImage:
+              'linear-gradient(135deg, rgba(25, 118, 210, 0.08), rgba(15, 23, 42, 0.02) 42%, rgba(22, 163, 74, 0.08) 100%)',
           }}
         >
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant="caption" color="text.secondary">
-              {t('mapInstance.instanceId')}
-            </Typography>
-            <Typography variant="body2" noWrap>
-              {controller.currentInstanceId}
-            </Typography>
-          </Box>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<MenuOutlinedIcon />}
-            onClick={() => setMobileDrawerOpen(true)}
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={{ xs: 1.25, md: 1.5 }}
+            sx={{ alignItems: { xs: 'stretch', md: 'center' }, justifyContent: 'space-between' }}
           >
-            {t('mapInstance.tools')}
-          </Button>
+            <Stack spacing={0.75} sx={{ minWidth: 0 }}>
+              <Typography variant="overline" color="text.secondary">
+                {t('mapInstance.sessionInfo')}
+              </Typography>
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={1}
+                useFlexGap
+                sx={{ alignItems: { xs: 'stretch', sm: 'center' }, flexWrap: 'wrap' }}
+              >
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{ minWidth: 0, alignItems: 'center', flexWrap: 'wrap' }}
+                >
+                  <Typography variant="h6" sx={{ fontSize: { xs: '1rem', md: '1.1rem' } }}>
+                    {t('mapInstance.instanceId')}
+                  </Typography>
+                  <Chip
+                    label={controller.currentInstanceId}
+                    color="primary"
+                    variant="outlined"
+                    sx={{ maxWidth: '100%', '& .MuiChip-label': { fontFamily: 'monospace' } }}
+                  />
+                  <Button
+                    variant={controller.copied ? 'contained' : 'outlined'}
+                    color={controller.copied ? 'success' : 'primary'}
+                    size="small"
+                    startIcon={<ContentCopyOutlinedIcon />}
+                    onClick={() => void controller.copyInstanceId()}
+                  >
+                    {controller.copied ? t('mapInstance.copied') : t('mapInstance.copyInstanceId')}
+                  </Button>
+                </Stack>
+
+                <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+                  <Chip
+                    size="small"
+                    label={`${t('mapInstance.mapId')}: ${controller.currentMapId ?? '-'}`}
+                    variant="outlined"
+                  />
+                  <Chip size="small" label={controller.resolvedMapLabel} variant="outlined" />
+                  <Chip
+                    size="small"
+                    color={controller.wsConnected ? 'success' : 'error'}
+                    label={
+                      controller.wsConnected
+                        ? t('mapInstance.realtimeConnected')
+                        : t('mapInstance.realtimeDisconnected')
+                    }
+                    variant="outlined"
+                  />
+                </Stack>
+              </Stack>
+            </Stack>
+
+            <Stack
+              direction={{ xs: 'row', md: 'row' }}
+              spacing={1}
+              sx={{ alignItems: 'center', justifyContent: { xs: 'space-between', md: 'flex-end' } }}
+            >
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<InsightsOutlinedIcon />}
+                onClick={() => {
+                  setIntelDrawerOpen(true)
+                  void controller.loadMapIntel()
+                }}
+              >
+                {t('mapInstance.mapIntelTitle')}
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<MenuOutlinedIcon />}
+                onClick={() => setMobileDrawerOpen(true)}
+                sx={{ display: { xs: 'inline-flex', md: 'none' } }}
+              >
+                {t('mapInstance.tools')}
+              </Button>
+            </Stack>
+          </Stack>
         </Paper>
 
         <Typography
@@ -254,20 +324,16 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
       >
         <MapIntelPanel
           mapIntel={controller.mapIntel}
+          mapIntelLoading={controller.mapIntelLoading}
           mapIntelLoadError={controller.mapIntelLoadError}
-          mapIntelPanelOpen={controller.mapIntelPanelOpen}
           bossIntelOpen={controller.bossIntelOpen}
           extractionsOpen={controller.extractionsOpen}
-          highValueLootOpen={controller.highValueLootOpen}
-          setMapIntelPanelOpen={controller.setMapIntelPanelOpen}
           setBossIntelOpen={controller.setBossIntelOpen}
           setExtractionsOpen={controller.setExtractionsOpen}
-          setHighValueLootOpen={controller.setHighValueLootOpen}
           renderIntelBool={controller.renderIntelBool}
           isGuaranteedSpawnChance={controller.isGuaranteedSpawnChance}
           getIntelTagColor={controller.getIntelTagColor}
           renderExtractionCard={controller.renderExtractionCard}
-          renderLootCard={controller.renderLootCard}
           onClose={() => setIntelDrawerOpen(false)}
         />
       </Drawer>

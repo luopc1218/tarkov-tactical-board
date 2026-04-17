@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { FiArrowRight, FiCrosshair, FiMap, FiRefreshCw } from 'react-icons/fi'
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import {
   Box,
   Button,
@@ -28,9 +29,10 @@ const CUSTOM_MAP_BANNER_URL = resolveImagePath('images/home_hero_bg.png')
 interface HomePageProps {
   onCreateInstance: (payload: { mapId: number; mapName: string }) => Promise<void>
   onJoinInstance: (instanceId: string) => Promise<void>
+  onOpenSettings: () => void
 }
 
-export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
+export function HomePage({ onCreateInstance, onJoinInstance, onOpenSettings }: HomePageProps) {
   const { t, i18n } = useTranslation()
   const { enqueueSnackbar } = useSnackbar()
   const [mapPresets, setMapPresets] = useState<TarkovMapPreset[]>([])
@@ -66,9 +68,9 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
     const zh = preset.nameZh?.trim()
     const en = preset.nameEn?.trim()
     if (i18n.language.startsWith('zh')) {
-      return zh || en
+      return zh || (preset.id ? String(preset.id) : '-')
     }
-    return en || zh
+    return en || (preset.id ? String(preset.id) : '-')
   }
 
   return (
@@ -305,14 +307,57 @@ export function HomePage({ onCreateInstance, onJoinInstance }: HomePageProps) {
           </Box>
         )}
 
-        <Paper sx={{ mt: { xs: 6, md: 8 }, p: 2.5 }}>
-          <Typography variant="subtitle2">{t('home.copyrightTitle')}</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            {t('home.copyrightDesc1')}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            {t('home.copyrightDesc2')}
-          </Typography>
+        <Paper
+          variant="outlined"
+          sx={{
+            mt: { xs: 4, md: 5 },
+            p: { xs: 2.25, md: 2.75 },
+            borderRadius: 3,
+            background:
+              'linear-gradient(135deg, rgba(10, 15, 21, 0.9), rgba(17, 24, 32, 0.95) 52%, rgba(18, 52, 86, 0.42) 100%)',
+            borderColor: 'rgba(148, 163, 184, 0.18)',
+            backdropFilter: 'blur(10px)',
+          }}
+        >
+          <Stack
+            direction={{ xs: 'column', lg: 'row' }}
+            spacing={{ xs: 2.5, lg: 3 }}
+            sx={{ alignItems: { xs: 'stretch', lg: 'flex-start' }, justifyContent: 'space-between' }}
+          >
+            <Box sx={{ minWidth: 0, maxWidth: 760 }}>
+              <Typography variant="overline" color="text.secondary">
+                {t('home.footerLabel')}
+              </Typography>
+              <Typography variant="h6" sx={{ mt: 0.5 }}>
+                {t('home.footerTitle')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                {t('home.footerDesc1')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+                {t('home.footerDesc2')}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                {t('home.footerSource')}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1.25, display: 'block' }}>
+                {t('home.copyrightTitle')}
+              </Typography>
+            </Box>
+            <Button
+              variant="outlined"
+              color="inherit"
+              startIcon={<SettingsOutlinedIcon />}
+              onClick={onOpenSettings}
+              sx={{
+                alignSelf: { xs: 'stretch', lg: 'center' },
+                borderColor: 'rgba(148, 163, 184, 0.28)',
+                backgroundColor: 'rgba(15, 23, 42, 0.22)',
+              }}
+            >
+              {t('settings.title')}
+            </Button>
+          </Stack>
         </Paper>
       </Box>
     </Box>

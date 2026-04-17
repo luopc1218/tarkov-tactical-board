@@ -1,3 +1,4 @@
+// Centralized translation catalog for both player-facing pages and the admin console.
 export const resources = {
   zh: {
     translation: {
@@ -39,11 +40,14 @@ export const resources = {
         loadError: '获取地图列表失败',
         emptyMaps: '暂无可用地图，请稍后刷新或检查接口数据。',
         createInstance: '新建房间',
-        copyrightTitle: 'Copyright © 2026 luopc1218. All Rights Reserved.',
-        copyrightDesc1:
-          'Tarkov Tactical Board 前端页面、交互设计、白板协作实现及相关代码资产均归版权所有者 luopc1218 所有。未经明确书面授权，任何个人或组织不得对本项目进行未授权的复制、分发、商业化改造或用于公开部署。',
-        copyrightDesc2:
-          '第三方名称、商标与游戏素材归其各自权利方所有；本项目中涉及的相关引用仅用于功能演示与学习交流，不代表任何官方关联或授权背书。',
+        footerLabel: 'About This Project',
+        footerTitle: '为战术讨论准备的轻量协作地图白板',
+        footerDesc1:
+          'Tarkov Tactical Board 旨在帮助队伍在开局前快速共享地图、标记路线、同步落点与撤离方案，让讨论过程更直接。',
+        footerDesc2:
+          '本项目为独立开发作品，与 Battlestate Games 无官方关联。文中出现的游戏名称、地图称呼与相关素材归各自权利方所有。',
+        footerSource: '数据来源：https://www.eftarkov.com',
+        copyrightTitle: '© 2026 luopc1218. All rights reserved.',
       },
       mapInstance: {
         notFoundTitle: '实例不存在',
@@ -64,7 +68,9 @@ export const resources = {
         eraserTool: '橡皮擦',
         brushColor: '画笔颜色',
         brushWidth: '画笔粗细',
-        cursorSize: '光标大小',
+        copyInstanceId: '复制实例 ID',
+        collabCursorSize: '协作光标大小',
+        collabCursorSizeHint: '仅影响多人协作时远端玩家光标的显示大小，不会改变你的系统鼠标。',
         tools: '工具',
         closeTools: '关闭',
         resetView: '视图归位',
@@ -76,7 +82,8 @@ export const resources = {
         copied: '已复制',
         mapIntelTitle: '地图情报',
         mapIntelSubtitle: '基于当前实例地图返回的 Boss、撤离点和高级物资信息。',
-        mapIntelSummary: '汇总 Boss 刷新、撤离点和高价值物资，方便在画板协同时快速查看。',
+        mapIntelSummary: '汇总 Boss 刷新与撤离点信息，方便在画板协同时快速查看。',
+        mapIntelSearchPlaceholder: '搜索地图情报资讯并回车打开',
         mapIntelLoadError: '地图情报加载失败，请稍后重试。',
         mapIntelModuleError: '情报提示',
         tacticalIntelLabel: '战术情报',
@@ -94,8 +101,6 @@ export const resources = {
         bossRefreshEmpty: '当前没有 Boss 刷新率数据。',
         extractionsTitle: '撤离点',
         extractionsEmpty: '当前地图没有撤离点情报。',
-        highValueLootTitle: '高级物资点',
-        highValueLootEmpty: '当前地图没有高级物资点或钥匙情报。',
         faction: '阵营',
         requirement: '要求',
         location: '位置',
@@ -103,6 +108,8 @@ export const resources = {
         detailImage: '详情图',
         alwaysAvailable: '常驻',
         oneTime: '一次性',
+        alwaysAvailableShort: '常驻',
+        oneTimeShort: '单次',
         yes: '是',
         no: '否',
         notProvided: '未提供',
@@ -272,11 +279,14 @@ export const resources = {
         loadError: 'Failed to load maps',
         emptyMaps: 'No map data available. Please retry or check your API response.',
         createInstance: 'Create Room',
-        copyrightTitle: 'Copyright © 2026 luopc1218. All Rights Reserved.',
-        copyrightDesc1:
-          'All frontend pages, interaction designs, whiteboard collaboration implementations, and related code assets of Tarkov Tactical Board are owned by luopc1218. Without explicit written authorization, no individual or organization may copy, distribute, commercialize, modify, or publicly deploy this project.',
-        copyrightDesc2:
-          'Third-party names, trademarks, and game-related assets belong to their respective owners. Any references in this project are for demonstration and learning purposes only and do not imply official affiliation or endorsement.',
+        footerLabel: 'About This Project',
+        footerTitle: 'A lightweight collaborative map board for tactical planning',
+        footerDesc1:
+          'Tarkov Tactical Board helps squads share a map, sketch routes, and align on entry, loot, and extraction plans before a raid starts.',
+        footerDesc2:
+          'This is an independent project and is not affiliated with Battlestate Games. Game names, map names, trademarks, and related assets belong to their respective owners.',
+        footerSource: 'Data source: https://www.eftarkov.com',
+        copyrightTitle: '© 2026 luopc1218. All rights reserved.',
       },
       mapInstance: {
         notFoundTitle: 'Instance Not Found',
@@ -297,7 +307,10 @@ export const resources = {
         eraserTool: 'Eraser',
         brushColor: 'Brush Color',
         brushWidth: 'Brush Size',
-        cursorSize: 'Cursor Size',
+        copyInstanceId: 'Copy Instance ID',
+        collabCursorSize: 'Collab Cursor Size',
+        collabCursorSizeHint:
+          'Only changes the size of remote collaborator cursors on the board. Your system mouse cursor stays the same.',
         tools: 'Tools',
         closeTools: 'Close',
         resetView: 'Reset View',
@@ -308,9 +321,10 @@ export const resources = {
         copyId: 'Copy',
         copied: 'Copied',
         mapIntelTitle: 'Map Intel',
-        mapIntelSubtitle: 'Boss, extraction, and high-value loot intel for the current instance map.',
+        mapIntelSubtitle: 'Boss and extraction intel for the current instance map.',
         mapIntelSummary:
-          'Summarizes boss spawns, extractions, and high-value loot for quick reference while collaborating on the board.',
+          'Summarizes boss spawns and extraction intel for quick reference while collaborating on the board.',
+        mapIntelSearchPlaceholder: 'Search intel news and press Enter to open',
         mapIntelLoadError: 'Failed to load map intel. Please try again later.',
         mapIntelModuleError: 'Intel Notice',
         tacticalIntelLabel: 'Tactical Intel',
@@ -328,8 +342,6 @@ export const resources = {
         bossRefreshEmpty: 'No boss spawn rate data for this map.',
         extractionsTitle: 'Extractions',
         extractionsEmpty: 'No extraction intel for this map.',
-        highValueLootTitle: 'High-Value Loot',
-        highValueLootEmpty: 'No high-value loot or key intel for this map.',
         faction: 'Faction',
         requirement: 'Requirement',
         location: 'Location',
@@ -337,6 +349,8 @@ export const resources = {
         detailImage: 'Detail Image',
         alwaysAvailable: 'Always Available',
         oneTime: 'One-Time',
+        alwaysAvailableShort: 'Always',
+        oneTimeShort: 'Single Use',
         yes: 'Yes',
         no: 'No',
         notProvided: 'Not provided',

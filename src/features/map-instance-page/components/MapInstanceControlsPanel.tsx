@@ -1,15 +1,11 @@
 import BrushOutlinedIcon from '@mui/icons-material/BrushOutlined'
 import CenterFocusStrongOutlinedIcon from '@mui/icons-material/CenterFocusStrongOutlined'
 import CleaningServicesOutlinedIcon from '@mui/icons-material/CleaningServicesOutlined'
-import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined'
-import InsightsOutlinedIcon from '@mui/icons-material/InsightsOutlined'
 import KeyboardBackspaceOutlinedIcon from '@mui/icons-material/KeyboardBackspaceOutlined'
-import LayersOutlinedIcon from '@mui/icons-material/LayersOutlined'
 import UndoOutlinedIcon from '@mui/icons-material/UndoOutlined'
 import {
   Box,
   Button,
-  Chip,
   FormControl,
   InputLabel,
   MenuItem,
@@ -30,85 +26,37 @@ interface Props extends MapInstanceControlsProps {
   onClose?: () => void
 }
 
-export function MapInstanceControlsPanel({
-  instanceId,
-  mapId,
-  mapLabel,
-  wsConnected,
-  zoomPercent,
-  copied,
-  mapPresets,
-  selectedMapId,
-  switchingMap,
-  toolMode,
-  brushColor,
-  brushWidth,
-  cursorScale,
-  canUndo,
-  onCopyId,
-  onSelectedMapIdChange,
-  onSwitchMap,
-  onToolModeChange,
-  onBrushColorChange,
-  onBrushWidthChange,
-  onCursorScaleChange,
-  onResetView,
-  onOpenIntel,
-  onClearBoard,
-  onUndo,
-  onBackHome,
-  dense = false,
-  onClose,
-}: Props) {
-  const { t } = useTranslation()
+// Shared control surface for desktop sidebar and mobile drawer so both layouts stay behaviorally aligned.
+export function MapInstanceControlsPanel(props: Props) {
+  const { t, i18n } = useTranslation()
+  const {
+    mapId,
+    mapPresets,
+    selectedMapId,
+    switchingMap,
+    toolMode,
+    brushColor,
+    brushWidth,
+    cursorScale,
+    canUndo,
+    onSelectedMapIdChange,
+    onSwitchMap,
+    onToolModeChange,
+    onBrushColorChange,
+    onBrushWidthChange,
+    onCursorScaleChange,
+    onResetView,
+    onClearBoard,
+    onUndo,
+    onBackHome,
+    dense = false,
+    onClose,
+  } = props
   const actionStackDirection = dense ? 'column' : 'row'
 
   return (
     <Stack spacing={dense ? 2 : 2.5}>
-      <Stack spacing={1.25}>
-        <Typography variant="overline" color="text.secondary">
-          {t('mapInstance.sessionInfo')}
-        </Typography>
-        <Stack
-          direction={dense ? 'column' : 'row'}
-          spacing={1}
-          useFlexGap
-          sx={{ flexWrap: 'wrap' }}
-        >
-          <Chip
-            icon={<LayersOutlinedIcon />}
-            label={`${t('mapInstance.instanceId')}: ${instanceId}`}
-            variant="outlined"
-            sx={{ maxWidth: '100%' }}
-          />
-          <Chip
-            label={
-              wsConnected
-                ? t('mapInstance.realtimeConnected')
-                : t('mapInstance.realtimeDisconnected')
-            }
-            color={wsConnected ? 'success' : 'error'}
-            variant="outlined"
-          />
-          <Chip label={`${t('mapInstance.zoom')}: ${zoomPercent}%`} variant="outlined" />
-        </Stack>
-        <Typography variant="body2" color="text.secondary">
-          {t('mapInstance.mapId')} {mapId ?? '-'} · {mapLabel}
-        </Typography>
-      </Stack>
-
       <Stack direction={actionStackDirection} spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-        <Button
-          variant="outlined"
-          color={copied ? 'success' : 'primary'}
-          startIcon={<ContentCopyOutlinedIcon />}
-          onClick={() => void onCopyId()}
-        >
-          {copied ? t('mapInstance.copied') : t('mapInstance.copyId')}
-        </Button>
-        <Button variant="outlined" startIcon={<InsightsOutlinedIcon />} onClick={onOpenIntel}>
-          {t('mapInstance.mapIntelTitle')}
-        </Button>
         <Button
           variant="outlined"
           color="inherit"
@@ -175,7 +123,9 @@ export function MapInstanceControlsPanel({
               ) : null}
               {mapPresets.map((item) => (
                 <MenuItem key={item.id} value={item.id}>
-                  {item.nameZh || item.nameEn}
+                  {i18n.language.startsWith('zh')
+                    ? item.nameZh?.trim() || String(item.id)
+                    : item.nameEn?.trim() || String(item.id)}
                 </MenuItem>
               ))}
             </Select>
@@ -247,7 +197,7 @@ export function MapInstanceControlsPanel({
             <Slider
               value={brushWidth}
               min={12}
-              max={48}
+              max={56}
               step={1}
               onChange={(_, value) => onBrushWidthChange(Number(value))}
             />
@@ -255,7 +205,7 @@ export function MapInstanceControlsPanel({
 
           <Box>
             <Typography variant="body2" color="text.secondary" gutterBottom>
-              {t('mapInstance.cursorSize')}: {cursorScale.toFixed(1)}x
+              {t('mapInstance.collabCursorSize')}: {cursorScale.toFixed(1)}x
             </Typography>
             <Slider
               value={cursorScale}
@@ -264,6 +214,9 @@ export function MapInstanceControlsPanel({
               step={0.1}
               onChange={(_, value) => onCursorScaleChange(Number(value))}
             />
+            <Typography variant="caption" color="text.secondary">
+              {t('mapInstance.collabCursorSizeHint')}
+            </Typography>
           </Box>
         </Stack>
       </Paper>

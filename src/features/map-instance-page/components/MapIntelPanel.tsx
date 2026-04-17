@@ -1,3 +1,4 @@
+import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined'
 import {
   Accordion,
   AccordionDetails,
@@ -8,30 +9,48 @@ import {
   Card,
   CardContent,
   Chip,
+  InputAdornment,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { MapIntelPanelProps } from '../types'
 
 export function MapIntelPanel({
   mapIntel,
+  mapIntelLoading,
   mapIntelLoadError,
-  mapIntelPanelOpen,
   bossIntelOpen,
   extractionsOpen,
-  highValueLootOpen,
-  setMapIntelPanelOpen,
   setBossIntelOpen,
   setExtractionsOpen,
-  setHighValueLootOpen,
   isGuaranteedSpawnChance,
   renderExtractionCard,
-  renderLootCard,
   onClose,
 }: MapIntelPanelProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const [searchKeyword, setSearchKeyword] = useState('')
+
+  const handleSearchSubmit = () => {
+    const keyword = searchKeyword.trim()
+    if (!keyword) {
+      return
+    }
+    const encodedKeyword = encodeURIComponent(keyword)
+    window.open(
+      `https://www.eftarkov.com/news/?list_refer-theme-${encodedKeyword}.html`,
+      '_blank',
+      'noopener,noreferrer',
+    )
+  }
+
+  const resolvedMapName = i18n.language.startsWith('zh')
+    ? mapIntel?.mapNameZh?.trim() || ''
+    : mapIntel?.mapNameEn?.trim() || ''
+
   return (
     <Box
       sx={{
@@ -40,7 +59,7 @@ export function MapIntelPanel({
         minHeight: 'fit-content',
         flexDirection: 'column',
         overflow: 'hidden',
-        borderRadius: 4,
+        borderRadius: 2.5,
         border: 1,
         borderColor: 'divider',
         background:
@@ -58,36 +77,55 @@ export function MapIntelPanel({
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
               {t('mapInstance.mapIntelSummary')}
             </Typography>
-            {(mapIntel?.mapNameZh || mapIntel?.mapNameEn) && (
+            {resolvedMapName && (
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                {[mapIntel.mapNameZh, mapIntel.mapNameEn].filter(Boolean).join(' / ')}
+                {resolvedMapName}
               </Typography>
             )}
+            <TextField
+              size="small"
+              value={searchKeyword}
+              onChange={(event) => setSearchKeyword(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  handleSearchSubmit()
+                }
+              }}
+              placeholder={t('mapInstance.mapIntelSearchPlaceholder')}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              sx={{
+                mt: 1.5,
+                maxWidth: 360,
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: 'rgba(15, 23, 42, 0.3)',
+                },
+              }}
+            />
           </Box>
-          <Stack direction="row" spacing={1}>
-            <Button variant="outlined" size="small" onClick={() => setMapIntelPanelOpen((prev) => !prev)}>
-              {mapIntelPanelOpen ? t('mapInstance.collapse') : t('mapInstance.expand')}
+          {onClose ? (
+            <Button variant="text" size="small" color="inherit" onClick={onClose}>
+              {t('mapInstance.closeTools')}
             </Button>
-            {onClose ? (
-              <Button variant="text" size="small" color="inherit" onClick={onClose}>
-                {t('mapInstance.closeTools')}
-              </Button>
-            ) : null}
-          </Stack>
+          ) : null}
         </Stack>
       </Box>
 
-      {mapIntelPanelOpen ? (
-        <Box sx={{ p: 2 }}>
-          <Stack spacing={2}>
-            {mapIntelLoadError ? <Alert severity="error">{mapIntelLoadError}</Alert> : null}
-            {mapIntel?.errorMessage ? <Alert severity="warning">{mapIntel.errorMessage}</Alert> : null}
+      <Box sx={{ p: 2 }}>
+        <Stack spacing={2}>
+          {mapIntelLoading ? <Alert severity="info">{t('common.loading')}</Alert> : null}
+          {mapIntelLoadError ? <Alert severity="error">{mapIntelLoadError}</Alert> : null}
+          {mapIntel?.errorMessage ? <Alert severity="warning">{mapIntel.errorMessage}</Alert> : null}
 
-            <Accordion
-              expanded={bossIntelOpen}
-              onChange={(_, expanded) => setBossIntelOpen(expanded)}
-              disableGutters
-            >
+          <Accordion expanded={bossIntelOpen} onChange={(_, expanded) => setBossIntelOpen(expanded)} disableGutters>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                   <Typography variant="subtitle2">{t('mapInstance.bossRefreshTitle')}</Typography>
@@ -151,13 +189,9 @@ export function MapIntelPanel({
                   ))}
                 </Stack>
               </AccordionDetails>
-            </Accordion>
+          </Accordion>
 
-            <Accordion
-              expanded={extractionsOpen}
-              onChange={(_, expanded) => setExtractionsOpen(expanded)}
-              disableGutters
-            >
+          <Accordion expanded={extractionsOpen} onChange={(_, expanded) => setExtractionsOpen(expanded)} disableGutters>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                   <Typography variant="subtitle2">{t('mapInstance.extractionsTitle')}</Typography>
@@ -175,34 +209,9 @@ export function MapIntelPanel({
                   )}
                 </Stack>
               </AccordionDetails>
-            </Accordion>
-
-            <Accordion
-              expanded={highValueLootOpen}
-              onChange={(_, expanded) => setHighValueLootOpen(expanded)}
-              disableGutters
-            >
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                  <Typography variant="subtitle2">{t('mapInstance.highValueLootTitle')}</Typography>
-                  <Chip size="small" label={mapIntel?.highValueLoot.length ?? 0} variant="outlined" />
-                </Stack>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Stack spacing={2}>
-                  {mapIntel?.highValueLoot.length ? (
-                    mapIntel.highValueLoot.map(renderLootCard)
-                  ) : (
-                    <Typography variant="body2" color="text.secondary">
-                      {t('mapInstance.highValueLootEmpty')}
-                    </Typography>
-                  )}
-                </Stack>
-              </AccordionDetails>
-            </Accordion>
-          </Stack>
-        </Box>
-      ) : null}
+          </Accordion>
+        </Stack>
+      </Box>
     </Box>
   )
 }

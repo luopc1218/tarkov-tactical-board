@@ -75,9 +75,9 @@ export function AdminInstancesPage({ onNavigate, onLogout }: AdminInstancesPageP
     const en = item.mapNameEn?.trim()
     const fallback = item.mapName?.trim()
     if (i18n.language.startsWith('zh')) {
-      return zh || en || fallback || (item.mapId != null ? String(item.mapId) : '-')
+      return zh || fallback || (item.mapId != null ? String(item.mapId) : '-')
     }
-    return en || zh || fallback || (item.mapId != null ? String(item.mapId) : '-')
+    return en || fallback || (item.mapId != null ? String(item.mapId) : '-')
   }
 
   const loadInstances = useCallback(async () => {

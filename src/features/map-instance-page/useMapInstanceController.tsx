@@ -10,7 +10,6 @@ import {
   saveWhiteboardState,
   switchWhiteboardMap,
   type ExtractionIntelItem,
-  type HighValueLootIntelItem,
   type MapIntelResponse,
 } from '../../api/whiteboard'
 import { saveRecentInstance } from '../../features/recent-instances'
@@ -26,6 +25,8 @@ import type {
   Viewport,
 } from './types'
 
+// This hook owns the whiteboard session lifecycle: bootstrap instance data, keep websocket state
+// in sync, and expose a UI-friendly controller object for the instance detail page.
 const DEFAULT_CANVAS_WIDTH = 1920
 const DEFAULT_CANVAS_HEIGHT = 1080
 const MIN_SCALE = 0.05
@@ -44,6 +45,25 @@ const WHITEBOARD_CURSOR_LEAVE_TOPIC = 'cursor.leave'
 const WHITEBOARD_MAP_CHANGED_TOPIC = 'map.changed'
 const STROKE_APPEND_INTERVAL_MS = 40
 const WS_RECONNECT_BACKOFF_MS = [1000, 2000, 5000]
+const DEFAULT_BRUSH_WIDTH = 22
+const DEFAULT_CURSOR_SCALE = 1.8
+
+// Keep the initial palette vivid so each session feels distinct while remaining visible on dark maps.
+const generateRandomBrushColor = () => {
+  const readRandomUnit = () => {
+    if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+      const bytes = new Uint32Array(1)
+      crypto.getRandomValues(bytes)
+      return bytes[0] / 0xffffffff
+    }
+    return Math.random()
+  }
+
+  const hue = Math.floor(readRandomUnit() * 360)
+  const saturation = 78 + Math.floor(readRandomUnit() * 16)
+  const lightness = 50 + Math.floor(readRandomUnit() * 10)
+  return `hsl(${hue} ${saturation}% ${lightness}%)`
+}
 
 const buildPathData = (points: Point[]) => {
   if (points.length === 0) return ''
@@ -95,6 +115,7 @@ const colorFromId = (value: string) => {
   return `hsl(${Math.abs(hash) % 360} 90% 62%)`
 }
 
+// Reuse the configured API base URL so desktop and web deployments resolve to the same backend.
 const resolveWsUrl = (wsPath: string) => {
   if (/^wss?:\/\//i.test(wsPath)) return wsPath
   if (/^https?:\/\//i.test(wsPath)) return wsPath.replace(/^http/i, 'ws')
@@ -137,7 +158,7 @@ const readStrokePayload = (payload: unknown): Stroke | null => {
     id: source.id,
     points,
     color: source.color || '#22d3ee',
-    width: Number.isFinite(source.width) ? Number(source.width) : 3,
+    width: Number.isFinite(source.width) ? Number(source.width) : DEFAULT_BRUSH_WIDTH,
   }
 }
 
@@ -288,16 +309,15 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 })
   const [wsConnected, setWsConnected] = useState(false)
   const [contentSize, setContentSize] = useState({ width: DEFAULT_CANVAS_WIDTH, height: DEFAULT_CANVAS_HEIGHT })
-  const [brushColor, setBrushColor] = useState('#ff3b30')
-  const [brushWidth, setBrushWidth] = useState(16)
-  const [cursorScale, setCursorScale] = useState(1.8)
+  const [brushColor, setBrushColor] = useState(() => generateRandomBrushColor())
+  const [brushWidth, setBrushWidth] = useState(DEFAULT_BRUSH_WIDTH)
+  const [cursorScale, setCursorScale] = useState(DEFAULT_CURSOR_SCALE)
   const [copied, setCopied] = useState(false)
   const [mapIntel, setMapIntel] = useState<MapIntelResponse | null>(null)
+  const [mapIntelLoading, setMapIntelLoading] = useState(false)
   const [mapIntelLoadError, setMapIntelLoadError] = useState<string | null>(null)
-  const [mapIntelPanelOpen, setMapIntelPanelOpen] = useState(true)
   const [bossIntelOpen, setBossIntelOpen] = useState(true)
   const [extractionsOpen, setExtractionsOpen] = useState(true)
-  const [highValueLootOpen, setHighValueLootOpen] = useState(true)
   const [remoteCursors, setRemoteCursors] = useState<Record<string, RemoteCursor>>({})
   const [remoteInProgressStrokes, setRemoteInProgressStrokes] = useState<Record<string, Stroke>>({})
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -326,7 +346,9 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     if (!mapId) return '-'
     const matched = mapPresets.find((item) => item.id === mapId)
     if (!matched) return String(mapId)
-    return isZhLanguage ? matched.nameZh || matched.nameEn : matched.nameEn || matched.nameZh
+    return isZhLanguage
+      ? matched.nameZh?.trim() || String(mapId)
+      : matched.nameEn?.trim() || String(mapId)
   }, [isZhLanguage, mapPresets])
 
   useEffect(() => {
@@ -424,7 +446,7 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
         reconnectTimerRef.current = null
       }
     }
-    const connect = () => {
+  const connect = () => {
       let ws: WebSocket
       try {
         ws = new WebSocket(resolvedWsUrl)
@@ -489,7 +511,12 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
             if (!firstPoint) return
             setRemoteInProgressStrokes((prev) => ({
               ...prev,
-              [stream.strokeId]: { id: stream.strokeId, points: [firstPoint], color: stream.color || '#22d3ee', width: stream.width || 3 },
+              [stream.strokeId]: {
+                id: stream.strokeId,
+                points: [firstPoint],
+                color: stream.color || '#22d3ee',
+                width: stream.width || DEFAULT_BRUSH_WIDTH,
+              },
             }))
             return
           }
@@ -503,7 +530,12 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
               if (!target) {
                 return {
                   ...prev,
-                  [stream.strokeId]: { id: stream.strokeId, points: nextPoints, color: stream.color || '#22d3ee', width: stream.width || 3 },
+                  [stream.strokeId]: {
+                    id: stream.strokeId,
+                    points: nextPoints,
+                    color: stream.color || '#22d3ee',
+                    width: stream.width || DEFAULT_BRUSH_WIDTH,
+                  },
                 }
               }
               return { ...prev, [stream.strokeId]: { ...target, points: [...target.points, ...nextPoints] } }
@@ -566,28 +598,10 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
   }, [instance?.id])
 
   useEffect(() => {
-    if (!instance?.id || !instance?.mapId) {
-      queueMicrotask(() => {
-        setMapIntel(null)
-        setMapIntelLoadError(null)
-      })
-      return
-    }
-    let active = true
-    queueMicrotask(() => setMapIntelLoadError(null))
-    void getWhiteboardMapIntel(instance.id)
-      .then((response) => {
-        if (active) setMapIntel(response)
-      })
-      .catch((error) => {
-        if (!active) return
-        setMapIntel(null)
-        setMapIntelLoadError(error instanceof Error ? error.message : t('mapInstance.mapIntelLoadError'))
-      })
-    return () => {
-      active = false
-    }
-  }, [instance?.id, instance?.mapId, t])
+    setMapIntel(null)
+    setMapIntelLoadError(null)
+    setMapIntelLoading(false)
+  }, [instance?.id, instance?.mapId])
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -677,6 +691,7 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     return { x: clientX - rect.left, y: clientY - rect.top }
   }
 
+  // Erasing walks the latest strokes first so the top-most path under the pointer is removed.
   const eraseStrokeAtPoint = useCallback((point: Point) => {
     const eraseTolerance = Math.max(brushWidth / 2, 12) / viewport.scale
     const target = [...strokes].reverse().find((stroke) => !erasedStrokeIdsRef.current.has(stroke.id) && isPointNearStroke(point, stroke, eraseTolerance))
@@ -900,6 +915,27 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     window.setTimeout(() => setCopied(false), 1600)
   }, [instance?.id, instanceId])
 
+  const loadMapIntel = useCallback(async () => {
+    if (!instance?.id || !instance?.mapId) {
+      setMapIntel(null)
+      setMapIntelLoadError(null)
+      return
+    }
+
+    setMapIntelLoading(true)
+    setMapIntelLoadError(null)
+    try {
+      const response = await getWhiteboardMapIntel(instance.id)
+      setMapIntel(response)
+    } catch (error) {
+      setMapIntel(null)
+      setMapIntelLoadError(error instanceof Error ? error.message : t('mapInstance.mapIntelLoadError'))
+    } finally {
+      setMapIntelLoading(false)
+    }
+  }, [instance?.id, instance?.mapId, t])
+
+  // Local strokes render the current in-progress path together with the confirmed history.
   const renderedStrokes = useMemo(() => {
     const list = currentStroke ? [...strokes, currentStroke] : strokes
     return list.map((stroke) => (
@@ -907,10 +943,24 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     ))
   }, [currentStroke, strokes])
 
-  const renderedRemoteInProgressStrokes = useMemo(() => Object.values(remoteInProgressStrokes).map((stroke) => (
-    <path key={stroke.id} d={buildPathData(stroke.points)} fill="none" stroke={stroke.color} strokeWidth={stroke.width} strokeLinecap="round" strokeLinejoin="round" strokeOpacity={0.82} />
-  )), [remoteInProgressStrokes])
+  const renderedRemoteInProgressStrokes = useMemo(
+    () =>
+      Object.values(remoteInProgressStrokes).map((stroke) => (
+        <path
+          key={stroke.id}
+          d={buildPathData(stroke.points)}
+          fill="none"
+          stroke={stroke.color}
+          strokeWidth={stroke.width}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeOpacity={0.82}
+        />
+      )),
+    [remoteInProgressStrokes],
+  )
 
+  // "Cursor size" only affects the collaborative remote pointer overlay, not the system cursor.
   const renderedRemoteCursors = useMemo(() => {
     const baseRadius = 7 * cursorScale
     const ringRadius = baseRadius + 4
@@ -968,8 +1018,18 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
               {item.location ? <Typography variant="body2" color="text.secondary">{item.location}</Typography> : null}
             </Box>
             <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              <Chip size="small" label={`Always: ${renderIntelBool(item.alwaysAvailable)}`} color="success" variant="outlined" />
-              <Chip size="small" label={`One Time: ${renderIntelBool(item.oneTime)}`} color="warning" variant="outlined" />
+              <Chip
+                size="small"
+                label={`${t('mapInstance.alwaysAvailableShort')}: ${renderIntelBool(item.alwaysAvailable)}`}
+                color="success"
+                variant="outlined"
+              />
+              <Chip
+                size="small"
+                label={`${t('mapInstance.oneTimeShort')}: ${renderIntelBool(item.oneTime)}`}
+                color="warning"
+                variant="outlined"
+              />
             </Stack>
           </Stack>
 
@@ -1008,53 +1068,6 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     </Card>
   ), [getIntelTagColor, renderExtraDetails, renderIntelBool, t])
 
-  const renderLootCard = useCallback((item: HighValueLootIntelItem) => (
-    <Card key={item.id} variant="outlined">
-      <CardContent>
-        <Stack spacing={1.5}>
-          <Stack direction="row" spacing={1.5} sx={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="subtitle1">{item.title}</Typography>
-              {item.location ? <Typography variant="body2" color="text.secondary">{item.location}</Typography> : null}
-            </Box>
-            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              {item.category ? <Chip size="small" label={item.category} color="warning" /> : null}
-              {item.priority ? <Chip size="small" label={item.priority} color="error" /> : null}
-            </Stack>
-          </Stack>
-
-          {item.keyNames.length ? (
-            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-              {item.keyNames.map((keyName) => (
-                <Chip key={keyName} size="small" label={keyName} color="success" variant="outlined" />
-              ))}
-            </Stack>
-          ) : null}
-
-          {item.itemNames.length ? (
-            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-              {item.itemNames.map((lootName, index) => (
-                <Chip key={lootName} size="small" label={lootName} color={getIntelTagColor(index)} />
-              ))}
-            </Stack>
-          ) : null}
-
-          {item.notes ? (
-            <Typography variant="body2" color="text.secondary">
-              <strong>{t('mapInstance.description')}:</strong> {item.notes}
-            </Typography>
-          ) : null}
-
-          {renderExtraDetails(item.extraDetails)}
-
-          {item.imageUrl ? (
-            <CardMedia component="img" image={item.imageUrl} alt={item.title} sx={{ borderRadius: 2, maxHeight: 220, objectFit: 'cover' }} />
-          ) : null}
-        </Stack>
-      </CardContent>
-    </Card>
-  ), [getIntelTagColor, renderExtraDetails, t])
-
   return {
     instance,
     loading,
@@ -1071,11 +1084,10 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     cursorScale,
     copied,
     mapIntel,
+    mapIntelLoading,
     mapIntelLoadError,
-    mapIntelPanelOpen,
     bossIntelOpen,
     extractionsOpen,
-    highValueLootOpen,
     containerRef,
     renderedStrokes,
     renderedRemoteInProgressStrokes,
@@ -1089,10 +1101,9 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     setBrushColor,
     setBrushWidth,
     setCursorScale,
-    setMapIntelPanelOpen,
     setBossIntelOpen,
     setExtractionsOpen,
-    setHighValueLootOpen,
+    loadMapIntel,
     handleSwitchMap,
     fitViewportToContent,
     clearBoard,
@@ -1107,6 +1118,5 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     isGuaranteedSpawnChance,
     getIntelTagColor,
     renderExtractionCard,
-    renderLootCard,
   }
 }

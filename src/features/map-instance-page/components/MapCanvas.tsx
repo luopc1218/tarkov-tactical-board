@@ -14,6 +14,7 @@ const ERASER_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(
 const resolveCanvasCursor = (toolMode: MapCanvasProps['toolMode']) =>
   toolMode === 'erase' ? ERASER_CURSOR : 'crosshair'
 
+// Canvas only renders visuals and pointer plumbing. Session state lives in the controller hook.
 export function MapCanvas({
   containerRef,
   contentSize,

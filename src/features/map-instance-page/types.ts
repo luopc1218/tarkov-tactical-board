@@ -1,12 +1,12 @@
 import type { RefObject } from 'react'
 import type {
   ExtractionIntelItem,
-  HighValueLootIntelItem,
   MapIntelResponse,
 } from '../../api/whiteboard'
 import type { TarkovMapPreset } from '../../constants/maps'
 import type { MapInstance } from '../../types/map-instance'
 
+// Shared whiteboard view-model contracts used across the instance page, controls, and rendering layer.
 export interface Point {
   x: number
   y: number
@@ -64,7 +64,6 @@ export interface MapInstanceControlsProps {
   onBrushWidthChange: (value: number) => void
   onCursorScaleChange: (value: number) => void
   onResetView: () => void
-  onOpenIntel: () => void
   onClearBoard: () => void
   onUndo: () => void
   onBackHome: () => void
@@ -90,20 +89,16 @@ export interface MapCanvasProps {
 
 export interface MapIntelPanelProps {
   mapIntel: MapIntelResponse | null
+  mapIntelLoading: boolean
   mapIntelLoadError: string | null
-  mapIntelPanelOpen: boolean
   bossIntelOpen: boolean
   extractionsOpen: boolean
-  highValueLootOpen: boolean
-  setMapIntelPanelOpen: (value: boolean | ((prev: boolean) => boolean)) => void
   setBossIntelOpen: (value: boolean | ((prev: boolean) => boolean)) => void
   setExtractionsOpen: (value: boolean | ((prev: boolean) => boolean)) => void
-  setHighValueLootOpen: (value: boolean | ((prev: boolean) => boolean)) => void
   renderIntelBool: (value: boolean | null) => string
   isGuaranteedSpawnChance: (value: string) => boolean
   getIntelTagColor: (index: number) => 'info' | 'warning' | 'success' | 'secondary'
   renderExtractionCard: (item: ExtractionIntelItem) => React.ReactNode
-  renderLootCard: (item: HighValueLootIntelItem) => React.ReactNode
   onClose?: () => void
 }
 
@@ -123,11 +118,10 @@ export interface MapInstanceController {
   cursorScale: number
   copied: boolean
   mapIntel: MapIntelResponse | null
+  mapIntelLoading: boolean
   mapIntelLoadError: string | null
-  mapIntelPanelOpen: boolean
   bossIntelOpen: boolean
   extractionsOpen: boolean
-  highValueLootOpen: boolean
   containerRef: RefObject<HTMLDivElement | null>
   renderedStrokes: React.ReactNode
   renderedRemoteInProgressStrokes: React.ReactNode
@@ -141,10 +135,9 @@ export interface MapInstanceController {
   setBrushColor: (value: string) => void
   setBrushWidth: (value: number) => void
   setCursorScale: (value: number) => void
-  setMapIntelPanelOpen: (value: boolean | ((prev: boolean) => boolean)) => void
   setBossIntelOpen: (value: boolean | ((prev: boolean) => boolean)) => void
   setExtractionsOpen: (value: boolean | ((prev: boolean) => boolean)) => void
-  setHighValueLootOpen: (value: boolean | ((prev: boolean) => boolean)) => void
+  loadMapIntel: () => Promise<void>
   handleSwitchMap: () => void
   fitViewportToContent: (width: number, height: number) => void
   clearBoard: () => void
@@ -159,5 +152,4 @@ export interface MapInstanceController {
   isGuaranteedSpawnChance: (value: string) => boolean
   getIntelTagColor: (index: number) => 'info' | 'warning' | 'success' | 'secondary'
   renderExtractionCard: (item: ExtractionIntelItem) => React.ReactNode
-  renderLootCard: (item: HighValueLootIntelItem) => React.ReactNode
 }

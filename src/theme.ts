@@ -23,7 +23,7 @@ export const appTheme = createTheme({
     divider: alpha('#d0b16f', 0.18),
   },
   shape: {
-    borderRadius: 16,
+    borderRadius: 10,
   },
   typography: {
     fontFamily:
@@ -136,7 +136,7 @@ export const appTheme = createTheme({
         root: {
           textTransform: 'none',
           fontWeight: 600,
-          borderRadius: 12,
+          borderRadius: 8,
         },
         contained: {
           boxShadow: 'none',
@@ -149,14 +149,14 @@ export const appTheme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: 18,
+          borderRadius: 12,
         },
       },
     },
     MuiAccordion: {
       styleOverrides: {
         root: {
-          borderRadius: 16,
+          borderRadius: 10,
           overflow: 'hidden',
           backgroundImage: 'none',
           '&::before': {
