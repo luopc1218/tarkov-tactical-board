@@ -1,7 +1,7 @@
 :root {
   font-family:
-    'Inter', 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB',
-    'Microsoft YaHei', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    'Inter', 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI',
+    'Helvetica Neue', Arial, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -9,6 +9,10 @@
   --desktop-titlebar-safe-top: 0px;
   --desktop-titlebar-safe-right: 0px;
   --desktop-window-controls-width: 0px;
+  --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-duration-fast: 160ms;
+  --motion-duration-base: 220ms;
+  --motion-duration-slow: 320ms;
 }
 
 html,
@@ -22,10 +26,135 @@ body {
   margin: 0;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+a,
+button,
+[role='button'],
+input,
+textarea,
+select,
+.MuiPaper-root,
+.MuiChip-root,
+.MuiButtonBase-root {
+  transition:
+    background-color var(--motion-duration-fast) var(--motion-ease-out),
+    border-color var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out),
+    opacity var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-base) var(--motion-ease-out),
+    box-shadow var(--motion-duration-base) var(--motion-ease-out),
+    filter var(--motion-duration-base) var(--motion-ease-out);
+}
+
 button {
   cursor: pointer;
 }
 
 button:disabled {
   cursor: not-allowed;
+}
+
+.lift-on-hover {
+  transform: translateY(0);
+}
+
+.lift-on-hover:hover {
+  transform: translateY(-2px);
+}
+
+.status-beacon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.status-beacon::before,
+.status-beacon::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.status-beacon::before {
+  background: currentColor;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.status-beacon::after {
+  background: currentColor;
+  opacity: 0.22;
+  transform: scale(1);
+  animation: status-beacon-pulse 1.45s var(--motion-ease-out) infinite;
+}
+
+.status-beacon--connected {
+  color: #4ade80;
+}
+
+.status-beacon--disconnected {
+  color: #f87171;
+}
+
+.animate-fast {
+  --animate-duration: 420ms;
+}
+
+@keyframes status-beacon-pulse {
+  0% {
+    opacity: 0.28;
+    transform: scale(1);
+  }
+
+  70% {
+    opacity: 0;
+    transform: scale(2.9);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(3.2);
+  }
+}
+
+@keyframes map-instance-status-sheen {
+  0% {
+    transform: translateX(-42%);
+    opacity: 0;
+  }
+
+  18% {
+    opacity: 0.65;
+  }
+
+  52% {
+    transform: translateX(38%);
+    opacity: 0.1;
+  }
+
+  100% {
+    transform: translateX(38%);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

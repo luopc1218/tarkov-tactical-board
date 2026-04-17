@@ -79,14 +79,26 @@ export function HomePage({ onCreateInstance, onJoinInstance, onOpenSettings }: H
         minHeight: '100vh',
         px: 2,
         py: { xs: 4, md: 6 },
-        backgroundImage: `linear-gradient(180deg, rgba(10,12,12,0.4) 0%, rgba(10,12,12,0.66) 54%, rgba(10,12,12,0.86) 100%), url(${homeHeroBg})`,
-        backgroundSize: '100% 100%, 100% auto',
-        backgroundPosition: 'center, top center',
-        backgroundRepeat: 'no-repeat, no-repeat',
-        backgroundBlendMode: 'multiply',
+        position: 'relative',
+        overflow: 'hidden',
       }}
     >
-      <Box sx={{ mx: 'auto', width: '100%', maxWidth: 1200 }}>
+      <Box
+        aria-hidden
+        sx={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: 'none',
+          backgroundImage: `linear-gradient(180deg, rgba(10,12,12,0.4) 0%, rgba(10,12,12,0.66) 54%, rgba(10,12,12,0.86) 100%), url(${homeHeroBg})`,
+          backgroundSize: '100% 100%, 100% auto',
+          backgroundPosition: 'center, top center',
+          backgroundRepeat: 'no-repeat, no-repeat',
+          backgroundBlendMode: 'multiply',
+        }}
+      />
+
+      <Box sx={{ mx: 'auto', width: '100%', maxWidth: 1200, position: 'relative', zIndex: 1 }}>
         <Stack spacing={2} sx={{ mb: { xs: 5, md: 7 } }}>
           <Chip
             icon={<FiCrosshair />}
@@ -102,7 +114,15 @@ export function HomePage({ onCreateInstance, onJoinInstance, onOpenSettings }: H
           </Typography>
         </Stack>
 
-        <Paper sx={{ p: { xs: 2.5, md: 3 }, mb: 3 }}>
+        <Paper
+          className="lift-on-hover"
+          sx={{
+            p: { xs: 2.5, md: 3 },
+            mb: 3,
+            backgroundColor: 'rgba(20, 26, 34, 0.58)',
+            backdropFilter: 'blur(18px) saturate(128%)',
+          }}
+        >
           <Typography variant="h6">{t('home.joinByInstance')}</Typography>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ mt: 2 }}>
             <TextField
@@ -145,7 +165,14 @@ export function HomePage({ onCreateInstance, onJoinInstance, onOpenSettings }: H
             ) : (
               <Stack spacing={1}>
                 {recentInstances.map((item) => (
-                  <Paper key={item.instanceId} variant="outlined" sx={{ p: 1.2 }}>
+                  <Paper
+                    key={item.instanceId}
+                    variant="outlined"
+                    sx={{
+                      p: 1.2,
+                      backgroundColor: 'rgba(20, 26, 34, 0.42)',
+                    }}
+                  >
                     <Stack
                       direction="row"
                       sx={{ justifyContent: 'space-between', alignItems: 'center' }}
@@ -223,7 +250,13 @@ export function HomePage({ onCreateInstance, onJoinInstance, onOpenSettings }: H
                   transition={{ duration: 0.24, delay: index * 0.024, ease: [0.22, 1, 0.36, 1] }}
                   style={{ borderRadius: 14, overflow: 'hidden' }}
                 >
-                  <Card>
+                  <Card
+                    className="lift-on-hover"
+                    sx={{
+                      backgroundColor: 'rgba(20, 26, 34, 0.56)',
+                      backdropFilter: 'blur(16px) saturate(122%)',
+                    }}
+                  >
                     <CardMedia
                       component="div"
                       sx={{
@@ -314,15 +347,18 @@ export function HomePage({ onCreateInstance, onJoinInstance, onOpenSettings }: H
             p: { xs: 2.25, md: 2.75 },
             borderRadius: 3,
             background:
-              'linear-gradient(135deg, rgba(10, 15, 21, 0.9), rgba(17, 24, 32, 0.95) 52%, rgba(18, 52, 86, 0.42) 100%)',
+              'linear-gradient(135deg, rgba(10, 15, 21, 0.72), rgba(17, 24, 32, 0.78) 52%, rgba(18, 52, 86, 0.34) 100%)',
             borderColor: 'rgba(148, 163, 184, 0.18)',
-            backdropFilter: 'blur(10px)',
+            backdropFilter: 'blur(12px)',
           }}
         >
           <Stack
             direction={{ xs: 'column', lg: 'row' }}
             spacing={{ xs: 2.5, lg: 3 }}
-            sx={{ alignItems: { xs: 'stretch', lg: 'flex-start' }, justifyContent: 'space-between' }}
+            sx={{
+              alignItems: { xs: 'stretch', lg: 'flex-start' },
+              justifyContent: 'space-between',
+            }}
           >
             <Box sx={{ minWidth: 0, maxWidth: 760 }}>
               <Typography variant="overline" color="text.secondary">
@@ -340,7 +376,11 @@ export function HomePage({ onCreateInstance, onJoinInstance, onOpenSettings }: H
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                 {t('home.footerSource')}
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 1.25, display: 'block' }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mt: 1.25, display: 'block' }}
+              >
                 {t('home.copyrightTitle')}
               </Typography>
             </Box>

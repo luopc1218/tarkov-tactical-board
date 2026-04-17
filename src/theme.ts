@@ -49,7 +49,7 @@ export const appTheme = createTheme({
           '--desktop-titlebar-safe-right': '0px',
           '--desktop-window-controls-width': '0px',
         },
-        html: { 
+        html: {
           height: '100%',
           scrollbarWidth: 'thin',
           scrollbarColor: 'rgba(123, 126, 132, 0.62) rgba(18, 18, 18, 0.68)',
@@ -128,6 +128,8 @@ export const appTheme = createTheme({
           border: `1px solid ${alpha('#d0b16f', 0.18)}`,
           backdropFilter: 'blur(16px) saturate(120%)',
           boxShadow: '0 18px 48px rgba(0, 0, 0, 0.22)',
+          transition:
+            'transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms cubic-bezier(0.22, 1, 0.36, 1), background-color 160ms cubic-bezier(0.22, 1, 0.36, 1)',
         },
       },
     },
@@ -137,11 +139,19 @@ export const appTheme = createTheme({
           textTransform: 'none',
           fontWeight: 600,
           borderRadius: 8,
+          transition:
+            'transform 180ms cubic-bezier(0.22, 1, 0.36, 1), background-color 160ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1)',
+          '&:hover': {
+            transform: 'translateY(-1px)',
+          },
+          '&:active': {
+            transform: 'translateY(0)',
+          },
         },
         contained: {
           boxShadow: 'none',
           '&:hover': {
-            boxShadow: 'none',
+            boxShadow: '0 10px 22px rgba(0, 0, 0, 0.18)',
           },
         },
       },
@@ -159,9 +169,19 @@ export const appTheme = createTheme({
           borderRadius: 10,
           overflow: 'hidden',
           backgroundImage: 'none',
+          transition:
+            'transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1)',
           '&::before': {
             display: 'none',
           },
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          transition:
+            'transform 180ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms cubic-bezier(0.22, 1, 0.36, 1), background-color 160ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1)',
         },
       },
     },
@@ -169,6 +189,17 @@ export const appTheme = createTheme({
       styleOverrides: {
         paper: {
           backgroundImage: 'none',
+          transition:
+            'transform 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms cubic-bezier(0.22, 1, 0.36, 1)',
+        },
+      },
+    },
+    MuiDialog: {
+      defaultProps: {
+        transitionDuration: {
+          appear: 180,
+          enter: 180,
+          exit: 140,
         },
       },
     },

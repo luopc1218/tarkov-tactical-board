@@ -8,6 +8,7 @@ import '@fontsource/inter/700.css'
 import '@fontsource/noto-sans-sc/400.css'
 import '@fontsource/noto-sans-sc/500.css'
 import '@fontsource/noto-sans-sc/700.css'
+import 'animate.css'
 import './i18n'
 import './index.css'
 import App from './App.tsx'
@@ -19,5 +20,5 @@ createRoot(document.getElementById('root')!).render(
       <CssBaseline />
       <App />
     </ThemeProvider>
-  </StrictMode>,
+  </StrictMode>
 )
