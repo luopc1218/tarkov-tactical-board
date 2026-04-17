@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { FiSettings } from 'react-icons/fi'
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
+import { Box, IconButton, Paper } from '@mui/material'
 import { loginAdmin } from './api/admin-auth'
 import { createWhiteboardInstance } from './api/whiteboard'
 import { ApiSettingsDialog } from './components/ApiSettingsDialog'
@@ -87,7 +88,7 @@ const navigateTo = (path: string) => {
 
 const getNormalizedLocation = () => {
   const { pathname, protocol, hash, search } = window.location
-  const isElectronFilePage = protocol === 'file:'
+  const isFilePage = protocol === 'file:'
   const hashRoute = hash.startsWith('#') ? hash.slice(1) : ''
   if (shouldUseHashRouting() && hashRoute.startsWith('/')) {
     const queryIndex = hashRoute.indexOf('?')
@@ -100,7 +101,7 @@ const getNormalizedLocation = () => {
     }
   }
 
-  if (!isElectronFilePage) {
+  if (!isFilePage) {
     return { pathname: stripBasePath(pathname), search }
   }
 
@@ -408,19 +409,16 @@ function App() {
   return (
     <>
       {isDesktopApp && isWindowsDesktop && (
-        <div
-          className="fixed inset-x-0 top-0 z-30 h-10"
+        <Box
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+          sx={{ position: 'fixed', inset: '0 0 auto 0', zIndex: 30, height: 40 }}
         />
       )}
       {shouldShowSettingsEntry &&
         (isWindowsDesktop || isWebApp ? (
-          <button
-            type="button"
+          <IconButton
             aria-label={t('settings.title')}
-            title={`${t('settings.title')} (Cmd/Ctrl + ,)`}
             onClick={() => setSettingsOpen(true)}
-            className="group fixed z-40 inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-500/75 bg-slate-900/65 text-slate-200 backdrop-blur transition hover:border-amber-300/70 hover:text-white"
             style={
               {
                 top: isWindowsDesktop ? 1 : 12,
@@ -431,27 +429,59 @@ function App() {
                   : {}),
               } as React.CSSProperties
             }
+            title={`${t('settings.title')} (Cmd/Ctrl + ,)`}
+            sx={{
+              position: 'fixed',
+              zIndex: 40,
+              width: 36,
+              height: 36,
+              border: 1,
+              borderColor: 'divider',
+              color: 'text.secondary',
+              backgroundColor: 'rgba(16, 22, 30, 0.7)',
+              backdropFilter: 'blur(14px)',
+              '&:hover': {
+                borderColor: 'primary.main',
+                color: 'text.primary',
+                backgroundColor: 'rgba(23, 31, 41, 0.88)',
+              },
+            }}
           >
-            <FiSettings className="text-[0.92rem] transition" />
-          </button>
+            <SettingsOutlinedIcon fontSize="small" />
+          </IconButton>
         ) : (
-          <div
-            className="fixed right-4 z-40 flex items-center rounded-full border border-slate-500/75 bg-slate-900/65 px-2 py-1 text-slate-200 shadow-sm backdrop-blur"
+          <Paper
+            variant="outlined"
             style={{
               top: 'calc(0.75rem + var(--desktop-titlebar-safe-top))',
               right: 'calc(1rem + var(--desktop-titlebar-safe-right))',
             }}
+            sx={{
+              position: 'fixed',
+              zIndex: 40,
+              display: 'flex',
+              alignItems: 'center',
+              p: 0.5,
+              borderRadius: 999,
+              backgroundColor: 'rgba(16, 22, 30, 0.7)',
+              backdropFilter: 'blur(14px)',
+            }}
           >
-            <button
-              type="button"
+            <IconButton
               aria-label={t('settings.title')}
               title={`${t('settings.title')} (Cmd/Ctrl + ,)`}
               onClick={() => setSettingsOpen(true)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-500/80 bg-slate-800/90 text-slate-100 transition hover:border-amber-300/70 hover:bg-slate-700"
+              sx={{
+                width: 32,
+                height: 32,
+                border: 1,
+                borderColor: 'divider',
+                borderRadius: 999,
+              }}
             >
-              <FiSettings />
-            </button>
-          </div>
+              <SettingsOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Paper>
         ))}
       {isAdminShellRoute ? (
         content
@@ -479,9 +509,22 @@ function App() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
             transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed bottom-6 right-6 z-[80] max-w-md rounded-xl border border-rose-400/45 bg-rose-950/92 px-4 py-3 text-sm text-rose-100 shadow-lg"
+            style={{ position: 'fixed', right: 24, bottom: 24, zIndex: 80, maxWidth: 440 }}
           >
-            {toastMessage}
+            <Paper
+              variant="outlined"
+              sx={{
+                px: 2,
+                py: 1.5,
+                borderRadius: 3,
+                borderColor: 'error.main',
+                backgroundColor: 'rgba(70, 17, 17, 0.94)',
+                color: 'error.contrastText',
+                boxShadow: '0 16px 36px rgba(0, 0, 0, 0.28)',
+              }}
+            >
+              {toastMessage}
+            </Paper>
           </motion.div>
         )}
       </AnimatePresence>

@@ -1,4 +1,4 @@
-name: Release Tauri Bundles
+name: Release Tauri Windows Bundle
 
 on:
   push:
@@ -15,32 +15,15 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-tauri-${{ github.ref }}
+  group: release-tauri-windows-${{ github.ref }}
   cancel-in-progress: false
 
 env:
   RELEASE_TAG: ${{ inputs.tag_name || github.ref_name }}
 
 jobs:
-  create-release:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Ensure GitHub release exists
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $RELEASE_TAG already exists"
-          else
-            gh release create "$RELEASE_TAG" \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "$RELEASE_TAG" \
-              --generate-notes
-          fi
-
   windows-x64:
     name: Windows x64
-    needs: create-release
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -60,14 +43,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Lint frontend
+        run: npm run lint
+
       - name: Build Tauri Windows x64 bundle
-        run: npm run tauri:build -- --target x86_64-pc-windows-msvc --bundles nsis --ci
+        run: npm run tauri:build -- --ci
 
       - name: Locate Windows assets
         id: windows_assets
         shell: bash
         run: |
-          mapfile -t files < <(find src-tauri/target/x86_64-pc-windows-msvc/release/bundle -type f \( -name '*.exe' -o -name '*.msi' \) | sort)
+          mapfile -t files < <(find src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis -type f -name '*.exe' | sort)
           if [ "${#files[@]}" -eq 0 ]; then
             echo "No Windows bundles were generated"
             exit 1
@@ -82,80 +68,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
+          generate_release_notes: true
           overwrite_files: true
           files: ${{ steps.windows_assets.outputs.files }}
-
-  android-apk:
-    name: Android APK
-    needs: create-release
-    runs-on: ubuntu-latest
-    env:
-      NDK_VERSION: 27.0.12077973
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android build dependencies
-        run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager --install \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0" \
-            "ndk;${NDK_VERSION}"
-
-      - name: Export Android environment
-        run: |
-          echo "ANDROID_HOME=${ANDROID_SDK_ROOT}" >> "$GITHUB_ENV"
-          echo "NDK_HOME=${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Initialize Android project
-        run: npx tauri android init --ci --skip-targets-install
-
-      - name: Build Android debug APK
-        run: npx tauri android build --apk --target aarch64 --debug --ci
-
-      - name: Locate Android assets
-        id: android_assets
-        shell: bash
-        run: |
-          mapfile -t files < <(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk' | sort)
-          if [ "${#files[@]}" -eq 0 ]; then
-            echo "No Android APKs were generated"
-            exit 1
-          fi
-          {
-            echo 'files<<EOF'
-            printf '%s\n' "${files[@]}"
-            echo EOF
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Upload Android assets to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          overwrite_files: true
-          files: ${{ steps.android_assets.outputs.files }}

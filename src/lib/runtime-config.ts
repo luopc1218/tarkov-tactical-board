@@ -1,5 +1,3 @@
-import { getInitialDesktopEnvironment } from './desktop'
-
 const API_BASE_URL_STORAGE_KEY = 'tarkov.apiBaseUrl'
 
 const normalizeBaseUrl = (value: string) => {
@@ -13,11 +11,6 @@ const normalizeBaseUrl = (value: string) => {
   }
 
   return trimmed.replace(/\/+$/, '')
-}
-
-export const isElectronApp = () => {
-  const desktopEnvironment = getInitialDesktopEnvironment()
-  return desktopEnvironment.isElectron || desktopEnvironment.isTauri
 }
 
 const getDefaultApiBaseUrlFromBase = () => {

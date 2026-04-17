@@ -4,170 +4,174 @@
 
 - Web Demo: <https://luopc1218.github.io/tarkov-tactical-board/>
 - Backend Repository: <https://github.com/luopc1218/tarkov-tactical-board-server>
-
-> [!IMPORTANT]
->
-> - 首次使用前请先配置 API 地址（例如 `/api` 或 `https://your-domain/api`）。
-> - 应用内可通过设置按钮打开配置面板；桌面端快捷键：`Cmd/Ctrl + ,`。
-> - 生产环境前端静态资源基础路径固定为 `/eftboard/`，默认 API 为 `/eftboard/api`（可在设置中覆盖）。
-> - 当前演示服务资源有限，高峰时段可能出现加载变慢或短时卡顿，请稍后重试。
-
-## Demo 截图 / Screenshots
-
-![Demo Screenshot 1](public/example.jpeg)
-![Demo Screenshot 2](public/example2.png)
+- Releases: <https://github.com/luopc1218/tarkov-tactical-board/releases>
 
 ## 中文
 
 ### 项目简介
 
-这是一个用于《Escape from Tarkov》战术讨论的共享地图白板前端。你可以快速创建房间、分享实例 ID、多人实时标点和画路线。
+这是一个用于《Escape from Tarkov》战术讨论的共享地图白板前端。你可以快速创建房间、分享实例 ID，并在同一张地图上进行多人实时协作。
 
-### 下载与安装
+### 当前发布策略
 
-当前最新稳定版（截至 **2026-03-04**）：**v1.5.5**
+当前版本：**v1.5.7**
 
-| 方式                         | 地址 / 包名                                                   |
-| ---------------------------- | ------------------------------------------------------------- |
-| Web 版（免安装）             | <https://luopc1218.github.io/tarkov-tactical-board/>          |
-| 桌面版下载（Releases）       | <https://github.com/luopc1218/tarkov-tactical-board/releases> |
-| Windows 安装包               | `Tarkov.Tactical.Board.Setup.*.exe`                           |
-| macOS (Apple Silicon) 安装包 | `Tarkov.Tactical.Board-*-arm64.dmg`                           |
+- Web 前端通过 Docker 镜像发布
+- 桌面端正式渠道只保留 **Tauri Windows x64**
+- 已完全放弃 Electron，不再构建或发布 Electron 安装包
 
-### 默认 API 与性能说明
+### 下载与使用
 
-- 开发环境默认 API：`/api`
-- 生产环境静态资源基础路径：`/eftboard/`
-- 生产环境默认 API：`/eftboard/api`
-- 可在应用设置中覆盖默认值
-- 公开演示服务资源有限，人数较多时可能出现延迟升高
+| 渠道 | 说明 |
+| --- | --- |
+| Web | <https://luopc1218.github.io/tarkov-tactical-board/> |
+| Windows 桌面版 | 在 GitHub Releases 下载 `Tarkov Tactical Board_*_x64-setup.exe` 或同批次 Windows 安装包 |
 
-### 快速使用
+### API 与部署说明
 
-1. 打开应用后，进入设置并填写后端 API 地址（可选）。
-2. 回到首页，选择地图并点击 `新建房间`。
-3. 在地图实例页复制 `实例 ID` 并分享给队友。
-4. 队友在首页通过 `已有房间 ID？直接加入` 进入同一房间。
-5. 在实例页进行画线、标点、切换地图、聊天等实时协作操作。
+- Web 生产环境静态资源基础路径默认是 `/eftboard/`
+- Web 生产环境默认 API 是 `/eftboard/api`
+- 本地开发默认 API 是 `/api`
+- 可在应用设置中覆盖 API 地址，例如 `/api` 或 `https://your-domain/api`
 
-### 管理端（可选）
-
-- 入口：`/admin/login`
-- 功能：地图管理、实例管理、管理员密码修改
-
-### 常见问题
-
-- **地图列表为空**：通常是 API 地址未配置或后端接口不可达。
-- **连接状态未连接**：请检查后端服务、反向代理和 WebSocket 转发配置。
-- **API 地址如何填写**：可使用 `/api` 或 `https://your-domain/api`，生产默认值为 `https://81.71.150.227/api`。
-- **出现卡顿**：公开服务资源有限，高峰期可能有波动；可稍后重试或自建后端服务。
-
-### 开发者（可选）
-
-<details>
-<summary>展开开发命令</summary>
+### 本地开发
 
 ```bash
 npm install
 npm run dev
-npm run electron:dev
+npm run tauri:dev
 ```
 
-更多构建/打包脚本见 `package.json`。
-
-</details>
-
-### Docker Hub 自动发布
-
-项目已改为通过 GitHub Actions 自动构建并发布前端镜像到 Docker Hub，不再依赖 GitHub Pages。
-
-需要先在 GitHub 仓库里配置两个 Actions Secrets：
-
-- `DOCKERHUB_USERNAME`：你的 Docker Hub 用户名
-- `DOCKERHUB_TOKEN`：你的 Docker Hub Access Token
-
-可在本机项目目录通过 `gh` 配置：
+### 构建命令
 
 ```bash
-gh secret set DOCKERHUB_USERNAME --body "你的-dockerhub-用户名"
-gh secret set DOCKERHUB_TOKEN --body "你的-dockerhub-access-token"
+# Web 构建（用于 Docker / 静态部署）
+npm run build
+
+# Tauri Windows x64 构建
+npm run tauri:build
 ```
 
-配置完成后：
+### 自动发布
 
-- 推送到 `master` 会自动发布 `latest`
-- 推送 `v*` 标签会自动发布对应版本标签
-- 也可以在 GitHub Actions 页面手动触发
+#### 1. Docker 镜像
 
-本地手动发布版本的常见流程：
+GitHub Actions 会自动构建并推送前端镜像到 Docker Hub：
 
-```bash
-git tag v1.5.6
-git push origin master
-git push origin v1.5.6
-```
+- 推送到 `master`：发布 `edge` 和 `sha-*`
+- 推送 `v*` 标签：发布版本标签和 `latest`
 
-镜像名默认会发布到：
+需要预先配置以下 GitHub Secrets：
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
+
+默认镜像名：
 
 ```text
 docker.io/<DOCKERHUB_USERNAME>/tarkov-tactical-board-frontend
 ```
 
+#### 2. Windows Release
+
+推送 `v*` 标签后，会自动：
+
+- 运行前端 lint
+- 构建 Tauri Windows x64 NSIS 安装包
+- 上传到对应 GitHub Release
+
+### 推荐发版流程
+
+```bash
+git push origin <your-branch>
+git tag v1.5.7
+git push origin v1.5.7
+```
+
+### Docker 部署建议
+
+`docker-compose.frontend.yml` 默认跟踪 `edge`，适合测试环境。
+
+生产环境更建议显式指定版本镜像，例如：
+
+```bash
+FRONTEND_IMAGE=luopc1218docker/tarkov-tactical-board-frontend:v1.5.7 docker compose -f docker-compose.frontend.yml up -d
+```
+
+### 常见问题
+
+- **地图列表为空**：通常是 API 地址未配置或后端接口不可达。
+- **连接状态未连接**：请检查后端服务、反向代理和 WebSocket 转发配置。
+- **桌面版打不开资源**：当前正式桌面构建仅支持 Tauri Windows x64，请使用 Releases 中的 Tauri 安装包。
+- **地图情报看不到内容**：当前实例页只保留抽屉式地图情报，打开后默认会展开内容区域。
+
 ## English
 
 ### Overview
 
-A shared tactical map whiteboard frontend for Escape from Tarkov. Create an instance quickly, share the instance ID, and collaborate in real time.
+A shared tactical map whiteboard frontend for Escape from Tarkov. Create an instance, share the instance ID, and collaborate on the same map in real time.
 
-### Download and Install
+### Current Release Strategy
 
-Latest stable version (as of **March 4, 2026**): **v1.5.5**
+Current version: **v1.5.7**
 
-| Channel                         | Link / Package                                                |
-| ------------------------------- | ------------------------------------------------------------- |
-| Web demo                        | <https://luopc1218.github.io/tarkov-tactical-board/>          |
-| Desktop downloads (Releases)    | <https://github.com/luopc1218/tarkov-tactical-board/releases> |
-| Windows installer               | `Tarkov.Tactical.Board.Setup.*.exe`                           |
-| macOS (Apple Silicon) installer | `Tarkov.Tactical.Board-*-arm64.dmg`                           |
+- The web frontend is published as a Docker image
+- The only supported desktop release channel is **Tauri Windows x64**
+- Electron has been fully retired and is no longer built or released
 
-### Default API and Performance Notes
+### Download
 
-- Default API in development: `/api`
-- Default API in production: `https://81.71.150.227/api`
-- You can override the API base URL in settings
-- Public demo server resources are limited, so occasional lag may happen during peak usage
+| Channel | Description |
+| --- | --- |
+| Web | <https://luopc1218.github.io/tarkov-tactical-board/> |
+| Windows desktop | Download the Windows installer from GitHub Releases |
 
-### Quick Start
+### API and Deployment Notes
 
-1. Open settings and configure the API base URL.
-2. Choose a map and click `Create Instance`.
-3. Copy and share the instance ID with teammates.
-4. Teammates can join from home by entering the instance ID.
-5. Use drawing, marking, map switching, and chat tools for real-time collaboration.
+- Web production base path defaults to `/eftboard/`
+- Web production API defaults to `/eftboard/api`
+- Local development API defaults to `/api`
+- You can override the API base URL in app settings
 
-### Admin Portal (Optional)
-
-- Entry: `/admin/login`
-- Features: map management, instance management, admin password update
-
-### Troubleshooting
-
-- **No maps loaded**: API base URL is not configured correctly, or backend is unreachable.
-- **Disconnected status**: check backend health, reverse proxy, and WebSocket forwarding.
-- **API URL examples**: `/api` or `https://your-domain/api` (production default: `https://81.71.150.227/api`).
-- **Lag spikes**: public server resources are limited; retry later or deploy your own backend.
-
-### Developer Notes (Optional)
-
-<details>
-<summary>Show development commands</summary>
+### Local Development
 
 ```bash
 npm install
 npm run dev
-npm run electron:dev
+npm run tauri:dev
 ```
 
-See `package.json` for full build/package scripts.
+### Build Commands
 
-</details>
+```bash
+# Web build
+npm run build
+
+# Tauri Windows x64 build
+npm run tauri:build
+```
+
+### Automated Publishing
+
+#### Docker image
+
+GitHub Actions publishes the frontend image to Docker Hub:
+
+- Push to `master`: publish `edge` and `sha-*`
+- Push a `v*` tag: publish the version tag and `latest`
+
+#### Windows release
+
+Pushing a `v*` tag will:
+
+- run frontend lint
+- build the Tauri Windows x64 NSIS bundle
+- upload the installer to the matching GitHub Release
+
+### Recommended Release Flow
+
+```bash
+git push origin <your-branch>
+git tag v1.5.7
+git push origin v1.5.7
+```

@@ -18,7 +18,15 @@ export default {
         float: '0 18px 48px rgba(0, 0, 0, 0.32)',
       },
       fontFamily: {
-        sans: ['Space Grotesk', 'Avenir Next', 'Segoe UI', 'sans-serif'],
+        sans: [
+          'Inter',
+          'Noto Sans SC',
+          'PingFang SC',
+          'Hiragino Sans GB',
+          'Microsoft YaHei',
+          'Segoe UI',
+          'sans-serif',
+        ],
       },
     },
   },

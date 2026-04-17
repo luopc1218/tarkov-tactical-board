@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { Box, ToggleButton, ToggleButtonGroup } from '@mui/material'
 import type { SupportedLanguage } from '../i18n/resources'
 
 const SUPPORTED_LANGUAGES: SupportedLanguage[] = ['zh', 'en']
@@ -22,32 +23,32 @@ export function LanguageSwitcher({ inline = false }: LanguageSwitcherProps) {
   }
 
   return (
-    <div
-      className={[
-        'lang-switcher bg-transparent p-0',
-        inline ? 'relative z-10' : 'lang-switcher-floating fixed z-30',
-      ].join(' ')}
+    <Box
+      sx={
+        inline
+          ? { position: 'relative', zIndex: 10 }
+          : {
+              position: 'fixed',
+              zIndex: 30,
+              right: 16,
+              top: 'calc(12px + var(--desktop-titlebar-safe-top))',
+            }
+      }
     >
-      <div className="ios-segment w-[5.8rem]" role="tablist" aria-label="Language">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={current === 'zh'}
-          onClick={() => changeLanguage('zh')}
-          className={['ios-segment-button', current === 'zh' ? 'is-active' : ''].join(' ')}
-        >
-          中
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={current === 'en'}
-          onClick={() => changeLanguage('en')}
-          className={['ios-segment-button', current === 'en' ? 'is-active' : ''].join(' ')}
-        >
-          EN
-        </button>
-      </div>
-    </div>
+      <ToggleButtonGroup
+        exclusive
+        value={current}
+        onChange={(_, value) => {
+          if (value) {
+            changeLanguage(value as SupportedLanguage)
+          }
+        }}
+        size="small"
+        aria-label="Language"
+      >
+        <ToggleButton value="zh">中</ToggleButton>
+        <ToggleButton value="en">EN</ToggleButton>
+      </ToggleButtonGroup>
+    </Box>
   )
 }

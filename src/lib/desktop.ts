@@ -1,11 +1,10 @@
 export type DesktopPlatform = 'darwin' | 'win32' | 'linux' | 'web'
-export type DesktopKind = 'electron' | 'tauri' | 'web'
+export type DesktopKind = 'tauri' | 'web'
 
 export interface DesktopEnvironment {
   kind: DesktopKind
   platform: DesktopPlatform
   isDesktopApp: boolean
-  isElectron: boolean
   isTauri: boolean
 }
 
@@ -13,7 +12,6 @@ const WEB_DESKTOP_ENVIRONMENT: DesktopEnvironment = {
   kind: 'web',
   platform: 'web',
   isDesktopApp: false,
-  isElectron: false,
   isTauri: false,
 }
 
@@ -38,22 +36,11 @@ export const isTauriApp = () => {
 }
 
 export const getInitialDesktopEnvironment = (): DesktopEnvironment => {
-  if (window.desktopApp?.isElectron) {
-    return {
-      kind: 'electron',
-      platform: normalizePlatform(window.desktopApp.platform),
-      isDesktopApp: true,
-      isElectron: true,
-      isTauri: false,
-    }
-  }
-
   if (isTauriApp()) {
     return {
       kind: 'tauri',
       platform: 'web',
       isDesktopApp: true,
-      isElectron: false,
       isTauri: true,
     }
   }
@@ -81,15 +68,11 @@ export const resolveDesktopEnvironment = async (): Promise<DesktopEnvironment> =
 
 export const isDesktopHashRouting = () => {
   const environment = getInitialDesktopEnvironment()
-  return environment.isElectron || environment.isTauri
+  return environment.isTauri
 }
 
 export const addOpenSettingsListener = (callback: () => void) => {
   const environment = getInitialDesktopEnvironment()
-
-  if (environment.isElectron) {
-    return window.desktopApp?.onOpenSettings?.(callback) ?? (() => {})
-  }
 
   if (!environment.isTauri) {
     return () => {}
