@@ -3,6 +3,7 @@ export const ROUTES = {
   adminLogin: '/admin/login',
   adminDashboard: '/admin/dashboard',
   adminMaps: '/admin/maps',
+  adminMapIntel: '/admin/map-intel',
   adminInstances: '/admin/instances',
   adminPassword: '/admin/password',
 } as const
@@ -18,6 +19,7 @@ export type AppRoute =
   | { name: 'admin-login' }
   | { name: 'admin-dashboard' }
   | { name: 'admin-maps' }
+  | { name: 'admin-map-intel' }
   | { name: 'admin-instances' }
   | { name: 'admin-password' }
   | { name: 'admin-not-found' }
@@ -48,6 +50,9 @@ export const resolveRoute = (pathname: string): AppRoute => {
     }
     if (section === 'maps') {
       return { name: 'admin-maps' }
+    }
+    if (section === 'map-intel') {
+      return { name: 'admin-map-intel' }
     }
     if (section === 'instances') {
       return { name: 'admin-instances' }

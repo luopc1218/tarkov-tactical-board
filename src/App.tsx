@@ -13,6 +13,7 @@ import {
   resolveDesktopEnvironment,
 } from './lib/desktop'
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
+import { AdminMapIntelPage } from './pages/admin/AdminMapIntelPage'
 import { AdminInstancesPage } from './pages/admin/AdminInstancesPage'
 import { AdminLoginPage } from './pages/admin/AdminLoginPage'
 import { AdminMapsPage } from './pages/admin/AdminMapsPage'
@@ -80,8 +81,9 @@ const buildNavigationUrl = (path: string) => {
   return `${basePath}${normalizedPath}`
 }
 
-const navigateTo = (path: string) => {
-  window.history.pushState(null, '', buildNavigationUrl(path))
+const navigateTo = (path: string, options?: { replace?: boolean }) => {
+  const method = options?.replace ? 'replaceState' : 'pushState'
+  window.history[method](null, '', buildNavigationUrl(path))
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
@@ -261,11 +263,13 @@ function App() {
   const isAdminProtectedRoute =
     route.name === 'admin-dashboard' ||
     route.name === 'admin-maps' ||
+    route.name === 'admin-map-intel' ||
     route.name === 'admin-instances' ||
     route.name === 'admin-password'
   const isAdminShellRoute =
     route.name === 'admin-dashboard' ||
     route.name === 'admin-maps' ||
+    route.name === 'admin-map-intel' ||
     route.name === 'admin-instances' ||
     route.name === 'admin-password'
   useEffect(() => {
@@ -277,13 +281,16 @@ function App() {
       return
     }
 
-    navigateTo(`${ROUTES.adminLogin}?redirect=${encodeURIComponent(currentPathWithSearch)}`)
+    navigateTo(`${ROUTES.adminLogin}?redirect=${encodeURIComponent(currentPathWithSearch)}`, {
+      replace: true,
+    })
   }, [adminLoggedIn, currentPathWithSearch, isAdminProtectedRoute, pathname])
 
   useEffect(() => {
     const shouldLockBodyScroll =
       route.name === 'admin-dashboard' ||
       route.name === 'admin-maps' ||
+      route.name === 'admin-map-intel' ||
       route.name === 'admin-instances' ||
       route.name === 'admin-password'
     document.body.style.overflow = shouldLockBodyScroll ? 'hidden' : ''
@@ -298,7 +305,7 @@ function App() {
       return
     }
 
-    navigateTo(ROUTES.adminDashboard)
+    navigateTo(ROUTES.adminDashboard, { replace: true })
   }, [adminLoggedIn, route.name])
 
   const handleCreateInstance = async (payload: { mapId: number; mapName: string }) => {
@@ -329,7 +336,7 @@ function App() {
       const redirect = new URLSearchParams(search).get('redirect')
       const safeRedirect =
         redirect && redirect.startsWith('/admin') ? redirect : ROUTES.adminDashboard
-      navigateTo(safeRedirect)
+      navigateTo(safeRedirect, { replace: true })
     } catch (error) {
       console.warn('[App] Admin login failed', error)
     } finally {
@@ -370,6 +377,10 @@ function App() {
   } else if (route.name === 'admin-maps') {
     content = adminLoggedIn ? (
       <AdminMapsPage onNavigate={navigateTo} onLogout={handleAdminLogout} />
+    ) : null
+  } else if (route.name === 'admin-map-intel') {
+    content = adminLoggedIn ? (
+      <AdminMapIntelPage onNavigate={navigateTo} onLogout={handleAdminLogout} />
     ) : null
   } else if (route.name === 'admin-instances') {
     content = adminLoggedIn ? (
@@ -440,7 +451,15 @@ function App() {
         </AnimatePresence>
       )}
       <AnimatePresence>
-        {settingsOpen && <ApiSettingsDialog onClose={() => setSettingsOpen(false)} />}
+        {settingsOpen && (
+          <ApiSettingsDialog
+            onClose={() => setSettingsOpen(false)}
+            onOpenAdmin={() => {
+              setSettingsOpen(false)
+              navigateTo(ROUTES.adminLogin)
+            }}
+          />
+        )}
       </AnimatePresence>
       <AnimatePresence>
         {toastMessage && (

@@ -13,6 +13,7 @@ import {
   type MapIntelResponse,
 } from '../../api/whiteboard'
 import { saveRecentInstance } from '../../features/recent-instances'
+import { openExternalUrl } from '../../lib/desktop'
 import { getApiBaseUrl } from '../../lib/runtime-config'
 import type { MapInstance } from '../../types/map-instance'
 import type {
@@ -337,6 +338,9 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
   const reconnectTimerRef = useRef<number | null>(null)
   const reconnectAttemptRef = useRef(0)
   const erasedStrokeIdsRef = useRef(new Set<string>())
+  const mapIntelCacheRef = useRef(new Map<string, MapIntelResponse>())
+  const mapIntelPendingRequestsRef = useRef(new Map<string, Promise<MapIntelResponse>>())
+  const mapIntelRequestSeqRef = useRef(0)
 
   useEffect(() => {
     currentStrokeRef.current = currentStroke
@@ -598,7 +602,9 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
   }, [instance?.id])
 
   useEffect(() => {
-    setMapIntel(null)
+    const cacheKey =
+      instance?.id && instance?.mapId ? `${instance.id}:${instance.mapId}` : null
+    setMapIntel(cacheKey ? mapIntelCacheRef.current.get(cacheKey) ?? null : null)
     setMapIntelLoadError(null)
     setMapIntelLoading(false)
   }, [instance?.id, instance?.mapId])
@@ -922,16 +928,49 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
       return
     }
 
+    const cacheKey = `${instance.id}:${instance.mapId}`
+    const cachedIntel = mapIntelCacheRef.current.get(cacheKey)
+    if (cachedIntel) {
+      setMapIntel(cachedIntel)
+    }
+
+    const requestId = mapIntelRequestSeqRef.current + 1
+    mapIntelRequestSeqRef.current = requestId
+
     setMapIntelLoading(true)
     setMapIntelLoadError(null)
     try {
-      const response = await getWhiteboardMapIntel(instance.id)
+      let pendingRequest = mapIntelPendingRequestsRef.current.get(cacheKey)
+      if (!pendingRequest) {
+        pendingRequest = getWhiteboardMapIntel(instance.id)
+        mapIntelPendingRequestsRef.current.set(cacheKey, pendingRequest)
+      }
+      const response = await pendingRequest
+      mapIntelCacheRef.current.set(cacheKey, response)
+      if (mapIntelRequestSeqRef.current !== requestId) {
+        return
+      }
       setMapIntel(response)
     } catch (error) {
-      setMapIntel(null)
+      if (mapIntelRequestSeqRef.current !== requestId) {
+        return
+      }
+      if (!cachedIntel) {
+        setMapIntel(null)
+      }
       setMapIntelLoadError(error instanceof Error ? error.message : t('mapInstance.mapIntelLoadError'))
     } finally {
-      setMapIntelLoading(false)
+      const activePendingRequest = mapIntelPendingRequestsRef.current.get(cacheKey)
+      if (activePendingRequest) {
+        void activePendingRequest.finally(() => {
+          if (mapIntelPendingRequestsRef.current.get(cacheKey) === activePendingRequest) {
+            mapIntelPendingRequestsRef.current.delete(cacheKey)
+          }
+        })
+      }
+      if (mapIntelRequestSeqRef.current === requestId) {
+        setMapIntelLoading(false)
+      }
     }
   }, [instance?.id, instance?.mapId, t])
 
@@ -1055,7 +1094,12 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
           {renderExtraDetails(item.extraDetails)}
 
           {item.detailUrl ? (
-            <Link href={item.detailUrl} target="_blank" rel="noreferrer" underline="hover">
+            <Link
+              component="button"
+              type="button"
+              onClick={() => void openExternalUrl(item.detailUrl!)}
+              underline="hover"
+            >
               {t('mapInstance.viewDetails')}
             </Link>
           ) : null}

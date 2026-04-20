@@ -411,6 +411,7 @@ export const switchWhiteboardMap = async (
 export const getWhiteboardMapIntel = async (instanceId: string): Promise<MapIntelResponse> => {
   const response = await http.get<unknown>(
     `/whiteboard/instances/${encodeURIComponent(instanceId)}/map-intel`,
+    { timeout: 30000 },
   )
   return normalizeMapIntel(response)
 }

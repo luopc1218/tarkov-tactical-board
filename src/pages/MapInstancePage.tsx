@@ -401,6 +401,8 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
               width: { xs: '100%', sm: 520 },
               p: { xs: 1, sm: 1.5 },
               backgroundColor: 'background.default',
+              display: 'flex',
+              overflow: 'hidden',
             },
           },
         }}

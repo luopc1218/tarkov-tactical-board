@@ -104,3 +104,21 @@ export const addOpenSettingsListener = (callback: () => void) => {
     cleanup()
   }
 }
+
+export const openExternalUrl = async (url: string) => {
+  const environment = getInitialDesktopEnvironment()
+
+  if (environment.isTauri) {
+    try {
+      const { openUrl } = await import('@tauri-apps/plugin-opener')
+      await openUrl(url)
+      return true
+    } catch (error) {
+      console.warn('[desktop] Failed to open external URL in Tauri', error)
+      return false
+    }
+  }
+
+  const opened = window.open(url, '_blank', 'noopener,noreferrer')
+  return opened !== null
+}

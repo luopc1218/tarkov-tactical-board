@@ -10,7 +10,7 @@ import {
 } from '@mui/material'
 import { ROUTES } from '../../router/routes'
 
-type AdminNavKey = 'dashboard' | 'maps' | 'instances' | 'password'
+type AdminNavKey = 'dashboard' | 'maps' | 'map-intel' | 'instances' | 'password'
 
 interface AdminShellProps {
   current: AdminNavKey
@@ -67,6 +67,12 @@ export function AdminShell({
             {t('admin.mapManagement')}
           </Button>
           <Button
+            onClick={() => onNavigate(ROUTES.adminMapIntel)}
+            variant={current === 'map-intel' ? 'contained' : 'text'}
+          >
+            {t('admin.mapIntelManagement')}
+          </Button>
+          <Button
             onClick={() => onNavigate(ROUTES.adminInstances)}
             variant={current === 'instances' ? 'contained' : 'text'}
           >
@@ -78,7 +84,10 @@ export function AdminShell({
           >
             {t('admin.changePassword')}
           </Button>
-          <Button sx={{ mt: 'auto' }} color="inherit" onClick={onLogout}>
+          <Button sx={{ mt: 'auto' }} variant="outlined" color="inherit" onClick={() => onNavigate(ROUTES.home)}>
+            {t('admin.backToClient')}
+          </Button>
+          <Button color="inherit" onClick={onLogout}>
             {t('admin.logout')}
           </Button>
         </Paper>

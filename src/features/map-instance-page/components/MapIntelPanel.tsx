@@ -9,14 +9,16 @@ import {
   Card,
   CardContent,
   Chip,
+  IconButton,
   InputAdornment,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import { useState } from 'react'
+import { useCallback, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import { openExternalUrl } from '../../../lib/desktop'
 import type { MapIntelPanelProps } from '../types'
 
 export function MapIntelPanel({
@@ -34,18 +36,16 @@ export function MapIntelPanel({
   const { t, i18n } = useTranslation()
   const [searchKeyword, setSearchKeyword] = useState('')
 
-  const handleSearchSubmit = () => {
+  const handleSearchSubmit = useCallback(async (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault()
     const keyword = searchKeyword.trim()
     if (!keyword) {
       return
     }
     const encodedKeyword = encodeURIComponent(keyword)
-    window.open(
-      `https://www.eftarkov.com/news/?list_refer-theme-${encodedKeyword}.html`,
-      '_blank',
-      'noopener,noreferrer',
-    )
-  }
+    const targetUrl = `https://www.eftarkov.com/news/?list_refer-theme-${encodedKeyword}.html`
+    await openExternalUrl(targetUrl)
+  }, [searchKeyword])
 
   const resolvedMapName = i18n.language.startsWith('zh')
     ? mapIntel?.mapNameZh?.trim() || ''
@@ -55,8 +55,8 @@ export function MapIntelPanel({
     <Box
       sx={{
         display: 'flex',
-        height: 'auto',
-        minHeight: 'fit-content',
+        height: '100%',
+        minHeight: 0,
         flexDirection: 'column',
         overflow: 'hidden',
         borderRadius: 2.5,
@@ -82,34 +82,44 @@ export function MapIntelPanel({
                 {resolvedMapName}
               </Typography>
             )}
-            <TextField
-              size="small"
-              value={searchKeyword}
-              onChange={(event) => setSearchKeyword(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  handleSearchSubmit()
-                }
-              }}
-              placeholder={t('mapInstance.mapIntelSearchPlaceholder')}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              fullWidth
-              sx={{
-                mt: 1.5,
-                '& .MuiOutlinedInput-root': {
-                  backgroundColor: 'rgba(15, 23, 42, 0.3)',
-                },
-              }}
-            />
+            <Box component="form" onSubmit={handleSearchSubmit} sx={{ mt: 1.5 }}>
+              <TextField
+                size="small"
+                value={searchKeyword}
+                onChange={(event) => setSearchKeyword(event.target.value)}
+                placeholder={t('mapInstance.mapIntelSearchPlaceholder')}
+                slotProps={{
+                  htmlInput: {
+                    enterKeyHint: 'search',
+                  },
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          edge="end"
+                          size="small"
+                          type="submit"
+                          aria-label={t('mapInstance.mapIntelTitle')}
+                        >
+                          <SearchOutlinedIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+                fullWidth
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: 'rgba(15, 23, 42, 0.3)',
+                  },
+                }}
+              />
+            </Box>
           </Box>
         </Stack>
         {onClose ? (
@@ -129,7 +139,15 @@ export function MapIntelPanel({
         ) : null}
       </Box>
 
-      <Box sx={{ p: 2 }}>
+      <Box
+        sx={{
+          p: 2,
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+        }}
+      >
         <Stack spacing={2}>
           {mapIntelLoading ? <Alert severity="info">{t('common.loading')}</Alert> : null}
           {mapIntelLoadError ? <Alert severity="error">{mapIntelLoadError}</Alert> : null}
@@ -166,7 +184,9 @@ export function MapIntelPanel({
                         <Stack spacing={1.25} sx={{ mt: 1.5 }}>
                           {group.items.length === 0 ? (
                             <Typography variant="body2" color="text.secondary">
-                              {t('mapInstance.noData')}
+                              {mapIntel?.errorMessage
+                                ? t('mapInstance.mapIntelBossUnsyncedHint')
+                                : t('mapInstance.noData')}
                             </Typography>
                           ) : (
                             group.items.map((item) => (
@@ -214,7 +234,9 @@ export function MapIntelPanel({
                     mapIntel.extractions.map(renderExtractionCard)
                   ) : (
                     <Typography variant="body2" color="text.secondary">
-                      {t('mapInstance.extractionsEmpty')}
+                      {mapIntel?.errorMessage
+                        ? t('mapInstance.mapIntelExtractionsUnsyncedHint')
+                        : t('mapInstance.extractionsEmpty')}
                     </Typography>
                   )}
                 </Stack>

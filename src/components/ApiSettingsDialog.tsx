@@ -16,6 +16,7 @@ import { getApiBaseUrl, getDefaultApiBaseUrl, setApiBaseUrl } from '../lib/runti
 
 interface ApiSettingsDialogProps {
   onClose: () => void
+  onOpenAdmin: () => void
 }
 
 const isValidApiBaseUrl = (value: string) => {
@@ -31,7 +32,7 @@ const isValidApiBaseUrl = (value: string) => {
   }
 }
 
-export function ApiSettingsDialog({ onClose }: ApiSettingsDialogProps) {
+export function ApiSettingsDialog({ onClose, onOpenAdmin }: ApiSettingsDialogProps) {
   const { t } = useTranslation()
   const [apiBaseUrlInput, setApiBaseUrlInput] = useState(() => getApiBaseUrl())
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -55,7 +56,27 @@ export function ApiSettingsDialog({ onClose }: ApiSettingsDialogProps) {
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="sm"
     >
-      <DialogTitle>{t('settings.title')}</DialogTitle>
+      <DialogTitle>
+        <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+          <span>{t('settings.title')}</span>
+          <Button
+            size="small"
+            color="inherit"
+            onClick={onOpenAdmin}
+            sx={{
+              minWidth: 'auto',
+              px: 0.75,
+              py: 0.25,
+              color: 'text.disabled',
+              fontSize: '0.72rem',
+              fontWeight: 500,
+              textTransform: 'none',
+            }}
+          >
+            {t('settings.adminEntry')}
+          </Button>
+        </Stack>
+      </DialogTitle>
       <DialogContent>
         <Stack spacing={2}>
           <Typography variant="body2" color="text.secondary">
