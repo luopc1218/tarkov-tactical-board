@@ -4,4 +4,4 @@ services:
     image: ${FRONTEND_IMAGE:-luopc1218docker/tarkov-tactical-board-frontend:edge}
     restart: unless-stopped
     ports:
-      - "127.0.0.1:18081:80"
+      - '0.0.0.0:10001:80'
