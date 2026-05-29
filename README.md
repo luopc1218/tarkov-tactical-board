@@ -2,7 +2,7 @@
 
 [中文](#中文) | [English](#english)
 
-- Web Demo: [<https://luopc1218.github.io/tarkov-tactical-board/>](https://jump.mawen.site/eftboard)
+- Web Demo: <https://jump.mawen.site/eftboard>
 - Backend Repository: <https://github.com/luopc1218/tarkov-tactical-board-server>
 - Releases: <https://github.com/luopc1218/tarkov-tactical-board/releases>
 
@@ -41,7 +41,7 @@ Tarkov Tactical Board 是一个面向《Escape from Tarkov》战术沟通场景�
 
 | 渠道 | 说明 |
 | --- | --- |
-| Web | [<https://luopc1218.github.io/tarkov-tactical-board/>](https://jump.mawen.site/eftboard) |
+| Web | <https://jump.mawen.site/eftboard> |
 | Windows 桌面版 | 在 GitHub Releases 下载对应版本的 Windows 安装包 |
 
 ### 主要功能
@@ -52,6 +52,12 @@ Tarkov Tactical Board 是一个面向《Escape from Tarkov》战术沟通场景�
 - 地图情报侧边抽屉
 - 可覆盖的 API 地址设置
 - 桌面端窗口安全区与路由适配
+
+### 素材与数据来源
+
+本项目中与《Escape from Tarkov》相关的地图素材、地图情报与游戏数据来源于 <https://www.eftarkov.com>。
+
+Tarkov Tactical Board 是非官方社区工具，与 Battlestate Games 或 Escape from Tarkov 官方无隶属、授权或背书关系。《Escape from Tarkov》相关名称、标识、地图、素材与游戏内容的权利归其各自权利人所有。
 
 ### API 与运行配置
 
@@ -176,7 +182,7 @@ Electron is no longer maintained or released.
 
 | Channel | Description |
 | --- | --- |
-| Web | [<https://luopc1218.github.io/tarkov-tactical-board/>](https://jump.mawen.site/eftboard) |
+| Web | <https://jump.mawen.site/eftboard> |
 | Windows desktop | Download the Windows installer from GitHub Releases |
 
 ### Main Features
@@ -187,6 +193,12 @@ Electron is no longer maintained or released.
 - map intel side drawer
 - configurable API base URL
 - desktop-safe routing and window chrome handling
+
+### Assets and Data Sources
+
+Map assets, map intel, and game data related to Escape from Tarkov in this project are sourced from <https://www.eftarkov.com>.
+
+Tarkov Tactical Board is an unofficial community tool and is not affiliated with, authorized by, or endorsed by Battlestate Games or Escape from Tarkov. Names, logos, maps, assets, and game content related to Escape from Tarkov remain the property of their respective rights holders.
 
 ### API and Runtime Notes
 
