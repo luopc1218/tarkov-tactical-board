@@ -2,7 +2,7 @@
 
 [中文](#中文) | [English](#english)
 
-- Web Demo: <https://luopc1218.github.io/tarkov-tactical-board/>
+- Web Demo: [<https://luopc1218.github.io/tarkov-tactical-board/>](https://jump.mawen.site/eftboard)
 - Backend Repository: <https://github.com/luopc1218/tarkov-tactical-board-server>
 - Releases: <https://github.com/luopc1218/tarkov-tactical-board/releases>
 
@@ -41,7 +41,7 @@ Tarkov Tactical Board 是一个面向《Escape from Tarkov》战术沟通场景�
 
 | 渠道 | 说明 |
 | --- | --- |
-| Web | <https://luopc1218.github.io/tarkov-tactical-board/> |
+| Web | [<https://luopc1218.github.io/tarkov-tactical-board/>](https://jump.mawen.site/eftboard) |
 | Windows 桌面版 | 在 GitHub Releases 下载对应版本的 Windows 安装包 |
 
 ### 主要功能
@@ -176,7 +176,7 @@ Electron is no longer maintained or released.
 
 | Channel | Description |
 | --- | --- |
-| Web | <https://luopc1218.github.io/tarkov-tactical-board/> |
+| Web | [<https://luopc1218.github.io/tarkov-tactical-board/>](https://jump.mawen.site/eftboard) |
 | Windows desktop | Download the Windows installer from GitHub Releases |
 
 ### Main Features
