@@ -1,6 +1,6 @@
 [package]
 name = "tarkov-tactical-board-tauri"
-version = "2.0.1"
+version = "2.0.2"
 description = "Tarkov Tactical Board desktop shell powered by Tauri"
 authors = ["luopc1218"]
 edition = "2021"
