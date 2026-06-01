@@ -61,16 +61,14 @@ const readNumber = (...values: Array<string | number | undefined>) => {
   return undefined
 }
 
-const extractFileName = (value: string) => {
-  const normalized = value
-    .trim()
-    .replace(/\\/g, '/')
-    .split(/[?#]/)[0]
-    .split('/')
-    .filter(Boolean)
-    .pop()
+const isNetworkImageSource = (value: string) => {
+  const trimmed = value.trim()
+  return /^(https?:)?\/\//i.test(trimmed) || /^\/(?!assets\/|src\/)/i.test(trimmed)
+}
 
-  return normalized ?? ''
+const normalizeImageValue = (value: string) => {
+  const trimmed = value.trim()
+  return isNetworkImageSource(trimmed) ? trimmed : ''
 }
 
 const normalizeAdminMap = (item: AdminMapApiItem): AdminMap | null => {
@@ -85,8 +83,12 @@ const normalizeAdminMap = (item: AdminMapApiItem): AdminMap | null => {
     return null
   }
 
-  const bannerUrl = readString(item.bannerUrl, item.banner_url, item.bannerPath, item.banner_path)
-  const mapUrl = readString(item.mapUrl, item.map_url, item.mapPath, item.map_path)
+  const bannerUrl = normalizeImageValue(
+    readString(item.bannerUrl, item.banner_url, item.bannerPath, item.banner_path)
+  )
+  const mapUrl = normalizeImageValue(
+    readString(item.mapUrl, item.map_url, item.mapPath, item.map_path)
+  )
   const rawBannerFileName = readString(
     item.bannerFileName,
     item.banner_file_name,
@@ -94,7 +96,7 @@ const normalizeAdminMap = (item: AdminMapApiItem): AdminMap | null => {
     item.banner_path,
     item.bannerObjectName,
     item.banner_object_name,
-    bannerUrl,
+    bannerUrl
   )
   const rawMapFileName = readString(
     item.mapFileName,
@@ -103,10 +105,10 @@ const normalizeAdminMap = (item: AdminMapApiItem): AdminMap | null => {
     item.map_path,
     item.mapObjectName,
     item.map_object_name,
-    mapUrl,
+    mapUrl
   )
-  const bannerFileName = extractFileName(rawBannerFileName)
-  const mapFileName = extractFileName(rawMapFileName)
+  const bannerFileName = normalizeImageValue(rawBannerFileName)
+  const mapFileName = normalizeImageValue(rawMapFileName)
 
   return {
     id,
@@ -154,7 +156,7 @@ export const listAdminMaps = () => {
           return aOrder - bOrder
         }
         return a.id - b.id
-      }),
+      })
   )
 }
 
@@ -208,6 +210,6 @@ export const reorderAdminMaps = (mapIds: number[]) => {
           return aOrder - bOrder
         }
         return a.id - b.id
-      }),
+      })
   )
 }

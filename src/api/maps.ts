@@ -1,5 +1,4 @@
 import type { TarkovMapPreset } from '../constants/maps'
-import { resolveImagePath } from './files'
 import { http } from '../lib/http'
 
 interface MapApiItem {
@@ -59,6 +58,16 @@ interface MapApiContainer {
 
 let mapPresetsCache: TarkovMapPreset[] | null = null
 let mapPresetsInFlight: Promise<TarkovMapPreset[]> | null = null
+
+const isNetworkImageSource = (value: string) => {
+  const trimmed = value.trim()
+  return /^(https?:)?\/\//i.test(trimmed) || /^\/(?!assets\/|src\/)/i.test(trimmed)
+}
+
+const normalizeNetworkImageSource = (value: string) => {
+  const trimmed = value.trim()
+  return isNetworkImageSource(trimmed) ? trimmed : ''
+}
 
 const extractMapItems = (payload: unknown): MapApiItem[] => {
   if (Array.isArray(payload)) {
@@ -127,39 +136,54 @@ const normalizeMapPreset = (item: MapApiItem): TarkovMapPreset | null => {
   const rawNameZh = readFirstNonEmptyString([item.nameZh, item.name_zh, item.zhName, item.cnName])
   const rawNameEn = readFirstNonEmptyString([item.nameEn, item.name_en, item.enName])
   const sortOrder = readFirstFiniteNumber([item.sortOrder, item.sort_order, item.order, item.id])
-  const bannerFileName = readFirstNonEmptyString([
-    item.bannerFileName,
-    item.banner_file_name,
-    item.bannerObjectName,
-    item.banner_object_name,
-    item.bannerPath,
-    item.banner_path,
-  ])
-  const mapFileName = readFirstNonEmptyString([
-    item.mapFileName,
-    item.map_file_name,
-    item.mapObjectName,
-    item.map_object_name,
-    item.mapPath,
-    item.map_path,
-  ])
+  const bannerImageSource = normalizeNetworkImageSource(
+    readFirstNonEmptyString([
+      item.bannerUrl,
+      item.banner_url,
+      item.bannerFileName,
+      item.banner_file_name,
+      item.bannerObjectName,
+      item.banner_object_name,
+      item.bannerPath,
+      item.banner_path,
+    ])
+  )
+  const mapImageSource = normalizeNetworkImageSource(
+    readFirstNonEmptyString([
+      item.mapUrl,
+      item.map_url,
+      item.mapFileName,
+      item.map_file_name,
+      item.mapObjectName,
+      item.map_object_name,
+      item.mapPath,
+      item.map_path,
+    ])
+  )
 
-  if (id === null || !rawNameZh || !rawNameEn || sortOrder === null || !bannerFileName || !mapFileName) {
+  if (id === null || !rawNameZh || !rawNameEn || sortOrder === null) {
     return null
   }
-
-  // 构建完整的图片路径
-  const bannerPath = `images/tarkov-maps/banner/${bannerFileName}`
-  const mapPath = `images/tarkov-maps/${mapFileName}`
 
   return {
     id,
     nameZh: rawNameZh,
     nameEn: rawNameEn,
     sortOrder,
-    bannerFileName: resolveImagePath(bannerPath) || bannerPath,
-    mapFileName: resolveImagePath(mapPath) || mapPath,
+    bannerFileName: bannerImageSource,
+    mapFileName: mapImageSource,
   }
+}
+
+const readFallbackImageSource = (item: MapApiItem, keys: Array<keyof MapApiItem>) => {
+  const imageSource = keys
+    .map((key) => {
+      const value = item[key]
+      return typeof value === 'string' && value.trim() ? value.trim() : ''
+    })
+    .find((value) => normalizeNetworkImageSource(value))
+
+  return imageSource ? normalizeNetworkImageSource(imageSource) : ''
 }
 
 export const fetchMapPresets = async (): Promise<TarkovMapPreset[]> => {
@@ -184,7 +208,7 @@ export const fetchMapPresets = async (): Promise<TarkovMapPreset[]> => {
         const fallback = mapItems
           .map<TarkovMapPreset | null>((item) => {
             const firstString = Object.values(item).find(
-              (value) => typeof value === 'string' && value.trim().length > 0,
+              (value) => typeof value === 'string' && value.trim().length > 0
             ) as string | undefined
             if (!firstString) {
               return null
@@ -216,36 +240,28 @@ export const fetchMapPresets = async (): Promise<TarkovMapPreset[]> => {
               return null
             }
 
-            const bannerFileName =
-              typeof item.bannerFileName === 'string' && item.bannerFileName.trim()
-                ? item.bannerFileName.trim()
-                : typeof item.banner_file_name === 'string' && item.banner_file_name.trim()
-                  ? item.banner_file_name.trim()
-                  : typeof item.bannerObjectName === 'string' && item.bannerObjectName.trim()
-                    ? item.bannerObjectName.trim()
-                    : typeof item.banner_object_name === 'string' && item.banner_object_name.trim()
-                      ? item.banner_object_name.trim()
-                      : typeof item.bannerPath === 'string' && item.bannerPath.trim()
-                        ? item.bannerPath.trim()
-                        : typeof item.banner_path === 'string' && item.banner_path.trim()
-                          ? item.banner_path.trim()
-                          : ''
-            const mapFileName =
-              typeof item.mapFileName === 'string' && item.mapFileName.trim()
-                ? item.mapFileName.trim()
-                : typeof item.map_file_name === 'string' && item.map_file_name.trim()
-                  ? item.map_file_name.trim()
-                  : typeof item.mapObjectName === 'string' && item.mapObjectName.trim()
-                    ? item.mapObjectName.trim()
-                    : typeof item.map_object_name === 'string' && item.map_object_name.trim()
-                      ? item.map_object_name.trim()
-                      : typeof item.mapPath === 'string' && item.mapPath.trim()
-                        ? item.mapPath.trim()
-                        : typeof item.map_path === 'string' && item.map_path.trim()
-                          ? item.map_path.trim()
-                          : ''
+            const bannerImageSource = readFallbackImageSource(item, [
+              'bannerUrl',
+              'banner_url',
+              'bannerFileName',
+              'banner_file_name',
+              'bannerObjectName',
+              'banner_object_name',
+              'bannerPath',
+              'banner_path',
+            ])
+            const mapImageSource = readFallbackImageSource(item, [
+              'mapUrl',
+              'map_url',
+              'mapFileName',
+              'map_file_name',
+              'mapObjectName',
+              'map_object_name',
+              'mapPath',
+              'map_path',
+            ])
 
-            if (!nameZh || !nameEn || !bannerFileName || !mapFileName) {
+            if (!nameZh || !nameEn) {
               return null
             }
 
@@ -254,8 +270,8 @@ export const fetchMapPresets = async (): Promise<TarkovMapPreset[]> => {
               nameZh,
               nameEn,
               sortOrder,
-              bannerFileName,
-              mapFileName,
+              bannerFileName: bannerImageSource,
+              mapFileName: mapImageSource,
             }
 
             return preset

@@ -24,10 +24,14 @@ httpInstance.interceptors.response.use(
   (error) => {
     const message = error?.response?.data?.message ?? error.message ?? 'Request failed'
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('http-error', { detail: { message } }))
+      const status = error?.response?.status
+      if (status === 401) {
+        window.dispatchEvent(new CustomEvent('admin-auth-expired'))
+      }
+      window.dispatchEvent(new CustomEvent('http-error', { detail: { message, status } }))
     }
     return Promise.reject(new Error(message))
-  },
+  }
 )
 
 httpInstance.interceptors.request.use((config) => {

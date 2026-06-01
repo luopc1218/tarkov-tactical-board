@@ -112,7 +112,7 @@ const formatChance = (value: unknown) => {
 
 const normalizeBossRefreshGroup = (
   group: unknown,
-  groupName: 'regular' | 'pve',
+  groupName: 'regular' | 'pve'
 ): BossRefreshIntelItem[] => {
   if (Array.isArray(group)) {
     return group
@@ -300,8 +300,9 @@ const normalizeExtractions = (value: unknown): ExtractionIntelItem[] => {
           ...pickNestedStringArray(detail, ['imageUrls', 'images']),
           ...pickNestedStringArray(source, ['imageUrls', 'images']),
         ]
-          .map((item) => resolveImagePath(item) ?? item)
-          .filter((item, itemIndex, list) => item.length > 0 && list.indexOf(item) === itemIndex),
+          .map((item) => resolveImagePath(item))
+          .filter((item): item is string => Boolean(item))
+          .filter((item, itemIndex, list) => list.indexOf(item) === itemIndex),
         detailUrl:
           pickString(source, ['detailUrl', 'url', 'link']) ??
           pickString(detail, ['detailUrl', 'url', 'link']),
@@ -311,50 +312,47 @@ const normalizeExtractions = (value: unknown): ExtractionIntelItem[] => {
         location:
           pickString(source, ['location', 'position', 'area']) ??
           pickString(detail, ['location', 'position', 'area']),
-        extraDetails: collectExtraDetails(
-          { ...detail, ...source },
-          [
-            'id',
-            'extractId',
-            'code',
-            'name',
-            'title',
-            'extractName',
-            'extractionName',
-            'factions',
-            'faction',
-            'sides',
-            'side',
-            'camp',
-            'requirement',
-            'requirements',
-            'condition',
-            'conditions',
-            'need',
-            'alwaysAvailable',
-            'always_available',
-            'isAlwaysOpen',
-            'is_always_open',
-            'oneTime',
-            'one_time',
-            'singleUse',
-            'single_use',
-            'detailImageUrls',
-            'detailImages',
-            'images',
-            'detailUrl',
-            'url',
-            'link',
-            'description',
-            'desc',
-            'remark',
-            'notes',
-            'location',
-            'position',
-            'area',
-            'detail',
-          ],
-        ),
+        extraDetails: collectExtraDetails({ ...detail, ...source }, [
+          'id',
+          'extractId',
+          'code',
+          'name',
+          'title',
+          'extractName',
+          'extractionName',
+          'factions',
+          'faction',
+          'sides',
+          'side',
+          'camp',
+          'requirement',
+          'requirements',
+          'condition',
+          'conditions',
+          'need',
+          'alwaysAvailable',
+          'always_available',
+          'isAlwaysOpen',
+          'is_always_open',
+          'oneTime',
+          'one_time',
+          'singleUse',
+          'single_use',
+          'detailImageUrls',
+          'detailImages',
+          'images',
+          'detailUrl',
+          'url',
+          'link',
+          'description',
+          'desc',
+          'remark',
+          'notes',
+          'location',
+          'position',
+          'area',
+          'detail',
+        ]),
       }
     })
     .filter(isNonNull)
@@ -378,7 +376,7 @@ const normalizeMapIntelSummary = (item: AdminMapIntelApiItem): AdminMapIntelSumm
     bossRefresh: {
       regular: normalizeBossRefreshGroup(
         asRecord(bossRefreshSource)?.regular ?? bossRefreshSource,
-        'regular',
+        'regular'
       ),
       pve: normalizeBossRefreshGroup(asRecord(bossRefreshSource)?.pve, 'pve'),
     },
@@ -412,7 +410,7 @@ export const listAdminMapIntelMaps = () => {
     extractAdminMapIntelItems(payload)
       .map(normalizeMapIntelSummary)
       .filter((item): item is AdminMapIntelSummary => item !== null)
-      .sort((a, b) => a.mapId - b.mapId),
+      .sort((a, b) => a.mapId - b.mapId)
   )
 }
 

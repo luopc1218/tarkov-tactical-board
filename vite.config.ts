@@ -1,14 +1,17 @@
-import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite'
 
 const WEB_BASE = '/eftboard/'
 const TAURI_BASE = './'
+// const PROD_API_ORIGIN = 'https://jump.mawen.site/eftboard/'
+const PROD_API_ORIGIN = 'http://localhost:8081/eftboard'
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   const isTauriBuild = mode === 'tauri'
+  const base = command === 'serve' ? '/' : isTauriBuild ? TAURI_BASE : WEB_BASE
 
   return {
-    base: isTauriBuild ? TAURI_BASE : WEB_BASE,
+    base,
     plugins: [react()],
     server: {
       host: '127.0.0.1',
@@ -16,12 +19,7 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       proxy: {
         '/api': {
-          target: 'http://localhost:8081',
-          changeOrigin: true,
-          ws: true,
-        },
-        '/eftboard/api': {
-          target: 'http://localhost:8081',
+          target: PROD_API_ORIGIN,
           changeOrigin: true,
           ws: true,
         },

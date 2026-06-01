@@ -26,7 +26,6 @@ import {
   reorderAdminMaps,
   updateAdminMap,
 } from '../../api/admin-maps'
-import { resolveImagePath } from '../../api/files'
 import type { AdminMap, AdminMapUpsertRequest } from '../../types/admin'
 import { AdminShell } from './AdminShell'
 
@@ -40,16 +39,6 @@ const EMPTY_FORM: AdminMapUpsertRequest = {
   nameEn: '',
   bannerFileName: '',
   mapFileName: '',
-}
-
-const extractFileName = (value: string) => {
-  return value
-    .trim()
-    .replace(/\\/g, '/')
-    .split(/[?#]/)[0]
-    .split('/')
-    .filter(Boolean)
-    .pop() ?? ''
 }
 
 export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
@@ -70,8 +59,8 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
     return Boolean(
       form.nameZh.trim() &&
       form.nameEn.trim() &&
-      (form.bannerFileName ?? '').trim() &&
-      (form.mapFileName ?? '').trim()
+      form.bannerFileName.trim() &&
+      form.mapFileName.trim()
     )
   }, [form])
 
@@ -105,8 +94,8 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
     setForm({
       nameZh: item.nameZh ?? '',
       nameEn: item.nameEn ?? '',
-      bannerFileName: extractFileName(item.bannerFileName ?? item.bannerUrl ?? ''),
-      mapFileName: extractFileName(item.mapFileName ?? item.mapUrl ?? ''),
+      bannerFileName: item.bannerUrl || item.bannerFileName || '',
+      mapFileName: item.mapUrl || item.mapFileName || '',
     })
     setModalOpen(true)
   }
@@ -259,13 +248,22 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
 
               {!loading &&
                 maps.map((item) => {
-                  const bannerPreview = resolveImagePath(item.bannerUrl || item.bannerFileName)
+                  const bannerPreview = item.bannerUrl || item.bannerFileName
 
                   return (
                     <TableRow key={item.id}>
                       <TableCell>{item.id}</TableCell>
                       <TableCell>
-                        <Box sx={{ height: 56, width: 96, overflow: 'hidden', borderRadius: 1, border: 1, borderColor: 'divider' }}>
+                        <Box
+                          sx={{
+                            height: 56,
+                            width: 96,
+                            overflow: 'hidden',
+                            borderRadius: 1,
+                            border: 1,
+                            borderColor: 'divider',
+                          }}
+                        >
                           {bannerPreview ? (
                             <img
                               src={bannerPreview}
@@ -301,7 +299,12 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
                           >
                             {t('admin.moveDown')}
                           </Button>
-                          <Button size="small" onClick={() => openEditModal(item)} variant="outlined" color="inherit">
+                          <Button
+                            size="small"
+                            onClick={() => openEditModal(item)}
+                            variant="outlined"
+                            color="inherit"
+                          >
                             {t('admin.editMap')}
                           </Button>
                           <Button
@@ -335,45 +338,45 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
                 <TextField
                   fullWidth
                   label={t('admin.mapNameZh')}
-                    value={form.nameZh}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, nameZh: event.target.value }))
-                    }
+                  value={form.nameZh}
+                  onChange={(event) => setForm((prev) => ({ ...prev, nameZh: event.target.value }))}
                 />
                 <TextField
                   fullWidth
                   label={t('admin.mapNameEn')}
-                    value={form.nameEn}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, nameEn: event.target.value }))
-                    }
+                  value={form.nameEn}
+                  onChange={(event) => setForm((prev) => ({ ...prev, nameEn: event.target.value }))}
                 />
               </Stack>
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                 <TextField
                   fullWidth
                   label={t('admin.bannerFileName')}
-                    value={form.bannerFileName}
-                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                      setForm((prev) => ({ ...prev, bannerFileName: event.target.value }))
-                    }
-                  placeholder="Banner_customs.png"
+                  value={form.bannerFileName}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    setForm((prev) => ({ ...prev, bannerFileName: event.target.value }))
+                  }
+                  placeholder="https://example.com/banner.png 或 /api/files/banner.png"
                 />
                 <TextField
                   fullWidth
                   label={t('admin.mapFileName')}
-                    value={form.mapFileName}
-                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                      setForm((prev) => ({ ...prev, mapFileName: event.target.value }))
-                    }
-                  placeholder="Customs.png"
+                  value={form.mapFileName}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    setForm((prev) => ({ ...prev, mapFileName: event.target.value }))
+                  }
+                  placeholder="https://example.com/map.png 或 /api/files/map.png"
                 />
               </Stack>
             </Stack>
           </DialogContent>
           <DialogActions>
             <Button onClick={closeModal}>{t('common.cancel')}</Button>
-            <Button onClick={() => void handleSubmit()} disabled={saving || !canSubmit} variant="contained">
+            <Button
+              onClick={() => void handleSubmit()}
+              disabled={saving || !canSubmit}
+              variant="contained"
+            >
               {saving ? t('common.loading') : editingMap ? t('admin.update') : t('admin.create')}
             </Button>
           </DialogActions>
@@ -392,8 +395,13 @@ export function AdminMapsPage({ onNavigate, onLogout }: AdminMapsPageProps) {
           </DialogContent>
           <DialogActions>
             <Button onClick={closeDeleteConfirm}>{t('common.cancel')}</Button>
-            <Button onClick={() => void confirmDelete()} disabled={deletingId === pendingDeleteMap.id} color="error" variant="outlined">
-                {deletingId === pendingDeleteMap.id ? t('common.loading') : t('admin.delete')}
+            <Button
+              onClick={() => void confirmDelete()}
+              disabled={deletingId === pendingDeleteMap.id}
+              color="error"
+              variant="outlined"
+            >
+              {deletingId === pendingDeleteMap.id ? t('common.loading') : t('admin.delete')}
             </Button>
           </DialogActions>
         </Dialog>

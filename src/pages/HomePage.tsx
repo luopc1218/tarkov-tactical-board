@@ -19,13 +19,12 @@ import {
 } from '@mui/material'
 import { useSnackbar } from 'notistack'
 import homeHeroBg from '../assets/images/home_hero_bg.png'
-import { resolveImagePath } from '../api/files'
 import { fetchMapPresets, refreshMapPresets } from '../api/maps'
 import type { TarkovMapPreset } from '../constants/maps'
 import { getRecentInstances, type RecentInstanceRecord } from '../features/recent-instances'
 import packageJson from '../../package.json'
 
-const CUSTOM_MAP_BANNER_URL = resolveImagePath('images/home_hero_bg.png')
+const CUSTOM_MAP_BANNER_URL = homeHeroBg
 
 interface HomePageProps {
   onCreateInstance: (payload: { mapId: number; mapName: string }) => Promise<void>

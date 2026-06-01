@@ -216,6 +216,25 @@ function App() {
   }, [])
 
   useEffect(() => {
+    const onAdminAuthExpired = () => {
+      setAdminAuthenticated(false)
+      setAdminLoggedIn(false)
+
+      const currentPath = getNormalizedLocation()
+      const currentPathWithSearch = `${currentPath.pathname}${currentPath.search}`
+      const redirect =
+        currentPath.pathname.startsWith('/admin') && currentPath.pathname !== ROUTES.adminLogin
+          ? `?redirect=${encodeURIComponent(currentPathWithSearch)}`
+          : ''
+
+      navigateTo(`${ROUTES.adminLogin}${redirect}`, { replace: true })
+    }
+
+    window.addEventListener('admin-auth-expired', onAdminAuthExpired)
+    return () => window.removeEventListener('admin-auth-expired', onAdminAuthExpired)
+  }, [])
+
+  useEffect(() => {
     if (!shouldShowSettingsEntry) {
       document.documentElement.style.setProperty('--desktop-titlebar-safe-top', '0px')
       document.documentElement.style.setProperty('--desktop-titlebar-safe-right', '0px')
