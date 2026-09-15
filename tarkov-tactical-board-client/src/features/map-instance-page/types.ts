@@ -15,7 +15,23 @@ export interface Stroke {
   width: number
 }
 
-export type ToolMode = 'draw' | 'erase'
+export interface BoardMarker {
+  id: string
+  x: number
+  y: number
+  label: string
+  color: string
+  fontSize: number
+  markerSize: number
+}
+
+export interface MarkerSettingsRequest {
+  marker: BoardMarker
+  clientX: number
+  clientY: number
+}
+
+export type ToolMode = 'draw' | 'erase' | 'marker'
 
 export interface Viewport {
   x: number
@@ -71,16 +87,20 @@ export interface MapCanvasProps {
   viewport: Viewport
   toolMode: ToolMode
   mapUrl?: string
+  switchingMap?: boolean
   mapAlt: string
   renderedStrokes: React.ReactNode
   renderedRemoteInProgressStrokes: React.ReactNode
   renderedRemoteCursors: React.ReactNode
+  renderedMarkers: React.ReactNode
   onPointerDown: React.PointerEventHandler<HTMLDivElement>
   onPointerMove: React.PointerEventHandler<HTMLDivElement>
   onPointerUp: React.PointerEventHandler<HTMLDivElement>
   onPointerLeave: React.PointerEventHandler<HTMLDivElement>
+  onContextMenu: React.MouseEventHandler<HTMLDivElement>
   onImageLoad: (event: React.SyntheticEvent<HTMLImageElement>) => void
   emptyLabel: string
+  loadingLabel: string
 }
 
 export interface MapInstanceController {
@@ -102,6 +122,9 @@ export interface MapInstanceController {
   renderedStrokes: React.ReactNode
   renderedRemoteInProgressStrokes: React.ReactNode
   renderedRemoteCursors: React.ReactNode
+  renderedMarkers: React.ReactNode
+  pendingMarkerPoint: Point | null
+  markerSettingsRequest: MarkerSettingsRequest | null
   currentMapId: number | null
   currentInstanceId: string
   resolvedMapLabel: string
@@ -113,9 +136,17 @@ export interface MapInstanceController {
   setCursorScale: (value: number) => void
   handleSwitchMap: () => void
   fitViewportToContent: (width: number, height: number) => void
+  zoomIn: () => void
+  zoomOut: () => void
   clearBoard: () => void
-  undoLastStroke: () => void
+  undoLastAction: () => void
   copyInstanceId: () => Promise<void>
+  addMarker: (options: Pick<BoardMarker, 'label' | 'color' | 'fontSize' | 'markerSize'>) => void
+  cancelMarker: () => void
+  updateMarker: (marker: Pick<BoardMarker, 'id' | 'label' | 'color' | 'fontSize' | 'markerSize'>) => void
+  deleteMarker: (markerId: string) => void
+  closeMarkerSettings: () => void
+  onContextMenu: React.MouseEventHandler<HTMLDivElement>
   onPointerDown: React.PointerEventHandler<HTMLDivElement>
   onPointerMove: React.PointerEventHandler<HTMLDivElement>
   onPointerUp: React.PointerEventHandler<HTMLDivElement>

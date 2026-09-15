@@ -148,6 +148,20 @@ button:disabled {
   }
 }
 
+@keyframes map-canvas-reveal {
+  from {
+    opacity: 0;
+    filter: brightness(0.72) saturate(0.78);
+    transform: scale(1.008);
+  }
+
+  to {
+    opacity: 1;
+    filter: brightness(1) saturate(1);
+    transform: scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

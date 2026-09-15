@@ -29,7 +29,6 @@ export const TARKOV_MAP_PRESETS: TarkovMapPreset[] = [
   createMapPreset(3, 'customs', '海关', 'Customs'),
   createMapPreset(4, 'customs-dorms', '海关宿舍楼', 'Customs Dorms'),
   createMapPreset(5, 'woods', '森林', 'Woods'),
-  createMapPreset(6, 'woods-clean', '森林（无标记）', 'Woods (No Markers)'),
   createMapPreset(7, 'woods-train-depot', '森林火车站', 'Woods Train Depot'),
   createMapPreset(8, 'shoreline', '海岸线', 'Shoreline'),
   createMapPreset(9, 'shoreline-resort', '海岸线疗养院', 'Shoreline Resort'),

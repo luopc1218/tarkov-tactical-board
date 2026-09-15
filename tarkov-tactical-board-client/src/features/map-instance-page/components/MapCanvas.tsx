@@ -1,4 +1,7 @@
-import { Box, Paper, Typography } from '@mui/material'
+import RadarOutlinedIcon from '@mui/icons-material/RadarOutlined'
+import { Box, CircularProgress, Typography } from '@mui/material'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
 import type { MapCanvasProps } from '../types'
 
 const ERASER_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(
@@ -21,38 +24,83 @@ export function MapCanvas({
   viewport,
   toolMode,
   mapUrl,
+  switchingMap = false,
   mapAlt,
   renderedStrokes,
   renderedRemoteInProgressStrokes,
   renderedRemoteCursors,
+  renderedMarkers,
   onPointerDown,
   onPointerMove,
   onPointerUp,
   onPointerLeave,
+  onContextMenu,
   onImageLoad,
   emptyLabel,
+  loadingLabel,
 }: MapCanvasProps) {
+  const prefersReducedMotion = useReducedMotion()
+  const [displayedMapUrl, setDisplayedMapUrl] = useState<string | undefined>(undefined)
+  const [imageLoading, setImageLoading] = useState(Boolean(mapUrl))
+  const requestIdRef = useRef(0)
+
+  useEffect(() => {
+    if (!mapUrl) {
+      queueMicrotask(() => {
+        setDisplayedMapUrl(undefined)
+        setImageLoading(false)
+      })
+      return
+    }
+    if (mapUrl === displayedMapUrl) return
+
+    const requestId = ++requestIdRef.current
+    const image = new Image()
+    queueMicrotask(() => setImageLoading(true))
+
+    const revealImage = () => {
+      if (requestId !== requestIdRef.current) return
+      setDisplayedMapUrl(mapUrl)
+    }
+
+    image.onload = revealImage
+    image.onerror = () => {
+      if (requestId === requestIdRef.current) setImageLoading(false)
+    }
+    image.src = mapUrl
+
+    if (typeof image.decode === 'function') {
+      void image.decode().then(revealImage).catch(() => undefined)
+    }
+
+    return () => {
+      image.onload = null
+      image.onerror = null
+    }
+  }, [displayedMapUrl, mapUrl])
+
+  const showLoading = imageLoading || switchingMap
+
   return (
-    <Paper
-      variant="outlined"
+    <Box
       sx={{
         position: 'relative',
         display: 'flex',
         minHeight: { xs: '52vh', md: 0 },
+        height: '100%',
+        width: '100%',
         minWidth: 0,
         flex: 1,
         overflow: 'hidden',
-        borderRadius: 4,
-        borderColor: 'divider',
-        background:
-          'radial-gradient(circle at top left, rgba(25, 118, 210, 0.16), transparent 24%), linear-gradient(180deg, rgba(12, 17, 23, 0.98), rgba(9, 13, 18, 1))',
+        borderRadius: 0,
+        background: '#05090c',
         userSelect: 'none',
         touchAction: 'none',
       }}
     >
       <Box
         ref={containerRef}
-        onContextMenu={(event) => event.preventDefault()}
+        onContextMenu={onContextMenu}
         onDragStart={(event) => event.preventDefault()}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -79,14 +127,18 @@ export function MapCanvas({
             transformOrigin: '0 0',
           }}
         >
-          {mapUrl ? (
+          {displayedMapUrl ? (
             <Box
+              key={displayedMapUrl}
               component="img"
-              src={mapUrl}
+              src={displayedMapUrl}
               alt={mapAlt}
               draggable={false}
               onDragStart={(event: React.DragEvent<HTMLImageElement>) => event.preventDefault()}
-              onLoad={onImageLoad}
+              onLoad={(event: React.SyntheticEvent<HTMLImageElement>) => {
+                onImageLoad(event)
+                setImageLoading(false)
+              }}
               sx={{
                 pointerEvents: 'none',
                 display: 'block',
@@ -94,6 +146,7 @@ export function MapCanvas({
                 height: '100%',
                 objectFit: 'contain',
                 userSelect: 'none',
+                animation: prefersReducedMotion ? 'none' : 'map-canvas-reveal 360ms var(--motion-ease-out)',
               }}
             />
           ) : (
@@ -119,10 +172,60 @@ export function MapCanvas({
           >
             {renderedStrokes}
             {renderedRemoteInProgressStrokes}
+            {renderedMarkers}
             {renderedRemoteCursors}
           </Box>
         </Box>
+
+        <AnimatePresence>
+          {showLoading ? (
+            <Box
+              component={motion.div}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: prefersReducedMotion ? 0.05 : 0.2 }}
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                zIndex: 4,
+                display: 'grid',
+                placeItems: 'center',
+                pointerEvents: 'none',
+                background: displayedMapUrl
+                  ? 'rgba(3, 7, 10, 0.58)'
+                  : 'linear-gradient(145deg, #0c141a, #04080b)',
+                backdropFilter: displayedMapUrl ? 'blur(3px)' : 'none',
+              }}
+            >
+              <Box sx={{ position: 'relative', display: 'grid', placeItems: 'center' }}>
+                <CircularProgress size={62} thickness={1.25} sx={{ color: 'primary.main' }} />
+                <RadarOutlinedIcon
+                  sx={{
+                    position: 'absolute',
+                    color: 'primary.light',
+                    fontSize: 28,
+                    filter: 'drop-shadow(0 0 10px rgba(215,185,119,.5))',
+                  }}
+                />
+                <Typography
+                  variant="caption"
+                  sx={{
+                    position: 'absolute',
+                    top: 78,
+                    width: 220,
+                    textAlign: 'center',
+                    color: 'rgba(237,241,243,.82)',
+                    fontWeight: 600,
+                  }}
+                >
+                  {loadingLabel}
+                </Typography>
+              </Box>
+            </Box>
+          ) : null}
+        </AnimatePresence>
       </Box>
-    </Paper>
+    </Box>
   )
 }

@@ -1,21 +1,20 @@
-import BrushOutlinedIcon from '@mui/icons-material/BrushOutlined'
-import CenterFocusStrongOutlinedIcon from '@mui/icons-material/CenterFocusStrongOutlined'
-import CleaningServicesOutlinedIcon from '@mui/icons-material/CleaningServicesOutlined'
-import KeyboardBackspaceOutlinedIcon from '@mui/icons-material/KeyboardBackspaceOutlined'
-import UndoOutlinedIcon from '@mui/icons-material/UndoOutlined'
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
+import MapRoundedIcon from '@mui/icons-material/MapRounded'
 import {
   Box,
   Button,
+  Divider,
   FormControl,
+  IconButton,
   InputLabel,
+  LinearProgress,
   MenuItem,
-  Paper,
   Select,
   Slider,
   Stack,
-  TextField,
-  ToggleButton,
-  ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import { useTranslation } from 'react-i18next'
@@ -26,86 +25,88 @@ interface Props extends MapInstanceControlsProps {
   onClose?: () => void
 }
 
-// Shared control surface for desktop sidebar and mobile drawer so both layouts stay behaviorally aligned.
 export function MapInstanceControlsPanel(props: Props) {
   const { t, i18n } = useTranslation()
   const {
+    instanceId,
     mapId,
+    mapLabel,
+    wsConnected,
+    copied,
     mapPresets,
     selectedMapId,
     switchingMap,
-    toolMode,
-    brushColor,
-    brushWidth,
     cursorScale,
-    canUndo,
+    onCopyId,
     onSelectedMapIdChange,
     onSwitchMap,
-    onToolModeChange,
-    onBrushColorChange,
-    onBrushWidthChange,
     onCursorScaleChange,
-    onResetView,
-    onClearBoard,
-    onUndo,
     onBackHome,
     dense = false,
     onClose,
   } = props
-  const actionStackDirection = dense ? 'column' : 'row'
 
   return (
-    <Stack spacing={dense ? 2 : 2.5}>
-      <Stack direction={actionStackDirection} spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-        <Button
-          variant="outlined"
-          color="inherit"
-          startIcon={<CenterFocusStrongOutlinedIcon />}
-          onClick={onResetView}
+    <Stack spacing={2.25} sx={{ minHeight: dense ? '100%' : 'auto' }}>
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+        <Box
+          sx={{
+            width: 38,
+            height: 38,
+            display: 'grid',
+            placeItems: 'center',
+            borderRadius: 1.5,
+            color: 'primary.light',
+            border: '1px solid rgba(215,185,119,.35)',
+            backgroundColor: 'rgba(215,185,119,.08)',
+          }}
         >
-          {t('mapInstance.resetView')}
-        </Button>
-        <Button
-          variant="outlined"
-          color="error"
-          startIcon={<CleaningServicesOutlinedIcon />}
-          onClick={onClearBoard}
-        >
-          {t('mapInstance.clearBoard')}
-        </Button>
-        <Button
-          variant="outlined"
-          color="inherit"
-          startIcon={<UndoOutlinedIcon />}
-          disabled={!canUndo}
-          onClick={onUndo}
-        >
-          {t('mapInstance.undoLastStroke')}
-        </Button>
-        <Button
-          variant="text"
-          color="inherit"
-          startIcon={<KeyboardBackspaceOutlinedIcon />}
-          onClick={onBackHome}
-        >
-          {t('mapInstance.backToMaps')}
-        </Button>
+          <MapRoundedIcon fontSize="small" />
+        </Box>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            {t('mapInstance.mapSettings')}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" noWrap>
+            {mapLabel}
+          </Typography>
+        </Box>
         {onClose ? (
-          <Button variant="text" color="inherit" onClick={onClose}>
-            {t('mapInstance.closeTools')}
-          </Button>
+          <Tooltip title={t('mapInstance.closeTools')}>
+            <IconButton size="small" onClick={onClose}><CloseRoundedIcon fontSize="small" /></IconButton>
+          </Tooltip>
         ) : null}
       </Stack>
 
-      <Paper
-        variant="outlined"
+      <Box
         sx={{
-          p: 2,
-          borderRadius: 3,
-          backgroundColor: 'background.default',
+          px: 1.4,
+          py: 1.15,
+          borderRadius: 1.5,
+          border: '1px solid rgba(144,166,182,.16)',
+          backgroundColor: 'rgba(255,255,255,.025)',
         }}
       >
-        <Stack spacing={2}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{t('mapInstance.instanceId')}</Typography>
+            <Typography sx={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700 }} noWrap>{instanceId}</Typography>
+          </Box>
+          <Tooltip title={copied ? t('mapInstance.copied') : t('mapInstance.copyInstanceId')}>
+            <IconButton size="small" onClick={() => void onCopyId()}><ContentCopyRoundedIcon fontSize="small" /></IconButton>
+          </Tooltip>
+        </Stack>
+        <Stack direction="row" spacing={0.8} sx={{ alignItems: 'center', mt: 1 }}>
+          <Box className={`status-beacon ${wsConnected ? 'status-beacon--connected' : 'status-beacon--disconnected'}`} />
+          <Typography sx={{ fontSize: 11.5, color: wsConnected ? '#67e8a2' : '#f58a8a' }}>
+            {wsConnected ? t('mapInstance.realtimeConnected') : t('mapInstance.realtimeDisconnected')}
+          </Typography>
+        </Stack>
+      </Box>
+
+      <Box>
+        <Typography variant="overline" color="text.secondary">{t('mapInstance.switchMap')}</Typography>
+        <Stack spacing={1.1} sx={{ mt: 0.6 }}>
           <FormControl fullWidth size="small">
             <InputLabel id="switch-map-label">{t('mapInstance.switchMap')}</InputLabel>
             <Select
@@ -114,112 +115,43 @@ export function MapInstanceControlsPanel(props: Props) {
               value={selectedMapId ?? ''}
               disabled={mapPresets.length === 0 || switchingMap}
               onChange={(event) => {
-                const nextValue = Number(event.target.value)
-                onSelectedMapIdChange(Number.isFinite(nextValue) ? nextValue : null)
+                const value = Number(event.target.value)
+                onSelectedMapIdChange(Number.isFinite(value) ? value : null)
               }}
+              sx={{ backgroundColor: 'rgba(255,255,255,.025)' }}
             >
-              {mapPresets.length === 0 ? (
-                <MenuItem value="">{t('mapInstance.switchMapEmpty')}</MenuItem>
-              ) : null}
+              {mapPresets.length === 0 ? <MenuItem value="">{t('mapInstance.switchMapEmpty')}</MenuItem> : null}
               {mapPresets.map((item) => (
                 <MenuItem key={item.id} value={item.id}>
-                  {i18n.language.startsWith('zh')
-                    ? item.nameZh?.trim() || String(item.id)
-                    : item.nameEn?.trim() || String(item.id)}
+                  {i18n.language.startsWith('zh') ? item.nameZh : item.nameEn}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
           <Button
             variant="contained"
-            disabled={
-              switchingMap || mapPresets.length === 0 || !selectedMapId || selectedMapId === mapId
-            }
+            disabled={switchingMap || !selectedMapId || selectedMapId === mapId}
             onClick={onSwitchMap}
+            sx={{ minHeight: 38 }}
           >
             {switchingMap ? t('common.loading') : t('mapInstance.switchMapApply')}
           </Button>
+          {switchingMap ? <LinearProgress sx={{ height: 2, borderRadius: 1 }} /> : null}
         </Stack>
-      </Paper>
+      </Box>
 
-      <Paper
-        variant="outlined"
-        sx={{
-          p: 2,
-          borderRadius: 3,
-          backgroundColor: 'background.default',
-        }}
-      >
-        <Stack spacing={2}>
-          <Typography variant="subtitle2">{t('mapInstance.tools')}</Typography>
-          <ToggleButtonGroup
-            exclusive
-            color="primary"
-            value={toolMode}
-            onChange={(_, value) => {
-              if (value) {
-                onToolModeChange(value)
-              }
-            }}
-            fullWidth
-          >
-            <ToggleButton value="draw">
-              <BrushOutlinedIcon fontSize="small" sx={{ mr: 1 }} />
-              {t('mapInstance.drawTool')}
-            </ToggleButton>
-            <ToggleButton value="erase">
-              <CleaningServicesOutlinedIcon fontSize="small" sx={{ mr: 1 }} />
-              {t('mapInstance.eraserTool')}
-            </ToggleButton>
-          </ToggleButtonGroup>
-
-          <Stack spacing={1}>
-            <Typography variant="body2" color="text.secondary">
-              {t('mapInstance.brushColor')}
-            </Typography>
-            <TextField
-              type="color"
-              size="small"
-              value={brushColor}
-              onChange={(event) => onBrushColorChange(event.target.value)}
-              slotProps={{ htmlInput: { 'aria-label': t('mapInstance.brushColor') } }}
-              sx={{
-                width: dense ? '100%' : 120,
-                '& input': { p: 0.75, minHeight: 42 },
-              }}
-            />
-          </Stack>
-
-          <Box>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              {t('mapInstance.brushWidth')}: {brushWidth}
-            </Typography>
-            <Slider
-              value={brushWidth}
-              min={12}
-              max={56}
-              step={1}
-              onChange={(_, value) => onBrushWidthChange(Number(value))}
-            />
-          </Box>
-
-          <Box>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              {t('mapInstance.collabCursorSize')}: {cursorScale.toFixed(1)}x
-            </Typography>
-            <Slider
-              value={cursorScale}
-              min={1}
-              max={2.6}
-              step={0.1}
-              onChange={(_, value) => onCursorScaleChange(Number(value))}
-            />
-            <Typography variant="caption" color="text.secondary">
-              {t('mapInstance.collabCursorSizeHint')}
-            </Typography>
-          </Box>
+      <Divider />
+      <Box>
+        <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
+          <Typography variant="body2" color="text.secondary">{t('mapInstance.collabCursorSize')}</Typography>
+          <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>{cursorScale.toFixed(1)}x</Typography>
         </Stack>
-      </Paper>
+        <Slider value={cursorScale} min={1} max={2.6} step={0.1} onChange={(_, value) => onCursorScaleChange(Number(value))} />
+      </Box>
+
+      <Button color="inherit" variant="text" startIcon={<ArrowBackRoundedIcon />} onClick={onBackHome} sx={{ mt: 'auto', alignSelf: 'flex-start' }}>
+        {t('mapInstance.backToMaps')}
+      </Button>
     </Stack>
   )
 }

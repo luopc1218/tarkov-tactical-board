@@ -15,8 +15,10 @@ import { saveRecentInstance } from '../../features/recent-instances'
 import { getApiBaseUrl } from '../../lib/runtime-config'
 import type { MapInstance } from '../../types/map-instance'
 import type {
+  BoardMarker,
   LocalPoint,
   MapInstanceController,
+  MarkerSettingsRequest,
   Point,
   RemoteCursor,
   Stroke,
@@ -42,9 +44,16 @@ const WHITEBOARD_ERASE_TOPIC = 'stroke.erase'
 const WHITEBOARD_CURSOR_MOVE_TOPIC = 'cursor.move'
 const WHITEBOARD_CURSOR_LEAVE_TOPIC = 'cursor.leave'
 const WHITEBOARD_MAP_CHANGED_TOPIC = 'map.changed'
+const WHITEBOARD_MARKER_ADD_TOPIC = 'marker.add'
+const WHITEBOARD_MARKER_REMOVE_TOPIC = 'marker.remove'
+const WHITEBOARD_MARKER_UPDATE_TOPIC = 'marker.update'
 const STROKE_APPEND_INTERVAL_MS = 40
 const WS_RECONNECT_BACKOFF_MS = [1000, 2000, 5000]
 const DEFAULT_BRUSH_WIDTH = 22
+const DEFAULT_MARKER_FONT_SIZE = 48
+const DEFAULT_MARKER_SIZE = 48
+const MARKER_LABEL_GAP = 12
+const MAX_MARKER_LABEL_LENGTH = 160
 const DEFAULT_CURSOR_SCALE = 1.8
 
 // Keep the initial palette vivid so each session feels distinct while remaining visible on dark maps.
@@ -58,10 +67,8 @@ const generateRandomBrushColor = () => {
     return Math.random()
   }
 
-  const hue = Math.floor(readRandomUnit() * 360)
-  const saturation = 78 + Math.floor(readRandomUnit() * 16)
-  const lightness = 50 + Math.floor(readRandomUnit() * 10)
-  return `hsl(${hue} ${saturation}% ${lightness}%)`
+  const palette = ['#f0c66a', '#42dc93', '#58b7ff', '#ff5f63', '#d977f0', '#f4f7f8']
+  return palette[Math.floor(readRandomUnit() * palette.length)]
 }
 
 const buildPathData = (points: Point[]) => {
@@ -170,6 +177,42 @@ const readStrokesFromState = (state: unknown): Stroke[] => {
       ? ((state as Record<string, unknown>).strokes as unknown[])
       : []
   return strokeList.map((item) => readStrokePayload(item)).filter((item): item is Stroke => item !== null)
+}
+
+const readMarkerPayload = (payload: unknown): BoardMarker | null => {
+  if (!payload || typeof payload !== 'object') return null
+  const source = payload as Partial<BoardMarker>
+  const id = typeof source.id === 'string' ? source.id.trim() : ''
+  const label = typeof source.label === 'string'
+    ? source.label.replace(/\r\n?/g, '\n').slice(0, MAX_MARKER_LABEL_LENGTH)
+    : ''
+  const x = Number(source.x)
+  const y = Number(source.y)
+  if (!id || !label.trim() || !Number.isFinite(x) || !Number.isFinite(y)) return null
+  const fontSize = Number(source.fontSize)
+  const markerSize = Number(source.markerSize)
+  return {
+    id,
+    label,
+    x,
+    y,
+    color: source.color || '#f0c66a',
+    fontSize: Number.isFinite(fontSize) ? clamp(fontSize, 16, 96) : DEFAULT_MARKER_FONT_SIZE,
+    markerSize: Number.isFinite(markerSize) ? clamp(markerSize, 16, 96) : DEFAULT_MARKER_SIZE,
+  }
+}
+
+type UndoAction =
+  | { kind: 'stroke.add'; stroke: Stroke }
+  | { kind: 'marker.add'; marker: BoardMarker }
+  | { kind: 'marker.remove'; marker: BoardMarker }
+  | { kind: 'marker.update'; before: BoardMarker; after: BoardMarker }
+
+const readMarkersFromState = (state: unknown): BoardMarker[] => {
+  if (!state || typeof state !== 'object') return []
+  const markers = (state as Record<string, unknown>).markers
+  if (!Array.isArray(markers)) return []
+  return markers.map(readMarkerPayload).filter((item): item is BoardMarker => item !== null)
 }
 
 const readCursorPayload = (payload: unknown): RemoteCursor | null => {
@@ -302,6 +345,10 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
   const [switchingMap, setSwitchingMap] = useState(false)
   const [selectedMapId, setSelectedMapId] = useState<number | null>(null)
   const [strokes, setStrokes] = useState<Stroke[]>([])
+  const [markers, setMarkers] = useState<BoardMarker[]>([])
+  const [pendingMarkerPoint, setPendingMarkerPoint] = useState<Point | null>(null)
+  const [markerSettingsRequest, setMarkerSettingsRequest] = useState<MarkerSettingsRequest | null>(null)
+  const [undoStack, setUndoStack] = useState<UndoAction[]>([])
   const [currentStroke, setCurrentStroke] = useState<Stroke | null>(null)
   const [toolMode, setToolMode] = useState<ToolMode>('draw')
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 })
@@ -318,7 +365,8 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
   const localStrokeIdsRef = useRef(new Set<string>())
   const localClientIdRef = useRef(createRealtimeClientId())
   const lastCursorSentAtRef = useRef(0)
-  const pointerModeRef = useRef<'draw' | 'erase' | 'pan' | 'pinch' | null>(null)
+  const lastMarkerDragSentAtRef = useRef(0)
+  const pointerModeRef = useRef<'draw' | 'erase' | 'pan' | 'pinch' | 'marker-drag' | null>(null)
   const activePointerIdRef = useRef<number | null>(null)
   const panAnchorRef = useRef<{ x: number; y: number; startX: number; startY: number } | null>(null)
   const activeTouchPointsRef = useRef<Map<number, LocalPoint>>(new Map())
@@ -330,6 +378,14 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
   const reconnectTimerRef = useRef<number | null>(null)
   const reconnectAttemptRef = useRef(0)
   const erasedStrokeIdsRef = useRef(new Set<string>())
+  const erasedMarkerIdsRef = useRef(new Set<string>())
+  const markerDragRef = useRef<{
+    before: BoardMarker
+    current: BoardMarker
+    offsetX: number
+    offsetY: number
+    moved: boolean
+  } | null>(null)
 
   useEffect(() => {
     currentStrokeRef.current = currentStroke
@@ -357,6 +413,10 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
         setInstance((prev) => (prev ? { ...prev, mapId: nextInstance.mapId } : nextInstance))
         setSelectedMapId(nextInstance.mapId ?? null)
         setStrokes([])
+        setMarkers([])
+        setPendingMarkerPoint(null)
+        setMarkerSettingsRequest(null)
+        setUndoStack([])
         setCurrentStroke(null)
         setRemoteInProgressStrokes({})
         localStrokeIdsRef.current.clear()
@@ -453,6 +513,10 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
             setSelectedMapId(changed.mapId)
             if (changed.resetState) {
               setStrokes([])
+              setMarkers([])
+              setPendingMarkerPoint(null)
+              setMarkerSettingsRequest(null)
+              setUndoStack([])
               setCurrentStroke(null)
               setRemoteInProgressStrokes({})
               localStrokeIdsRef.current.clear()
@@ -467,6 +531,26 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
               delete next[leave.clientId]
               return next
             })
+            return
+          }
+          if (type === WHITEBOARD_MARKER_ADD_TOPIC) {
+            const marker = readMarkerPayload(actualPayload)
+            if (!marker) return
+            setMarkers((current) => current.some((item) => item.id === marker.id) ? current : [...current, marker])
+            return
+          }
+          if (type === WHITEBOARD_MARKER_UPDATE_TOPIC) {
+            const marker = readMarkerPayload(actualPayload)
+            if (!marker) return
+            setMarkers((current) => current.map((item) => item.id === marker.id ? marker : item))
+            return
+          }
+          if (type === WHITEBOARD_MARKER_REMOVE_TOPIC) {
+            const markerId = actualPayload && typeof actualPayload === 'object'
+              ? String((actualPayload as Record<string, unknown>).markerId ?? '')
+              : ''
+            if (!markerId) return
+            setMarkers((current) => current.filter((item) => item.id !== markerId))
             return
           }
           if (type === WHITEBOARD_CURSOR_MOVE_TOPIC) {
@@ -535,6 +619,8 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
           }
           if (type === WHITEBOARD_CLEAR_TOPIC) {
             setStrokes([])
+            setMarkers([])
+            setPendingMarkerPoint(null)
             setCurrentStroke(null)
             setRemoteInProgressStrokes({})
             localStrokeIdsRef.current.clear()
@@ -588,6 +674,8 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
       .then((response) => {
         if (!active) return
         setStrokes(readStrokesFromState(response.state))
+        setMarkers(readMarkersFromState(response.state))
+        setUndoStack([])
         stateHydratedRef.current = true
       })
       .catch(() => {
@@ -601,10 +689,10 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
   useEffect(() => {
     if (!instance?.id || !stateHydratedRef.current) return
     const timer = window.setTimeout(() => {
-      void saveWhiteboardState(instance.id, { mapId: instance.mapId, strokes })
+      void saveWhiteboardState(instance.id, { mapId: instance.mapId, strokes, markers })
     }, 450)
     return () => window.clearTimeout(timer)
-  }, [instance?.id, instance?.mapId, strokes])
+  }, [instance?.id, instance?.mapId, markers, strokes])
 
   const sendWsMessage = useCallback((message: Record<string, unknown>) => {
     const ws = wsRef.current
@@ -656,6 +744,24 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     return { x: clientX - rect.left, y: clientY - rect.top }
   }
 
+  const findMarkerAtPoint = useCallback((point: Point) => [...markers].reverse().find((marker) => {
+    const fontSize = marker.fontSize || DEFAULT_MARKER_FONT_SIZE
+    const lines = marker.label.split('\n')
+    const longestLineLength = Math.max(...lines.map((line) => line.length), 1)
+    const labelWidth = Math.min(520, longestLineLength * fontSize * 0.68)
+    const lineHeight = fontSize * 1.2
+    const markerRadius = (marker.markerSize || DEFAULT_MARKER_SIZE) / 2
+    const labelX = marker.x + markerRadius * 0.72 + MARKER_LABEL_GAP
+    const labelBottomY = marker.y - markerRadius * 0.72 - MARKER_LABEL_GAP
+    const labelTopY = labelBottomY - lines.length * lineHeight
+    const nearPoint = Math.hypot(point.x - marker.x, point.y - marker.y) <= Math.max(marker.markerSize / 2 + 8, 20) / viewport.scale
+    const insideLabel = point.x >= labelX
+      && point.x <= labelX + labelWidth
+      && point.y >= labelTopY
+      && point.y <= labelBottomY + fontSize * 0.2
+    return nearPoint || insideLabel
+  }), [markers, viewport.scale])
+
   // Erasing walks the latest strokes first so the top-most path under the pointer is removed.
   const eraseStrokeAtPoint = useCallback((point: Point) => {
     const eraseTolerance = Math.max(brushWidth / 2, 12) / viewport.scale
@@ -667,6 +773,25 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     sendWsMessage({ type: WHITEBOARD_ERASE_TOPIC, payload: { strokeId: target.id, clientId: localClientIdRef.current } })
     return true
   }, [brushWidth, sendWsMessage, strokes, viewport.scale])
+
+  const eraseMarkerAtPoint = useCallback((point: Point) => {
+    const target = findMarkerAtPoint(point)
+    if (target && erasedMarkerIdsRef.current.has(target.id)) return true
+    if (!target) return false
+    erasedMarkerIdsRef.current.add(target.id)
+    setMarkers((current) => current.filter((item) => item.id !== target.id))
+    setUndoStack((current) => [...current, { kind: 'marker.remove', marker: target }])
+    sendWsMessage({ type: WHITEBOARD_MARKER_REMOVE_TOPIC, payload: { markerId: target.id, clientId: localClientIdRef.current } })
+    return true
+  }, [findMarkerAtPoint, sendWsMessage])
+
+  const onContextMenu: React.MouseEventHandler<HTMLDivElement> = useCallback((event) => {
+    event.preventDefault()
+    const point = toWorldPoint(event.clientX, event.clientY)
+    if (!point) return
+    const marker = findMarkerAtPoint(point)
+    if (marker) setMarkerSettingsRequest({ marker, clientX: event.clientX, clientY: event.clientY })
+  }, [findMarkerAtPoint, viewport])
 
   const onPointerDown: React.PointerEventHandler<HTMLDivElement> = (event) => {
     if (event.cancelable) event.preventDefault()
@@ -695,6 +820,30 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
       return
     }
     const isPan = event.button === 1 || event.button === 2 || event.shiftKey
+    if (!isPan && event.button === 0 && toolMode === 'marker') {
+      const point = toWorldPoint(event.clientX, event.clientY)
+      const marker = point ? findMarkerAtPoint(point) : undefined
+      if (point && marker) {
+        pointerModeRef.current = 'marker-drag'
+        activePointerIdRef.current = event.pointerId
+        markerDragRef.current = {
+          before: marker,
+          current: marker,
+          offsetX: marker.x - point.x,
+          offsetY: marker.y - point.y,
+          moved: false,
+        }
+        lastMarkerDragSentAtRef.current = 0
+        setMarkerSettingsRequest(null)
+        event.currentTarget.setPointerCapture(event.pointerId)
+        return
+      }
+    }
+    if (!isPan && toolMode === 'marker') {
+      const point = toWorldPoint(event.clientX, event.clientY)
+      if (point) setPendingMarkerPoint(point)
+      return
+    }
     pointerModeRef.current = isPan ? 'pan' : toolMode === 'erase' ? 'erase' : 'draw'
     activePointerIdRef.current = event.pointerId
     if (pointerModeRef.current === 'pan') {
@@ -703,7 +852,8 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
       const point = toWorldPoint(event.clientX, event.clientY)
       if (!point) return
       erasedStrokeIdsRef.current.clear()
-      eraseStrokeAtPoint(point)
+      erasedMarkerIdsRef.current.clear()
+      if (!eraseMarkerAtPoint(point)) eraseStrokeAtPoint(point)
     } else {
       const point = toWorldPoint(event.clientX, event.clientY)
       if (!point) return
@@ -748,7 +898,32 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     }
     if (pointerModeRef.current === 'erase') {
       const point = toWorldPoint(event.clientX, event.clientY)
-      if (point) eraseStrokeAtPoint(point)
+      if (point && !eraseMarkerAtPoint(point)) eraseStrokeAtPoint(point)
+      return
+    }
+    if (pointerModeRef.current === 'marker-drag' && markerDragRef.current) {
+      const point = toWorldPoint(event.clientX, event.clientY)
+      if (!point) return
+      const current = {
+        ...markerDragRef.current.current,
+        x: point.x + markerDragRef.current.offsetX,
+        y: point.y + markerDragRef.current.offsetY,
+      }
+      markerDragRef.current = {
+        ...markerDragRef.current,
+        current,
+        moved: markerDragRef.current.moved
+          || Math.hypot(current.x - markerDragRef.current.before.x, current.y - markerDragRef.current.before.y) > 1,
+      }
+      setMarkers((items) => items.map((item) => item.id === current.id ? current : item))
+      const now = Date.now()
+      if (now - lastMarkerDragSentAtRef.current >= 40) {
+        lastMarkerDragSentAtRef.current = now
+        sendWsMessage({
+          type: WHITEBOARD_MARKER_UPDATE_TOPIC,
+          payload: { ...current, clientId: localClientIdRef.current },
+        })
+      }
       return
     }
     if (pointerModeRef.current !== 'draw' || !currentStroke) return
@@ -770,6 +945,7 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     flushStrokeAppend()
     localStrokeIdsRef.current.add(stroke.id)
     setStrokes((prev) => [...prev, stroke])
+    setUndoStack((current) => [...current, { kind: 'stroke.add', stroke }])
     sendWsMessage({ type: WHITEBOARD_STROKE_END_TOPIC, payload: { strokeId: stroke.id, clientId: localClientIdRef.current } })
     setCurrentStroke(null)
   }
@@ -789,7 +965,18 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     }
     if (activePointerIdRef.current !== event.pointerId) return
     if (pointerModeRef.current === 'draw') finishStroke()
-    if (pointerModeRef.current === 'erase') erasedStrokeIdsRef.current.clear()
+    if (pointerModeRef.current === 'marker-drag' && markerDragRef.current) {
+      const drag = markerDragRef.current
+      if (drag.moved) {
+        setUndoStack((current) => [...current, { kind: 'marker.update', before: drag.before, after: drag.current }])
+        sendWsMessage({ type: WHITEBOARD_MARKER_UPDATE_TOPIC, payload: { ...drag.current, clientId: localClientIdRef.current } })
+      }
+      markerDragRef.current = null
+    }
+    if (pointerModeRef.current === 'erase') {
+      erasedStrokeIdsRef.current.clear()
+      erasedMarkerIdsRef.current.clear()
+    }
     pointerModeRef.current = null
     activePointerIdRef.current = null
     panAnchorRef.current = null
@@ -797,7 +984,10 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
   }
 
   const onPointerLeave: React.PointerEventHandler<HTMLDivElement> = () => {
-    if (pointerModeRef.current === 'erase') erasedStrokeIdsRef.current.clear()
+    if (pointerModeRef.current === 'erase') {
+      erasedStrokeIdsRef.current.clear()
+      erasedMarkerIdsRef.current.clear()
+    }
     sendWsMessage({ type: WHITEBOARD_CURSOR_LEAVE_TOPIC, payload: { clientId: localClientIdRef.current, x: 0, y: 0 } })
   }
 
@@ -834,21 +1024,78 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     setViewport({ x: (containerWidth - width * nextScale) / 2, y: (containerHeight - height * nextScale) / 2, scale: nextScale })
   }, [])
 
+  useEffect(() => {
+    const element = containerRef.current
+    if (!element || typeof ResizeObserver === 'undefined') return
+    let frame = 0
+    const observer = new ResizeObserver(() => {
+      window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => {
+        fitViewportToContent(contentSize.width, contentSize.height)
+      })
+    })
+    observer.observe(element)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      observer.disconnect()
+    }
+  }, [contentSize.height, contentSize.width, fitViewportToContent])
+
+  const zoomBy = useCallback((factor: number) => {
+    const element = containerRef.current
+    if (!element) return
+    const centerX = element.clientWidth / 2
+    const centerY = element.clientHeight / 2
+    setViewport((current) => {
+      const nextScale = clamp(current.scale * factor, MIN_SCALE, MAX_SCALE)
+      const worldX = (centerX - current.x) / current.scale
+      const worldY = (centerY - current.y) / current.scale
+      return {
+        scale: nextScale,
+        x: centerX - worldX * nextScale,
+        y: centerY - worldY * nextScale,
+      }
+    })
+  }, [])
+
+  const zoomIn = useCallback(() => zoomBy(1.2), [zoomBy])
+  const zoomOut = useCallback(() => zoomBy(1 / 1.2), [zoomBy])
+
   const clearBoard = () => {
     setStrokes([])
+    setMarkers([])
+    setPendingMarkerPoint(null)
     setCurrentStroke(null)
     setRemoteInProgressStrokes({})
+    setMarkerSettingsRequest(null)
+    setUndoStack([])
     localStrokeIdsRef.current.clear()
     sendWsMessage({ type: WHITEBOARD_CLEAR_TOPIC, payload: {} })
   }
 
-  const undoLastStroke = useCallback(() => {
-    const removed = strokes[strokes.length - 1]
-    if (!removed) return
-    setStrokes((prev) => prev.slice(0, -1))
-    localStrokeIdsRef.current.delete(removed.id)
-    sendWsMessage({ type: WHITEBOARD_UNDO_TOPIC, payload: { strokeId: removed.id, clientId: localClientIdRef.current } })
-  }, [sendWsMessage, strokes])
+  const undoLastAction = useCallback(() => {
+    const action = undoStack[undoStack.length - 1]
+    if (!action) return
+    setUndoStack((current) => current.slice(0, -1))
+    if (action.kind === 'stroke.add') {
+      setStrokes((current) => current.filter((item) => item.id !== action.stroke.id))
+      localStrokeIdsRef.current.delete(action.stroke.id)
+      sendWsMessage({ type: WHITEBOARD_UNDO_TOPIC, payload: { strokeId: action.stroke.id, clientId: localClientIdRef.current } })
+      return
+    }
+    if (action.kind === 'marker.add') {
+      setMarkers((current) => current.filter((item) => item.id !== action.marker.id))
+      sendWsMessage({ type: WHITEBOARD_MARKER_REMOVE_TOPIC, payload: { markerId: action.marker.id, clientId: localClientIdRef.current } })
+      return
+    }
+    if (action.kind === 'marker.remove') {
+      setMarkers((current) => [...current, action.marker])
+      sendWsMessage({ type: WHITEBOARD_MARKER_ADD_TOPIC, payload: { ...action.marker, clientId: localClientIdRef.current } })
+      return
+    }
+    setMarkers((current) => current.map((item) => item.id === action.before.id ? action.before : item))
+    sendWsMessage({ type: WHITEBOARD_MARKER_UPDATE_TOPIC, payload: { ...action.before, clientId: localClientIdRef.current } })
+  }, [sendWsMessage, undoStack])
 
   useEffect(() => {
     const handleUndoHotkey = (event: KeyboardEvent) => {
@@ -860,13 +1107,13 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
         const isEditable = target.isContentEditable || tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT'
         if (isEditable) return
       }
-      if (strokes.length === 0) return
+      if (undoStack.length === 0) return
       event.preventDefault()
-      undoLastStroke()
+      undoLastAction()
     }
     window.addEventListener('keydown', handleUndoHotkey)
     return () => window.removeEventListener('keydown', handleUndoHotkey)
-  }, [strokes.length, undoLastStroke])
+  }, [undoLastAction, undoStack.length])
 
   const copyInstanceId = useCallback(async () => {
     const value = instance?.id ?? instanceId
@@ -879,6 +1126,58 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     setCopied(true)
     window.setTimeout(() => setCopied(false), 1600)
   }, [instance?.id, instanceId])
+
+  const addMarker = useCallback((options: Pick<BoardMarker, 'label' | 'color' | 'fontSize' | 'markerSize'>) => {
+    const label = options.label.replace(/\r\n?/g, '\n').slice(0, MAX_MARKER_LABEL_LENGTH)
+    if (!pendingMarkerPoint || !label.trim()) return
+    const marker: BoardMarker = {
+      id: `marker-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      x: pendingMarkerPoint.x,
+      y: pendingMarkerPoint.y,
+      label,
+      color: options.color || brushColor,
+      fontSize: clamp(options.fontSize, 16, 96),
+      markerSize: clamp(options.markerSize, 16, 96),
+    }
+    setMarkers((current) => [...current, marker])
+    setUndoStack((current) => [...current, { kind: 'marker.add', marker }])
+    setPendingMarkerPoint(null)
+    sendWsMessage({ type: WHITEBOARD_MARKER_ADD_TOPIC, payload: { ...marker, clientId: localClientIdRef.current } })
+  }, [brushColor, pendingMarkerPoint, sendWsMessage])
+
+  const cancelMarker = useCallback(() => setPendingMarkerPoint(null), [])
+
+  const closeMarkerSettings = useCallback(() => setMarkerSettingsRequest(null), [])
+
+  const updateMarker = useCallback((patch: Pick<BoardMarker, 'id' | 'label' | 'color' | 'fontSize' | 'markerSize'>) => {
+    const before = markers.find((item) => item.id === patch.id)
+    const label = patch.label.replace(/\r\n?/g, '\n').slice(0, MAX_MARKER_LABEL_LENGTH)
+    if (!before || !label.trim()) return
+    const after: BoardMarker = {
+      ...before,
+      label,
+      color: patch.color,
+      fontSize: clamp(patch.fontSize, 16, 96),
+      markerSize: clamp(patch.markerSize, 16, 96),
+    }
+    if (before.label === after.label && before.color === after.color && before.fontSize === after.fontSize && before.markerSize === after.markerSize) {
+      setMarkerSettingsRequest(null)
+      return
+    }
+    setMarkers((current) => current.map((item) => item.id === after.id ? after : item))
+    setUndoStack((current) => [...current, { kind: 'marker.update', before, after }])
+    setMarkerSettingsRequest(null)
+    sendWsMessage({ type: WHITEBOARD_MARKER_UPDATE_TOPIC, payload: { ...after, clientId: localClientIdRef.current } })
+  }, [markers, sendWsMessage])
+
+  const deleteMarker = useCallback((markerId: string) => {
+    const marker = markers.find((item) => item.id === markerId)
+    if (!marker) return
+    setMarkers((current) => current.filter((item) => item.id !== markerId))
+    setUndoStack((current) => [...current, { kind: 'marker.remove', marker }])
+    setMarkerSettingsRequest(null)
+    sendWsMessage({ type: WHITEBOARD_MARKER_REMOVE_TOPIC, payload: { markerId, clientId: localClientIdRef.current } })
+  }, [markers, sendWsMessage])
 
   // Local strokes render the current in-progress path together with the confirmed history.
   const renderedStrokes = useMemo(() => {
@@ -905,6 +1204,43 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     [remoteInProgressStrokes],
   )
 
+  const renderedMarkers = useMemo(() => markers.map((marker) => {
+    const fontSize = marker.fontSize || DEFAULT_MARKER_FONT_SIZE
+    const lines = marker.label.split('\n')
+    const markerSize = marker.markerSize || DEFAULT_MARKER_SIZE
+    const markerRadius = markerSize / 2
+    const lineHeight = fontSize * 1.2
+    const labelX = marker.x + markerRadius * 0.72 + MARKER_LABEL_GAP
+    const labelBottomY = marker.y - markerRadius * 0.72 - MARKER_LABEL_GAP
+    const firstLineY = labelBottomY - (lines.length - 1) * lineHeight
+    return (
+      <g key={marker.id}>
+        <circle
+          cx={marker.x}
+          cy={marker.y}
+          r={markerRadius}
+          fill={marker.color}
+          style={{ filter: `drop-shadow(0 4px 3px rgba(0,0,0,.95)) drop-shadow(0 0 7px ${marker.color}88)` }}
+        />
+        <text
+          x={labelX}
+          y={firstLineY}
+          fontSize={fontSize}
+          fontWeight={900}
+          fontFamily="Roboto Mono, Noto Sans SC, monospace"
+          letterSpacing={0}
+          fill={marker.color}
+          xmlSpace="preserve"
+          style={{ filter: `drop-shadow(0 3px 2px rgba(0,0,0,1)) drop-shadow(0 0 6px ${marker.color}88)` }}
+        >
+          {lines.map((line, index) => (
+            <tspan key={`${marker.id}-line-${index}`} x={labelX} dy={index === 0 ? 0 : lineHeight}>{line || ' '}</tspan>
+          ))}
+        </text>
+      </g>
+    )
+  }), [markers])
+
   // "Cursor size" only affects the collaborative remote pointer overlay, not the system cursor.
   const renderedRemoteCursors = useMemo(() => {
     const baseRadius = 7 * cursorScale
@@ -927,7 +1263,7 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     const nextWidth = image.naturalWidth || DEFAULT_CANVAS_WIDTH
     const nextHeight = image.naturalHeight || DEFAULT_CANVAS_HEIGHT
     setContentSize({ width: nextWidth, height: nextHeight })
-    fitViewportToContent(nextWidth, nextHeight)
+    window.requestAnimationFrame(() => fitViewportToContent(nextWidth, nextHeight))
   }, [fitViewportToContent])
 
   return {
@@ -949,10 +1285,13 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     renderedStrokes,
     renderedRemoteInProgressStrokes,
     renderedRemoteCursors,
+    renderedMarkers,
+    pendingMarkerPoint,
+    markerSettingsRequest,
     currentMapId,
     currentInstanceId: instance?.id ?? instanceId ?? '',
     resolvedMapLabel: resolveMapLabel(instance?.mapId),
-    canUndo: strokes.length > 0,
+    canUndo: undoStack.length > 0,
     setSelectedMapId,
     setToolMode,
     setBrushColor,
@@ -960,9 +1299,17 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     setCursorScale,
     handleSwitchMap,
     fitViewportToContent,
+    zoomIn,
+    zoomOut,
     clearBoard,
-    undoLastStroke,
+    undoLastAction,
     copyInstanceId,
+    addMarker,
+    cancelMarker,
+    updateMarker,
+    deleteMarker,
+    closeMarkerSettings,
+    onContextMenu,
     onPointerDown,
     onPointerMove,
     onPointerUp,
