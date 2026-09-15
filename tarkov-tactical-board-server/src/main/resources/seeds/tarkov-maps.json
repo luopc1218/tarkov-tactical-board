@@ -1,0 +1,100 @@
+[
+  {
+    "nameZh": "中心区",
+    "nameEn": "Ground Zero",
+    "bannerFileName": "Banner_ground_zero.png",
+    "mapFileName": "Ground Zero.png",
+    "sortOrder": 1
+  },
+  {
+    "nameZh": "工厂",
+    "nameEn": "Factory",
+    "bannerFileName": "Banner_factory.png",
+    "mapFileName": "Factory.png",
+    "sortOrder": 2
+  },
+  {
+    "nameZh": "海关",
+    "nameEn": "Customs",
+    "bannerFileName": "Banner_customs.png",
+    "mapFileName": "Customs.png",
+    "sortOrder": 3
+  },
+  {
+    "nameZh": "森林",
+    "nameEn": "Woods",
+    "bannerFileName": "Banner_woods.png",
+    "mapFileName": "Woods.png",
+    "sortOrder": 4
+  },
+  {
+    "nameZh": "海岸线",
+    "nameEn": "Shoreline",
+    "bannerFileName": "Banner_shoreline.png",
+    "mapFileName": "Shoreline.png",
+    "sortOrder": 5
+  },
+  {
+    "nameZh": "疗养院",
+    "nameEn": "Sanatorium",
+    "bannerFileName": "Banner_shoreline.png",
+    "mapFileName": "Sanatorium.png",
+    "sortOrder": 6
+  },
+  {
+    "nameZh": "立交桥",
+    "nameEn": "Interchange",
+    "bannerFileName": "Banner_interchange.png",
+    "mapFileName": "Interchange.png",
+    "sortOrder": 7
+  },
+  {
+    "nameZh": "ULTRA超市",
+    "nameEn": "ULTRA",
+    "bannerFileName": "Banner_interchange.png",
+    "mapFileName": "ULTRA.png",
+    "sortOrder": 8
+  },
+  {
+    "nameZh": "储备站",
+    "nameEn": "Reserve",
+    "bannerFileName": "Banner_reserve.png",
+    "mapFileName": "Reserve.png",
+    "sortOrder": 9
+  },
+  {
+    "nameZh": "灯塔",
+    "nameEn": "Lighthouse",
+    "bannerFileName": "Banner_lighthouse.png",
+    "mapFileName": "Lighthouse.png",
+    "sortOrder": 10
+  },
+  {
+    "nameZh": "塔科夫街区",
+    "nameEn": "Streets of Tarkov",
+    "bannerFileName": "Banner_streets.png",
+    "mapFileName": "Streets.png",
+    "sortOrder": 11
+  },
+  {
+    "nameZh": "实验室",
+    "nameEn": "The Lab",
+    "bannerFileName": "Banner_theLab.png",
+    "mapFileName": "Lab.png",
+    "sortOrder": 12
+  },
+  {
+    "nameZh": "迷宫",
+    "nameEn": "The Labyrinth",
+    "bannerFileName": "Banner_the_labyrinth.png",
+    "mapFileName": "The Labyrinth.png",
+    "sortOrder": 13
+  },
+  {
+    "nameZh": "码头",
+    "nameEn": "Terminal",
+    "bannerFileName": "Banner_terminal.png",
+    "mapFileName": "Terminal.png",
+    "sortOrder": 14
+  }
+]
