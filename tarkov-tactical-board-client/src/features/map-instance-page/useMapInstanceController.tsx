@@ -785,13 +785,13 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     return true
   }, [findMarkerAtPoint, sendWsMessage])
 
-  const onContextMenu: React.MouseEventHandler<HTMLDivElement> = useCallback((event) => {
+  const onContextMenu: React.MouseEventHandler<HTMLDivElement> = (event) => {
     event.preventDefault()
     const point = toWorldPoint(event.clientX, event.clientY)
     if (!point) return
     const marker = findMarkerAtPoint(point)
     if (marker) setMarkerSettingsRequest({ marker, clientX: event.clientX, clientY: event.clientY })
-  }, [findMarkerAtPoint, viewport])
+  }
 
   const onPointerDown: React.PointerEventHandler<HTMLDivElement> = (event) => {
     if (event.cancelable) event.preventDefault()

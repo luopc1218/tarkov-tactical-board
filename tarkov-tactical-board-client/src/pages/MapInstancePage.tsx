@@ -122,24 +122,28 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   }, [controller.currentMapId, controller.mapPresets])
 
   useEffect(() => {
-    if (controller.toolMode !== 'draw') setBrushSettingsAnchor(null)
+    if (controller.toolMode !== 'draw') queueMicrotask(() => setBrushSettingsAnchor(null))
   }, [controller.toolMode])
 
   useEffect(() => {
     if (!controller.pendingMarkerPoint) return
-    setMarkerLabel('')
-    setMarkerCreateColor(controller.brushColor)
-    setMarkerCreateFontSize(48)
-    setMarkerCreateSize(48)
+    queueMicrotask(() => {
+      setMarkerLabel('')
+      setMarkerCreateColor(controller.brushColor)
+      setMarkerCreateFontSize(48)
+      setMarkerCreateSize(48)
+    })
   }, [controller.brushColor, controller.pendingMarkerPoint])
 
   useEffect(() => {
     const marker = controller.markerSettingsRequest?.marker
     if (!marker) return
-    setMarkerEditLabel(marker.label)
-    setMarkerEditColor(marker.color)
-    setMarkerEditFontSize(marker.fontSize)
-    setMarkerEditSize(marker.markerSize)
+    queueMicrotask(() => {
+      setMarkerEditLabel(marker.label)
+      setMarkerEditColor(marker.color)
+      setMarkerEditFontSize(marker.fontSize)
+      setMarkerEditSize(marker.markerSize)
+    })
   }, [controller.markerSettingsRequest])
 
   const openBrushSettings = (event: MouseEvent<HTMLElement>) => {

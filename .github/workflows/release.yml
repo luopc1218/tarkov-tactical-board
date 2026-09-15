@@ -84,3 +84,13 @@ jobs:
           uploadUpdaterJson: true
           updaterJsonPreferNsis: true
           args: --target x86_64-pc-windows-msvc --bundles nsis
+
+  finalize-release:
+    name: Publish GitHub release
+    needs: [frontend-image, backend-image, windows-client]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish release and mark latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
