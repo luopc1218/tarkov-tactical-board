@@ -11,7 +11,8 @@
     </parent>
 
     <groupId>com.tarkov</groupId>
-    .0.0</version>
+    <artifactId>tarkov-tactical-board-server</artifactId>
+    <version>3.0.0</version>
     <name>tarkov-tactical-board-server</name>
     <description>Spring Boot backend scaffold with WebSocket</description>
 
