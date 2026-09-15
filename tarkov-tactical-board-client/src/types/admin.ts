@@ -9,30 +9,8 @@ export interface LoginResponse {
   expireSeconds: number
 }
 
-export interface AdminMap {
-  id: number
-  code?: string
-  nameZh: string
-  nameEn: string
-  sortOrder?: number
-  bannerFileName: string
-  bannerUrl: string
-  mapFileName: string
-  mapUrl: string
-}
-
-export interface AdminMapUpsertRequest {
-  nameZh: string
-  nameEn: string
-  bannerFileName: string
-  mapFileName: string
-}
-
 export interface AdminWhiteboardInstance {
   instanceId: string
-  mapNameZh?: string | null
-  mapNameEn?: string | null
-  mapName?: string | null
   mapId?: number
   createdAt: string
   updatedAt: string

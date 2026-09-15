@@ -1,8 +1,4 @@
 import type { RefObject } from 'react'
-import type {
-  ExtractionIntelItem,
-  MapIntelResponse,
-} from '../../api/whiteboard'
 import type { TarkovMapPreset } from '../../constants/maps'
 import type { MapInstance } from '../../types/map-instance'
 
@@ -87,21 +83,6 @@ export interface MapCanvasProps {
   emptyLabel: string
 }
 
-export interface MapIntelPanelProps {
-  mapIntel: MapIntelResponse | null
-  mapIntelLoading: boolean
-  mapIntelLoadError: string | null
-  bossIntelOpen: boolean
-  extractionsOpen: boolean
-  setBossIntelOpen: (value: boolean | ((prev: boolean) => boolean)) => void
-  setExtractionsOpen: (value: boolean | ((prev: boolean) => boolean)) => void
-  renderIntelBool: (value: boolean | null) => string
-  isGuaranteedSpawnChance: (value: string) => boolean
-  getIntelTagColor: (index: number) => 'info' | 'warning' | 'success' | 'secondary'
-  renderExtractionCard: (item: ExtractionIntelItem) => React.ReactNode
-  onClose?: () => void
-}
-
 export interface MapInstanceController {
   instance: MapInstance | null
   loading: boolean
@@ -117,11 +98,6 @@ export interface MapInstanceController {
   brushWidth: number
   cursorScale: number
   copied: boolean
-  mapIntel: MapIntelResponse | null
-  mapIntelLoading: boolean
-  mapIntelLoadError: string | null
-  bossIntelOpen: boolean
-  extractionsOpen: boolean
   containerRef: RefObject<HTMLDivElement | null>
   renderedStrokes: React.ReactNode
   renderedRemoteInProgressStrokes: React.ReactNode
@@ -135,9 +111,6 @@ export interface MapInstanceController {
   setBrushColor: (value: string) => void
   setBrushWidth: (value: number) => void
   setCursorScale: (value: number) => void
-  setBossIntelOpen: (value: boolean | ((prev: boolean) => boolean)) => void
-  setExtractionsOpen: (value: boolean | ((prev: boolean) => boolean)) => void
-  loadMapIntel: () => Promise<void>
   handleSwitchMap: () => void
   fitViewportToContent: (width: number, height: number) => void
   clearBoard: () => void
@@ -148,8 +121,4 @@ export interface MapInstanceController {
   onPointerUp: React.PointerEventHandler<HTMLDivElement>
   onPointerLeave: React.PointerEventHandler<HTMLDivElement>
   handleImageLoad: (event: React.SyntheticEvent<HTMLImageElement>) => void
-  renderIntelBool: (value: boolean | null) => string
-  isGuaranteedSpawnChance: (value: string) => boolean
-  getIntelTagColor: (index: number) => 'info' | 'warning' | 'success' | 'secondary'
-  renderExtractionCard: (item: ExtractionIntelItem) => React.ReactNode
 }

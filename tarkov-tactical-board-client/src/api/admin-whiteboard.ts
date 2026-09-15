@@ -88,29 +88,8 @@ const normalizeInstance = (raw: unknown): AdminWhiteboardInstance | null => {
   if (!instanceId) {
     return null
   }
-  const mapNameZh = pickString(source, ['mapNameZh', 'map_name_zh', 'mapZhName', 'map_zh_name'])
-  const mapNameEn = pickString(source, ['mapNameEn', 'map_name_en', 'mapEnName', 'map_en_name'])
-  const mapName =
-    pickString(source, [
-      'mapName',
-      'map_name',
-      'mapDisplayName',
-      'map_display_name',
-      'mapTitle',
-      'map_title',
-      'mapLabel',
-      'map_label',
-      'mapCode',
-      'map_code',
-    ]) ??
-    mapNameZh ??
-    mapNameEn
-
   return {
     instanceId,
-    mapNameZh,
-    mapNameEn,
-    mapName,
     mapId: pickNumber(source, ['mapId', 'map_id']) ?? undefined,
     createdAt:
       pickString(source, ['createdAt', 'created_at', 'createTime', 'create_time']) ?? '',

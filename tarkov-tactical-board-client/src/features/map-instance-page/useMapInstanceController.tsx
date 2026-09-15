@@ -1,19 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Box, Card, CardContent, CardMedia, Chip, Link, Stack, Typography } from '@mui/material'
-import type { TarkovMapPreset } from '../../constants/maps'
-import { fetchMapPresets } from '../../api/maps'
 import {
-  getWhiteboardMapIntel,
+  findMapPreset,
+  getMapAssetUrl,
+  TARKOV_MAP_PRESETS,
+} from '../../constants/maps'
+import {
   getWhiteboardInstance,
   getWhiteboardState,
   saveWhiteboardState,
   switchWhiteboardMap,
-  type ExtractionIntelItem,
-  type MapIntelResponse,
 } from '../../api/whiteboard'
 import { saveRecentInstance } from '../../features/recent-instances'
-import { openExternalUrl } from '../../lib/desktop'
 import { getApiBaseUrl } from '../../lib/runtime-config'
 import type { MapInstance } from '../../types/map-instance'
 import type {
@@ -296,14 +294,13 @@ const copyText = async (value: string): Promise<boolean> => {
 }
 
 export function useMapInstanceController(instanceId: string | null): MapInstanceController {
-  const { t, i18n } = useTranslation()
+  const { i18n } = useTranslation()
   const isZhLanguage = (i18n.resolvedLanguage ?? i18n.language ?? '').startsWith('zh')
+  const mapPresets = TARKOV_MAP_PRESETS
   const [instance, setInstance] = useState<MapInstance | null>(null)
   const [loading, setLoading] = useState(true)
-  const [mapPresets, setMapPresets] = useState<TarkovMapPreset[]>([])
   const [switchingMap, setSwitchingMap] = useState(false)
   const [selectedMapId, setSelectedMapId] = useState<number | null>(null)
-  const [mapUrl, setMapUrl] = useState<string | undefined>(undefined)
   const [strokes, setStrokes] = useState<Stroke[]>([])
   const [currentStroke, setCurrentStroke] = useState<Stroke | null>(null)
   const [toolMode, setToolMode] = useState<ToolMode>('draw')
@@ -314,11 +311,6 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
   const [brushWidth, setBrushWidth] = useState(DEFAULT_BRUSH_WIDTH)
   const [cursorScale, setCursorScale] = useState(DEFAULT_CURSOR_SCALE)
   const [copied, setCopied] = useState(false)
-  const [mapIntel, setMapIntel] = useState<MapIntelResponse | null>(null)
-  const [mapIntelLoading, setMapIntelLoading] = useState(false)
-  const [mapIntelLoadError, setMapIntelLoadError] = useState<string | null>(null)
-  const [bossIntelOpen, setBossIntelOpen] = useState(true)
-  const [extractionsOpen, setExtractionsOpen] = useState(true)
   const [remoteCursors, setRemoteCursors] = useState<Record<string, RemoteCursor>>({})
   const [remoteInProgressStrokes, setRemoteInProgressStrokes] = useState<Record<string, Stroke>>({})
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -338,9 +330,6 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
   const reconnectTimerRef = useRef<number | null>(null)
   const reconnectAttemptRef = useRef(0)
   const erasedStrokeIdsRef = useRef(new Set<string>())
-  const mapIntelCacheRef = useRef(new Map<string, MapIntelResponse>())
-  const mapIntelPendingRequestsRef = useRef(new Map<string, Promise<MapIntelResponse>>())
-  const mapIntelRequestSeqRef = useRef(0)
 
   useEffect(() => {
     currentStrokeRef.current = currentStroke
@@ -407,32 +396,10 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
 
   const currentMapId = instance?.mapId ?? null
 
-  useEffect(() => {
-    if (!instance?.id) {
-      queueMicrotask(() => {
-        setMapPresets([])
-        setMapUrl(undefined)
-      })
-      return
-    }
-    let active = true
-    void fetchMapPresets()
-      .then((presets) => {
-        if (!active) return
-        setMapPresets(presets)
-        const matched = presets.find((item) => item.id === currentMapId)
-        setMapUrl(matched?.mapFileName)
-      })
-      .catch(() => {
-        if (active) {
-          setMapPresets([])
-          setMapUrl(undefined)
-        }
-      })
-    return () => {
-      active = false
-    }
-  }, [instance?.id, currentMapId])
+  const mapUrl = useMemo(() => {
+    const matched = findMapPreset(currentMapId)
+    return matched ? getMapAssetUrl(matched.mapFileName) : undefined
+  }, [currentMapId])
 
   useEffect(() => {
     queueMicrotask(() => setSelectedMapId(instance?.mapId ?? null))
@@ -600,14 +567,6 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
       setRemoteInProgressStrokes({})
     }
   }, [instance?.id])
-
-  useEffect(() => {
-    const cacheKey =
-      instance?.id && instance?.mapId ? `${instance.id}:${instance.mapId}` : null
-    setMapIntel(cacheKey ? mapIntelCacheRef.current.get(cacheKey) ?? null : null)
-    setMapIntelLoadError(null)
-    setMapIntelLoading(false)
-  }, [instance?.id, instance?.mapId])
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -921,59 +880,6 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     window.setTimeout(() => setCopied(false), 1600)
   }, [instance?.id, instanceId])
 
-  const loadMapIntel = useCallback(async () => {
-    if (!instance?.id || !instance?.mapId) {
-      setMapIntel(null)
-      setMapIntelLoadError(null)
-      return
-    }
-
-    const cacheKey = `${instance.id}:${instance.mapId}`
-    const cachedIntel = mapIntelCacheRef.current.get(cacheKey)
-    if (cachedIntel) {
-      setMapIntel(cachedIntel)
-    }
-
-    const requestId = mapIntelRequestSeqRef.current + 1
-    mapIntelRequestSeqRef.current = requestId
-
-    setMapIntelLoading(true)
-    setMapIntelLoadError(null)
-    try {
-      let pendingRequest = mapIntelPendingRequestsRef.current.get(cacheKey)
-      if (!pendingRequest) {
-        pendingRequest = getWhiteboardMapIntel(instance.id)
-        mapIntelPendingRequestsRef.current.set(cacheKey, pendingRequest)
-      }
-      const response = await pendingRequest
-      mapIntelCacheRef.current.set(cacheKey, response)
-      if (mapIntelRequestSeqRef.current !== requestId) {
-        return
-      }
-      setMapIntel(response)
-    } catch (error) {
-      if (mapIntelRequestSeqRef.current !== requestId) {
-        return
-      }
-      if (!cachedIntel) {
-        setMapIntel(null)
-      }
-      setMapIntelLoadError(error instanceof Error ? error.message : t('mapInstance.mapIntelLoadError'))
-    } finally {
-      const activePendingRequest = mapIntelPendingRequestsRef.current.get(cacheKey)
-      if (activePendingRequest) {
-        void activePendingRequest.finally(() => {
-          if (mapIntelPendingRequestsRef.current.get(cacheKey) === activePendingRequest) {
-            mapIntelPendingRequestsRef.current.delete(cacheKey)
-          }
-        })
-      }
-      if (mapIntelRequestSeqRef.current === requestId) {
-        setMapIntelLoading(false)
-      }
-    }
-  }, [instance?.id, instance?.mapId, t])
-
   // Local strokes render the current in-progress path together with the confirmed history.
   const renderedStrokes = useMemo(() => {
     const list = currentStroke ? [...strokes, currentStroke] : strokes
@@ -1024,94 +930,6 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     fitViewportToContent(nextWidth, nextHeight)
   }, [fitViewportToContent])
 
-  const renderIntelBool = useCallback((value: boolean | null) => {
-    if (value === null) return t('mapInstance.notProvided')
-    return value ? t('mapInstance.yes') : t('mapInstance.no')
-  }, [t])
-
-  const getIntelTagColor = useCallback((index: number): 'info' | 'warning' | 'success' | 'secondary' => {
-    const tones: Array<'info' | 'warning' | 'success' | 'secondary'> = ['info', 'warning', 'success', 'secondary']
-    return tones[index % tones.length]
-  }, [])
-
-  const isGuaranteedSpawnChance = useCallback((value: string) => value.replace(/\s+/g, '').trim() === '100%', [])
-
-  const renderExtraDetails = useCallback((details: Array<{ label: string; value: string }>) => {
-    if (details.length === 0) return null
-    return (
-      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-        {details.map((detail) => (
-          <Chip key={`${detail.label}-${detail.value}`} label={`${detail.label}: ${detail.value}`} size="small" variant="outlined" />
-        ))}
-      </Stack>
-    )
-  }, [])
-
-  const renderExtractionCard = useCallback((item: ExtractionIntelItem) => (
-    <Card key={item.id} variant="outlined">
-      <CardContent>
-        <Stack spacing={1.5}>
-          <Stack direction="row" spacing={1.5} sx={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="subtitle1">{item.name}</Typography>
-              {item.location ? <Typography variant="body2" color="text.secondary">{item.location}</Typography> : null}
-            </Box>
-            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              <Chip
-                size="small"
-                label={`${t('mapInstance.alwaysAvailableShort')}: ${renderIntelBool(item.alwaysAvailable)}`}
-                color="success"
-                variant="outlined"
-              />
-              <Chip
-                size="small"
-                label={`${t('mapInstance.oneTimeShort')}: ${renderIntelBool(item.oneTime)}`}
-                color="warning"
-                variant="outlined"
-              />
-            </Stack>
-          </Stack>
-
-          {item.factions.length ? (
-            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-              {item.factions.map((faction, index) => (
-                <Chip key={faction} size="small" label={faction} color={getIntelTagColor(index)} />
-              ))}
-            </Stack>
-          ) : null}
-
-          {item.requirement ? (
-            <Typography variant="body2" color="text.secondary">
-              <strong>{t('mapInstance.requirement')}:</strong> {item.requirement}
-            </Typography>
-          ) : null}
-          {item.description ? (
-            <Typography variant="body2" color="text.secondary">
-              <strong>{t('mapInstance.description')}:</strong> {item.description}
-            </Typography>
-          ) : null}
-
-          {renderExtraDetails(item.extraDetails)}
-
-          {item.detailUrl ? (
-            <Link
-              component="button"
-              type="button"
-              onClick={() => void openExternalUrl(item.detailUrl!)}
-              underline="hover"
-            >
-              {t('mapInstance.viewDetails')}
-            </Link>
-          ) : null}
-
-          {item.detailImageUrls.length > 0 ? (
-            <CardMedia component="img" image={item.detailImageUrls[0]} alt={`${item.name}-${t('mapInstance.detailImage')}`} sx={{ borderRadius: 2, maxHeight: 220, objectFit: 'cover' }} />
-          ) : null}
-        </Stack>
-      </CardContent>
-    </Card>
-  ), [getIntelTagColor, renderExtraDetails, renderIntelBool, t])
-
   return {
     instance,
     loading,
@@ -1127,11 +945,6 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     brushWidth,
     cursorScale,
     copied,
-    mapIntel,
-    mapIntelLoading,
-    mapIntelLoadError,
-    bossIntelOpen,
-    extractionsOpen,
     containerRef,
     renderedStrokes,
     renderedRemoteInProgressStrokes,
@@ -1145,9 +958,6 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     setBrushColor,
     setBrushWidth,
     setCursorScale,
-    setBossIntelOpen,
-    setExtractionsOpen,
-    loadMapIntel,
     handleSwitchMap,
     fitViewportToContent,
     clearBoard,
@@ -1158,9 +968,5 @@ export function useMapInstanceController(instanceId: string | null): MapInstance
     onPointerUp,
     onPointerLeave,
     handleImageLoad,
-    renderIntelBool,
-    isGuaranteedSpawnChance,
-    getIntelTagColor,
-    renderExtractionCard,
   }
 }

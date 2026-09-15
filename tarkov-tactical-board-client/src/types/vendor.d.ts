@@ -12,18 +12,6 @@ declare module 'qs' {
   ): string
 }
 
-declare module 'lodash-es' {
-  export function debounce<T extends (...args: never[]) => unknown>(
-    func: T,
-    wait?: number,
-  ): (...args: Parameters<T>) => ReturnType<T>
-
-  export function throttle<T extends (...args: never[]) => unknown>(
-    func: T,
-    wait?: number,
-  ): (...args: Parameters<T>) => ReturnType<T>
-}
-
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string
   readonly VITE_WS_BASE_URL?: string
@@ -32,6 +20,9 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+declare const __APP_VERSION__: string
+declare const __BUILD_TIME__: string
 
 interface Window {
   __TAURI_INTERNALS__?: unknown

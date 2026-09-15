@@ -20,12 +20,6 @@ export function AdminDashboardPage({ onNavigate, onLogout }: AdminDashboardPageP
       onLogout={onLogout}
       headerActions={
         <Stack direction="row" spacing={1}>
-          <Button onClick={() => onNavigate(ROUTES.adminMaps)} color="inherit" variant="outlined">
-            {t('admin.mapManagement')}
-          </Button>
-          <Button onClick={() => onNavigate(ROUTES.adminMapIntel)} color="inherit" variant="outlined">
-            {t('admin.mapIntelManagement')}
-          </Button>
           <Button onClick={() => onNavigate(ROUTES.adminInstances)} color="inherit" variant="outlined">
             {t('admin.instanceManagement')}
           </Button>

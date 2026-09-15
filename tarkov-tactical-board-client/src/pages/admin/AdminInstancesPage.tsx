@@ -31,6 +31,7 @@ import {
   deleteAdminWhiteboardInstance,
   listAdminWhiteboardInstances,
 } from '../../api/admin-whiteboard'
+import { findMapPreset } from '../../constants/maps'
 import type { AdminWhiteboardInstance } from '../../types/admin'
 import { AdminShell } from './AdminShell'
 
@@ -71,13 +72,11 @@ export function AdminInstancesPage({ onNavigate, onLogout }: AdminInstancesPageP
   }
 
   const resolveMapName = (item: AdminWhiteboardInstance) => {
-    const zh = item.mapNameZh?.trim()
-    const en = item.mapNameEn?.trim()
-    const fallback = item.mapName?.trim()
-    if (i18n.language.startsWith('zh')) {
-      return zh || fallback || (item.mapId != null ? String(item.mapId) : '-')
+    const preset = findMapPreset(item.mapId ?? null)
+    if (!preset) {
+      return item.mapId != null ? String(item.mapId) : '-'
     }
-    return en || fallback || (item.mapId != null ? String(item.mapId) : '-')
+    return i18n.language.startsWith('zh') ? preset.nameZh : preset.nameEn
   }
 
   const loadInstances = useCallback(async () => {

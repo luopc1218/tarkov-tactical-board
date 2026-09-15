@@ -7,12 +7,15 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
 import { LanguageSwitcher } from './LanguageSwitcher'
+import { UpdateChecker } from './UpdateChecker'
 import { getApiBaseUrl, getDefaultApiBaseUrl, setApiBaseUrl } from '../lib/runtime-config'
+import { isUpdaterSupported } from '../lib/updater'
 
 interface ApiSettingsDialogProps {
   onClose: () => void
@@ -100,6 +103,33 @@ export function ApiSettingsDialog({ onClose, onOpenAdmin }: ApiSettingsDialogPro
             {t('settings.apiBaseUrlHint')}
           </Typography>
           {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
+          {isUpdaterSupported() && (
+            <>
+              <Divider />
+              <Stack spacing={1.5}>
+                <Typography
+                  variant="overline"
+                  color="primary.main"
+                  sx={{ letterSpacing: '0.12em' }}
+                >
+                  {t('settings.updateTitle')}
+                </Typography>
+                <UpdateChecker />
+              </Stack>
+            </>
+          )}
+          <Divider />
+          <Stack spacing={1.5}>
+            <Typography variant="overline" color="primary.main" sx={{ letterSpacing: '0.12em' }}>
+              {t('settings.aboutTitle')}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {t('settings.aboutDisclaimer')}
+            </Typography>
+            <Typography variant="caption" color="text.disabled">
+              {t('home.copyrightTitle')}
+            </Typography>
+          </Stack>
         </Stack>
       </DialogContent>
       <DialogActions>

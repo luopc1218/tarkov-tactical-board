@@ -13,10 +13,8 @@ import {
   resolveDesktopEnvironment,
 } from './lib/desktop'
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
-import { AdminMapIntelPage } from './pages/admin/AdminMapIntelPage'
 import { AdminInstancesPage } from './pages/admin/AdminInstancesPage'
 import { AdminLoginPage } from './pages/admin/AdminLoginPage'
-import { AdminMapsPage } from './pages/admin/AdminMapsPage'
 import { AdminPasswordPage } from './pages/admin/AdminPasswordPage'
 import { HomePage } from './pages/HomePage'
 import { MapInstancePage } from './pages/MapInstancePage'
@@ -281,14 +279,10 @@ function App() {
   const currentPathWithSearch = useMemo(() => `${pathname}${search}`, [pathname, search])
   const isAdminProtectedRoute =
     route.name === 'admin-dashboard' ||
-    route.name === 'admin-maps' ||
-    route.name === 'admin-map-intel' ||
     route.name === 'admin-instances' ||
     route.name === 'admin-password'
   const isAdminShellRoute =
     route.name === 'admin-dashboard' ||
-    route.name === 'admin-maps' ||
-    route.name === 'admin-map-intel' ||
     route.name === 'admin-instances' ||
     route.name === 'admin-password'
   useEffect(() => {
@@ -308,8 +302,6 @@ function App() {
   useEffect(() => {
     const shouldLockBodyScroll =
       route.name === 'admin-dashboard' ||
-      route.name === 'admin-maps' ||
-      route.name === 'admin-map-intel' ||
       route.name === 'admin-instances' ||
       route.name === 'admin-password'
     document.body.style.overflow = shouldLockBodyScroll ? 'hidden' : ''
@@ -392,14 +384,6 @@ function App() {
   } else if (route.name === 'admin-dashboard') {
     content = adminLoggedIn ? (
       <AdminDashboardPage onNavigate={navigateTo} onLogout={handleAdminLogout} />
-    ) : null
-  } else if (route.name === 'admin-maps') {
-    content = adminLoggedIn ? (
-      <AdminMapsPage onNavigate={navigateTo} onLogout={handleAdminLogout} />
-    ) : null
-  } else if (route.name === 'admin-map-intel') {
-    content = adminLoggedIn ? (
-      <AdminMapIntelPage onNavigate={navigateTo} onLogout={handleAdminLogout} />
     ) : null
   } else if (route.name === 'admin-instances') {
     content = adminLoggedIn ? (

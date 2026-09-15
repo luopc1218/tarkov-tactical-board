@@ -4,41 +4,47 @@ export const appTheme = createTheme({
   palette: {
     mode: 'dark',
     primary: {
-      main: '#d0b16f',
-      light: '#e2c892',
-      dark: '#9d7f44',
-      contrastText: '#17120a',
+      main: '#d7b977',
+      light: '#ead39e',
+      dark: '#a78b52',
+      contrastText: '#11100d',
     },
     secondary: {
-      main: '#6fb7ff',
+      main: '#6badee',
+      light: '#9acbfa',
+      dark: '#397ab6',
+      contrastText: '#07121c',
     },
     background: {
-      default: '#0d1117',
-      paper: '#141a22',
+      default: '#050a0e',
+      paper: '#0d151b',
     },
     text: {
-      primary: '#f4efe2',
-      secondary: '#aab6c5',
+      primary: '#edf1f3',
+      secondary: '#9daab5',
     },
-    divider: alpha('#d0b16f', 0.18),
+    divider: alpha('#9dabb7', 0.16),
   },
   shape: {
-    borderRadius: 10,
+    borderRadius: 8,
   },
   typography: {
     fontFamily:
       "'Inter', 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
+    allVariants: {
+      letterSpacing: 0,
+    },
     h2: {
       fontWeight: 700,
-      letterSpacing: '-0.04em',
+      letterSpacing: 0,
     },
     h4: {
       fontWeight: 700,
-      letterSpacing: '-0.03em',
+      letterSpacing: 0,
     },
     h6: {
       fontWeight: 600,
-      letterSpacing: '-0.02em',
+      letterSpacing: 0,
     },
   },
   components: {
@@ -48,26 +54,32 @@ export const appTheme = createTheme({
           '--desktop-titlebar-safe-top': '0px',
           '--desktop-titlebar-safe-right': '0px',
           '--desktop-window-controls-width': '0px',
+          '--app-bg': '#050a0e',
+          '--app-surface': 'rgba(13, 21, 27, 0.88)',
+          '--app-surface-strong': '#0d151b',
+          '--app-border': 'rgba(157, 171, 183, 0.16)',
+          '--app-accent': '#d7b977',
+          '--app-info': '#6badee',
         },
         html: {
           height: '100%',
           scrollbarWidth: 'thin',
-          scrollbarColor: 'rgba(123, 126, 132, 0.62) rgba(18, 18, 18, 0.68)',
+          scrollbarColor: 'rgba(112, 126, 136, 0.55) rgba(5, 10, 14, 0.72)',
           '&::-webkit-scrollbar': {
             width: '10px',
             height: '10px',
           },
           '&::-webkit-scrollbar-track': {
-            background: 'rgba(18, 18, 18, 0.68)',
+            background: 'rgba(5, 10, 14, 0.72)',
             borderRadius: '999px',
           },
           '&::-webkit-scrollbar-thumb': {
-            background: 'rgba(123, 126, 132, 0.62)',
-            border: '2px solid rgba(18, 18, 18, 0.72)',
+            background: 'rgba(112, 126, 136, 0.55)',
+            border: '2px solid rgba(5, 10, 14, 0.72)',
             borderRadius: '999px',
           },
           '&::-webkit-scrollbar-thumb:hover': {
-            background: 'rgba(177, 154, 105, 0.55)',
+            background: 'rgba(215, 185, 119, 0.58)',
           },
           '&[data-platform="win32"]': {
             scrollbarWidth: 'thin',
@@ -86,7 +98,7 @@ export const appTheme = createTheme({
               backgroundColor: 'rgba(123, 126, 132, 0.46)',
             },
             '& ::-webkit-scrollbar-thumb:hover': {
-              backgroundColor: 'rgba(177, 154, 105, 0.55)',
+              backgroundColor: 'rgba(215, 185, 119, 0.58)',
             },
           },
           '&[data-platform="darwin"]': {
@@ -106,17 +118,16 @@ export const appTheme = createTheme({
               backgroundColor: 'rgba(123, 126, 132, 0.46)',
             },
             '& ::-webkit-scrollbar-thumb:hover': {
-              backgroundColor: 'rgba(177, 154, 105, 0.55)',
+              backgroundColor: 'rgba(215, 185, 119, 0.58)',
             },
           },
         },
         body: {
           minHeight: '100%',
           margin: 0,
-          background:
-            'radial-gradient(circle at 16% 0%, rgba(208, 177, 111, 0.18), transparent 26%), radial-gradient(circle at 86% 10%, rgba(111, 183, 255, 0.12), transparent 24%), linear-gradient(180deg, #10151d 0%, #0f141b 45%, #0b1016 100%)',
+          background: 'linear-gradient(180deg, #091015 0%, #050a0e 100%)',
           backgroundAttachment: 'fixed',
-          color: '#f4efe2',
+          color: '#edf1f3',
         },
         '#root': { minHeight: '100%' },
       },
@@ -125,9 +136,9 @@ export const appTheme = createTheme({
       styleOverrides: {
         root: {
           backgroundImage: 'none',
-          border: `1px solid ${alpha('#d0b16f', 0.18)}`,
-          backdropFilter: 'blur(16px) saturate(120%)',
-          boxShadow: '0 18px 48px rgba(0, 0, 0, 0.22)',
+          border: `1px solid ${alpha('#9dabb7', 0.16)}`,
+          backdropFilter: 'blur(18px) saturate(116%)',
+          boxShadow: '0 18px 48px rgba(0, 0, 0, 0.2)',
           transition:
             'transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms cubic-bezier(0.22, 1, 0.36, 1), background-color 160ms cubic-bezier(0.22, 1, 0.36, 1)',
         },
@@ -151,7 +162,7 @@ export const appTheme = createTheme({
         contained: {
           boxShadow: 'none',
           '&:hover': {
-            boxShadow: '0 10px 22px rgba(0, 0, 0, 0.18)',
+            boxShadow: '0 10px 26px rgba(0, 0, 0, 0.28)',
           },
         },
       },
@@ -159,14 +170,14 @@ export const appTheme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: 12,
+          borderRadius: 8,
         },
       },
     },
     MuiAccordion: {
       styleOverrides: {
         root: {
-          borderRadius: 10,
+          borderRadius: 8,
           overflow: 'hidden',
           backgroundImage: 'none',
           transition:
@@ -182,6 +193,38 @@ export const appTheme = createTheme({
         root: {
           transition:
             'transform 180ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms cubic-bezier(0.22, 1, 0.36, 1), background-color 160ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1)',
+        },
+      },
+    },
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+        },
+      },
+    },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          backgroundColor: 'rgba(4, 10, 14, 0.52)',
+          '& .MuiOutlinedInput-notchedOutline': {
+            borderColor: alpha('#9dabb7', 0.22),
+          },
+          '&:hover .MuiOutlinedInput-notchedOutline': {
+            borderColor: alpha('#d7b977', 0.46),
+          },
+        },
+      },
+    },
+    MuiToggleButton: {
+      styleOverrides: {
+        root: {
+          borderColor: alpha('#9dabb7', 0.18),
+          color: '#9daab5',
+          '&.Mui-selected': {
+            color: '#edf1f3',
+            backgroundColor: alpha('#d7b977', 0.14),
+          },
         },
       },
     },

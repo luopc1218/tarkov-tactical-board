@@ -28,6 +28,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -35,5 +36,16 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJCNDA3RjdFMDIwN0Q0MEIKUldRTDFBY0NmbjlBdTgyYVJ5RmttWitxZ2NEZHVZRXhPSXBYMTU2dXpGYlJiNlJSWWx3b1BRcXgK",
+      "endpoints": [
+        "https://github.com/luopc1218/tarkov-tactical-board/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

@@ -10,7 +10,7 @@ import {
 } from '@mui/material'
 import { ROUTES } from '../../router/routes'
 
-type AdminNavKey = 'dashboard' | 'maps' | 'map-intel' | 'instances' | 'password'
+type AdminNavKey = 'dashboard' | 'instances' | 'password'
 
 interface AdminShellProps {
   current: AdminNavKey
@@ -59,18 +59,6 @@ export function AdminShell({
             variant={current === 'dashboard' ? 'contained' : 'text'}
           >
             {t('admin.dashboardTitle')}
-          </Button>
-          <Button
-            onClick={() => onNavigate(ROUTES.adminMaps)}
-            variant={current === 'maps' ? 'contained' : 'text'}
-          >
-            {t('admin.mapManagement')}
-          </Button>
-          <Button
-            onClick={() => onNavigate(ROUTES.adminMapIntel)}
-            variant={current === 'map-intel' ? 'contained' : 'text'}
-          >
-            {t('admin.mapIntelManagement')}
           </Button>
           <Button
             onClick={() => onNavigate(ROUTES.adminInstances)}

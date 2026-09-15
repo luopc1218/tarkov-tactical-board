@@ -1,5 +1,4 @@
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined'
-import InsightsOutlinedIcon from '@mui/icons-material/InsightsOutlined'
 import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined'
 import { Alert, Box, Button, Chip, Drawer, Grid, Paper, Stack, Typography } from '@mui/material'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
@@ -7,7 +6,6 @@ import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { MapCanvas } from '../features/map-instance-page/components/MapCanvas'
 import { MapInstanceControlsPanel } from '../features/map-instance-page/components/MapInstanceControlsPanel'
-import { MapIntelPanel } from '../features/map-instance-page/components/MapIntelPanel'
 import { useMapInstanceController } from '../features/map-instance-page/useMapInstanceController'
 
 interface MapInstancePageProps {
@@ -20,7 +18,6 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
   const { t } = useTranslation()
   const prefersReducedMotion = useReducedMotion()
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
-  const [intelDrawerOpen, setIntelDrawerOpen] = useState(false)
 
   const controller = useMapInstanceController(instanceId)
   const realtimeConnected = controller.wsConnected
@@ -264,17 +261,6 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
                 <Button
                   variant="outlined"
                   size="small"
-                  startIcon={<InsightsOutlinedIcon />}
-                  onClick={() => {
-                    setIntelDrawerOpen(true)
-                    void controller.loadMapIntel()
-                  }}
-                >
-                  {t('mapInstance.mapIntelTitle')}
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
                   startIcon={<MenuOutlinedIcon />}
                   onClick={() => setMobileDrawerOpen(true)}
                   sx={{ display: { xs: 'inline-flex', md: 'none' } }}
@@ -388,38 +374,6 @@ export function MapInstancePage({ instanceId, onBackHome }: MapInstancePageProps
           {...controlsProps}
           dense
           onClose={() => setMobileDrawerOpen(false)}
-        />
-      </Drawer>
-
-      <Drawer
-        anchor="right"
-        open={intelDrawerOpen}
-        onClose={() => setIntelDrawerOpen(false)}
-        slotProps={{
-          paper: {
-            sx: {
-              width: { xs: '100%', sm: 520 },
-              p: { xs: 1, sm: 1.5 },
-              backgroundColor: 'background.default',
-              display: 'flex',
-              overflow: 'hidden',
-            },
-          },
-        }}
-      >
-        <MapIntelPanel
-          mapIntel={controller.mapIntel}
-          mapIntelLoading={controller.mapIntelLoading}
-          mapIntelLoadError={controller.mapIntelLoadError}
-          bossIntelOpen={controller.bossIntelOpen}
-          extractionsOpen={controller.extractionsOpen}
-          setBossIntelOpen={controller.setBossIntelOpen}
-          setExtractionsOpen={controller.setExtractionsOpen}
-          renderIntelBool={controller.renderIntelBool}
-          isGuaranteedSpawnChance={controller.isGuaranteedSpawnChance}
-          getIntelTagColor={controller.getIntelTagColor}
-          renderExtractionCard={controller.renderExtractionCard}
-          onClose={() => setIntelDrawerOpen(false)}
         />
       </Drawer>
     </Box>

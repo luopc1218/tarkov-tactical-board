@@ -19,9 +19,9 @@ Tarkov Tactical Board 是一个面向《Escape from Tarkov》战术沟通场景�
 - 在同一张地图上实时同步标注、路线和战术草图
 - 在桌面端和 Web 端保持一致的操作体验
 
-### 当前版本
+### 版本信息
 
-当前版本：**v1.5.7-1**
+当前版本号和构建时间可在应用首页的“关于”中查看。
 
 这一版主要聚焦前端体验细节：
 
@@ -48,14 +48,14 @@ Tarkov Tactical Board 是一个面向《Escape from Tarkov》战术沟通场景�
 
 - 房间创建与实例 ID 分享
 - 多人实时白板同步
-- 地图切换与基础绘制工具
-- 地图情报侧边抽屉
+- 内置地图列表与地图切换
+- 基础绘制工具
 - 可覆盖的 API 地址设置
 - 桌面端窗口安全区与路由适配
 
 ### 素材与数据来源
 
-本项目中与《Escape from Tarkov》相关的地图素材、地图情报与游戏数据来源于 <https://www.eftarkov.com>。
+本项目内置地图素材来自 <https://reemr.se/>（RE3MR），基于 CC BY-NC-SA 4.0 许可使用。
 
 Tarkov Tactical Board 是非官方社区工具，与 Battlestate Games 或 Escape from Tarkov 官方无隶属、授权或背书关系。《Escape from Tarkov》相关名称、标识、地图、素材与游戏内容的权利归其各自权利人所有。
 
@@ -96,10 +96,7 @@ npm run tauri:build
 
 #### 1. Docker 镜像
 
-GitHub Actions 会自动构建并推送前端镜像到 Docker Hub：
-
-- 推送到 `master`：发布 `edge` 和 `sha-*`
-- 推送 `v*` 标签：发布版本标签和 `latest`
+仓库根目录的统一 GitHub Actions 会在推送 `v*` 标签后构建并推送前端镜像到 Docker Hub，同时发布版本标签和 `latest`。
 
 需要配置以下 GitHub Secrets：
 
@@ -124,10 +121,11 @@ docker.io/<DOCKERHUB_USERNAME>/tarkov-tactical-board-frontend
 ### 推荐发版流程
 
 ```bash
-git push origin <your-branch>
-git tag v1.5.7-1
-git push origin v1.5.7-1
+git tag vX.Y.Z
+git push origin vX.Y.Z
 ```
+
+维护者本机可以使用不纳入版本控制的发布脚本自动完成版本更新、构建和服务器部署。
 
 ### Docker 部署建议
 
@@ -136,16 +134,15 @@ git push origin v1.5.7-1
 生产环境建议显式指定版本镜像，例如：
 
 ```bash
-FRONTEND_IMAGE=luopc1218docker/tarkov-tactical-board-frontend:v1.5.7-1 docker compose -f docker-compose.frontend.yml up -d
+FRONTEND_IMAGE=luopc1218docker/tarkov-tactical-board-frontend:v2.0.2 docker compose -f docker-compose.frontend.yml up -d
 ```
 
 ### 常见问题
 
-- **地图列表为空**：通常是 API 地址未配置，或后端接口不可达。
+- **地图不显示**：地图图片已随客户端打包，若未加载请检查静态资源路径与 `public/maps` 是否完整。
 - **连接状态未连接**：请检查后端服务、反向代理和 WebSocket 转发配置。
 - **首页背景滚动时位置异常**：请确认当前版本包含首页固定背景修复，旧版本可能仍会受页面动画影响。
 - **桌面版打不开资源**：当前正式桌面构建仅支持 Tauri Windows x64，请使用 Releases 中的 Tauri 安装包。
-- **地图情报看不到内容**：当前实例页使用抽屉式地图情报面板，打开后会在侧边显示内容。
 
 ## English
 
@@ -160,9 +157,9 @@ It is built for a simple workflow:
 - draw routes, marks, and plans on the same map in real time
 - keep the desktop and web experience aligned
 
-### Current Version
+### Version Information
 
-Current version: **v1.5.7-1**
+The current version and build time are available from About on the home page.
 
 This release mainly focuses on frontend usability polish:
 
@@ -189,14 +186,14 @@ Electron is no longer maintained or released.
 
 - room creation and instance ID sharing
 - realtime collaborative whiteboard sync
-- map switching and drawing controls
-- map intel side drawer
+- built-in map list and map switching
+- drawing controls
 - configurable API base URL
 - desktop-safe routing and window chrome handling
 
 ### Assets and Data Sources
 
-Map assets, map intel, and game data related to Escape from Tarkov in this project are sourced from <https://www.eftarkov.com>.
+Bundled map assets are provided by <https://reemr.se/> (RE3MR) under the CC BY-NC-SA 4.0 license.
 
 Tarkov Tactical Board is an unofficial community tool and is not affiliated with, authorized by, or endorsed by Battlestate Games or Escape from Tarkov. Names, logos, maps, assets, and game content related to Escape from Tarkov remain the property of their respective rights holders.
 
@@ -237,10 +234,7 @@ npm run tauri:build
 
 #### Docker image
 
-GitHub Actions publishes the frontend image to Docker Hub:
-
-- push to `master`: publish `edge` and `sha-*`
-- push a `v*` tag: publish the version tag and `latest`
+The repository-level GitHub Actions workflow builds and publishes the frontend image when a `v*` tag is pushed, publishing both the version tag and `latest`.
 
 #### Windows release
 
@@ -254,10 +248,11 @@ Pushing a `v*` tag triggers a workflow that:
 ### Recommended Release Flow
 
 ```bash
-git push origin <your-branch>
-git tag v1.5.7-1
-git push origin v1.5.7-1
+git tag vX.Y.Z
+git push origin vX.Y.Z
 ```
+
+Maintainers may use a local-only release helper to automate version updates, builds, and server deployment.
 
 ### Docker Deployment Tip
 
@@ -266,13 +261,12 @@ git push origin v1.5.7-1
 For production, pin an explicit version image instead:
 
 ```bash
-FRONTEND_IMAGE=luopc1218docker/tarkov-tactical-board-frontend:v1.5.7-1 docker compose -f docker-compose.frontend.yml up -d
+FRONTEND_IMAGE=luopc1218docker/tarkov-tactical-board-frontend:v2.0.2 docker compose -f docker-compose.frontend.yml up -d
 ```
 
 ### Troubleshooting
 
-- **Map list is empty**: usually the API base URL is not configured correctly, or the backend is unreachable.
+- **Maps do not render**: map images ship with the client; verify static asset paths and that `public/maps` is complete.
 - **Connection status shows disconnected**: check backend availability, reverse proxy rules, and WebSocket forwarding.
 - **Homepage background still scrolls away**: older builds may still be affected by the previous page transition behavior.
 - **Desktop build cannot load assets**: the supported desktop release channel is Tauri Windows x64 only.
-- **Map intel panel looks empty**: the current instance page uses a drawer-based intel panel on the side.
