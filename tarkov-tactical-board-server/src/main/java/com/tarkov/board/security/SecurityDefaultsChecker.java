@@ -13,9 +13,7 @@ public class SecurityDefaultsChecker {
 
     private static final Logger log = LoggerFactory.getLogger(SecurityDefaultsChecker.class);
 
-    private static final String DEFAULT_DATASOURCE_PASSWORD = "Peichun@92755";
-    private static final String DEFAULT_ADMIN_PASSWORD_HASH = "$2y$10$OTn77oohWpGwKB8hMYFLW.WJ1MxaFRr6.AF7O16CUxFmjDxgWre2O";
-    private static final String DEFAULT_JWT_SECRET = "QWJjREVmZ0hpSmtMbW5PcFFyU3RVdld4WXowMTIzNDU2Nzg5Kys=";
+    private static final String INSECURE_DATASOURCE_PASSWORD = "root";
 
     private final AuthProperties authProperties;
     private final JwtProperties jwtProperties;
@@ -31,14 +29,16 @@ public class SecurityDefaultsChecker {
 
     @PostConstruct
     public void warnIfUsingInsecureDefaults() {
-        if (DEFAULT_DATASOURCE_PASSWORD.equals(datasourcePassword)) {
-            log.warn("Security warning: default datasource password is in use. Set SPRING_DATASOURCE_PASSWORD.");
+        if (datasourcePassword == null
+                || datasourcePassword.isBlank()
+                || INSECURE_DATASOURCE_PASSWORD.equals(datasourcePassword)) {
+            log.warn("Security warning: datasource password is missing or insecure. Set SPRING_DATASOURCE_PASSWORD.");
         }
-        if (DEFAULT_ADMIN_PASSWORD_HASH.equals(authProperties.getAdminPasswordHash())) {
-            log.warn("Security warning: default admin password hash is in use. Set APP_AUTH_ADMINPASSWORDHASH.");
+        if (authProperties.getAdminPasswordHash() == null || authProperties.getAdminPasswordHash().isBlank()) {
+            log.warn("Security warning: admin password hash is not configured. Set APP_AUTH_ADMINPASSWORDHASH.");
         }
-        if (DEFAULT_JWT_SECRET.equals(jwtProperties.getSecret())) {
-            log.warn("Security warning: default JWT secret is in use. Set APP_JWT_SECRET.");
+        if (jwtProperties.getSecret() == null || jwtProperties.getSecret().isBlank()) {
+            log.warn("Security warning: JWT secret is not configured. Set APP_JWT_SECRET.");
         }
     }
 }

@@ -26,9 +26,10 @@ spring:
 
 app:
   auth:
-    adminUsername: admin
-    adminPasswordHash: $2y$10$OTn77oohWpGwKB8hMYFLW.WJ1MxaFRr6.AF7O16CUxFmjDxgWre2O
+    adminUsername: ${APP_AUTH_ADMINUSERNAME:${APP_ADMIN_USERNAME:admin}}
+    # Required: bcrypt hash of the admin password. Set APP_AUTH_ADMINPASSWORDHASH.
+    adminPasswordHash: ${APP_AUTH_ADMINPASSWORDHASH:${APP_ADMIN_PASSWORD_HASH:}}
   jwt:
-    # Base64 encoded, 256-bit key for HS256
-    secret: QWJjREVmZ0hpSmtMbW5PcFFyU3RVdld4WXowMTIzNDU2Nzg5Kys=
-    expireSeconds: 7200
+    # Required in production: Base64 encoded 256-bit key for HS256. Set APP_JWT_SECRET.
+    secret: ${APP_JWT_SECRET:}
+    expireSeconds: ${APP_JWT_EXPIRESECONDS:7200}
