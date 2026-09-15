@@ -24,4 +24,4 @@ mysql \
   -u"${MYSQL_USERNAME}" \
   -p"${MYSQL_PASSWORD}" \
   -D"${MYSQL_DATABASE}" \
-  -e "SELECT COUNT(*) AS map_count FROM tarkov_map; SELECT username, created_at FROM auth_admin ORDER BY id;"
+  -e "SELECT username, created_at FROM auth_admin ORDER BY id;"

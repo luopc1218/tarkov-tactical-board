@@ -60,7 +60,6 @@ Language: [中文](#中文) | [English](#english)
    ```
    说明：
    - 后端启动时会自动创建表
-   - `tarkov_map` 会从 `src/main/resources/seeds/tarkov-maps.json` 自动灌入默认地图数据
    - `auth_admin` 会自动创建默认管理员账号
    - 本地开发只使用你本机的 MySQL，不依赖 Docker
 3. 验证本地数据库里已经有预置数据
@@ -70,7 +69,6 @@ Language: [中文](#中文) | [English](#english)
    然后执行：
    ```sql
    USE tarkov_board;
-   SELECT COUNT(*) AS map_count FROM tarkov_map;
    SELECT username, created_at FROM auth_admin;
    ```
 
@@ -83,7 +81,7 @@ Language: [中文](#中文) | [English](#english)
 
 ### 打包与部署
 
-推荐流程：推送 `master` 或 `v*` tag 后，GitHub Actions 自动构建并推送 Docker Hub 镜像：
+推荐流程：推送 `v*` tag 后，仓库根目录的统一 GitHub Actions 自动构建并推送 Docker Hub 镜像：
 `luopc1218docker/tarkov-tactical-board-server`
 
 1. 配置部署环境变量（示例）
@@ -268,7 +266,7 @@ Jar 方式（手工部署）仍可使用：
 
 ### Build and Deploy
 
-Recommended flow: after pushing `master` or a `v*` tag, GitHub Actions builds and publishes image to Docker Hub:
+Recommended flow: after pushing a `v*` tag, the repository-level GitHub Actions workflow builds and publishes the image to Docker Hub:
 `luopc1218docker/tarkov-tactical-board-server`
 
 1. Prepare deploy env vars (example)

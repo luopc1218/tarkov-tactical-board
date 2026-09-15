@@ -3,10 +3,6 @@ package com.tarkov.board.whiteboard;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tarkov.board.map.TarkovMapEntity;
-import com.tarkov.board.map.TarkovMapRepository;
-import com.tarkov.board.mapintel.MapIntelSnapshotService;
-import com.tarkov.board.mapintel.WhiteboardMapIntelResponse;
 import com.tarkov.board.websocket.WhiteboardRoomSessionManager;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -16,13 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
-import java.util.Map;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
@@ -34,29 +28,22 @@ public class WhiteboardInstanceService {
     private static final int MAX_INSTANCE_COUNT = 100;
 
     private final WhiteboardInstanceRepository repository;
-    private final TarkovMapRepository mapRepository;
     private final WhiteboardRoomSessionManager roomSessionManager;
     private final ObjectMapper objectMapper;
-    private final MapIntelSnapshotService mapIntelSnapshotService;
     private final ReentrantLock createInstanceLock = new ReentrantLock();
 
     public WhiteboardInstanceService(WhiteboardInstanceRepository repository,
-                                     TarkovMapRepository mapRepository,
                                      WhiteboardRoomSessionManager roomSessionManager,
-                                     ObjectMapper objectMapper,
-                                     MapIntelSnapshotService mapIntelSnapshotService) {
+                                     ObjectMapper objectMapper) {
         this.repository = repository;
-        this.mapRepository = mapRepository;
         this.roomSessionManager = roomSessionManager;
         this.objectMapper = objectMapper;
-        this.mapIntelSnapshotService = mapIntelSnapshotService;
     }
 
     @Transactional
     public WhiteboardInstanceResponse createInstance(Long mapId) {
         createInstanceLock.lock();
         try {
-            validateMapExists(mapId);
             cleanupExpiredInstances();
             evictOldestInstancesIfNeededForCreate();
 
@@ -107,21 +94,7 @@ public class WhiteboardInstanceService {
     }
 
     @Transactional
-    public WhiteboardMapIntelResponse getMapIntel(String instanceId) {
-        WhiteboardInstanceEntity entity = getActiveEntityOrThrow(instanceId);
-        if (entity.getMapId() == null) {
-            throw new ResponseStatusException(BAD_REQUEST, "Current instance has no map selected");
-        }
-
-        TarkovMapEntity map = mapRepository.findById(entity.getMapId())
-                .orElseThrow(() -> new ResponseStatusException(BAD_REQUEST, "Map not found"));
-
-        return mapIntelSnapshotService.getMapIntel(map);
-    }
-
-    @Transactional
     public WhiteboardInstanceResponse switchMap(String instanceId, Long mapId, boolean resetState) {
-        validateMapExists(mapId);
         WhiteboardInstanceEntity entity = getActiveEntityOrThrow(instanceId);
 
         boolean mapChanged = !mapId.equals(entity.getMapId());
@@ -178,9 +151,8 @@ public class WhiteboardInstanceService {
     public List<WhiteboardAdminInstanceResponse> listInstances(boolean includeExpired, Integer page, Integer size) {
         Instant now = Instant.now();
         List<WhiteboardInstanceEntity> instances = fetchInstances(includeExpired, now, page, size);
-        Map<Long, MapNames> mapNameById = resolveMapNames(instances);
         return instances.stream()
-                .map(entity -> toAdminResponse(entity, now, mapNameById))
+                .map(entity -> toAdminResponse(entity, now))
                 .toList();
     }
 
@@ -274,45 +246,16 @@ public class WhiteboardInstanceService {
                 : repository.findByExpireAtAfter(now, pageable).getContent();
     }
 
-    private Map<Long, MapNames> resolveMapNames(List<WhiteboardInstanceEntity> instances) {
-        Set<Long> mapIds = instances.stream()
-                .map(WhiteboardInstanceEntity::getMapId)
-                .filter(id -> id != null)
-                .collect(Collectors.toSet());
-        if (mapIds.isEmpty()) {
-            return Map.of();
-        }
-
-        return mapRepository.findAllById(mapIds).stream()
-                .collect(Collectors.toMap(
-                        TarkovMapEntity::getId,
-                        map -> new MapNames(map.getNameZh(), map.getNameEn())
-                ));
-    }
-
-    private WhiteboardAdminInstanceResponse toAdminResponse(WhiteboardInstanceEntity entity,
-                                                            Instant now,
-                                                            Map<Long, MapNames> mapNameById) {
-        MapNames mapNames = mapNameById.get(entity.getMapId());
+    private WhiteboardAdminInstanceResponse toAdminResponse(WhiteboardInstanceEntity entity, Instant now) {
         return new WhiteboardAdminInstanceResponse(
                 entity.getInstanceId(),
-                mapNames == null ? null : mapNames.nameZh(),
-                mapNames == null ? null : mapNames.nameEn(),
+                entity.getMapId(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
                 entity.getExpireAt(),
                 entity.getExpireAt().isAfter(now),
                 entity.getStateJson() != null && !entity.getStateJson().isBlank()
         );
-    }
-
-    private record MapNames(String nameZh, String nameEn) {
-    }
-
-    private void validateMapExists(Long mapId) {
-        if (!mapRepository.existsById(mapId)) {
-            throw new ResponseStatusException(BAD_REQUEST, "Map not found");
-        }
     }
 
     private void evictOldestInstancesIfNeededForCreate() {
