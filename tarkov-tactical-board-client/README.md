@@ -55,7 +55,7 @@ Tarkov Tactical Board 是一个面向《Escape from Tarkov》战术沟通场景�
 
 ### 素材与数据来源
 
-本项目内置地图素材来自 <https://reemr.se/>（RE3MR），基于 CC BY-NC-SA 4.0 许可使用。
+本项目只内置 [TarkovBox](https://www.tarkovbox.com/gamewiki/maps) 已提供汉化版本的地图。地图原图来自 <https://reemr.se/>（RE3MR），基于 CC BY-NC-SA 4.0 许可使用，并保留图内原作者、汉化来源与许可署名。
 
 Tarkov Tactical Board 是非官方社区工具，与 Battlestate Games 或 Escape from Tarkov 官方无隶属、授权或背书关系。《Escape from Tarkov》相关名称、标识、地图、素材与游戏内容的权利归其各自权利人所有。
 
@@ -193,7 +193,7 @@ Electron is no longer maintained or released.
 
 ### Assets and Data Sources
 
-Bundled map assets are provided by <https://reemr.se/> (RE3MR) under the CC BY-NC-SA 4.0 license.
+Only maps with localized editions available from [TarkovBox](https://www.tarkovbox.com/gamewiki/maps) are bundled. Original maps are provided by <https://reemr.se/> (RE3MR) under the CC BY-NC-SA 4.0 license, with in-image creator, localization, and license credits preserved.
 
 Tarkov Tactical Board is an unofficial community tool and is not affiliated with, authorized by, or endorsed by Battlestate Games or Escape from Tarkov. Names, logos, maps, assets, and game content related to Escape from Tarkov remain the property of their respective rights holders.
 

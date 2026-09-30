@@ -440,6 +440,7 @@ export function HomePage({
               {mapPresets.map((preset, index) => {
                   const selected = preset.id === selectedMapId
                   const bannerSrc = getMapAssetUrl(preset.bannerFileName)
+                  const coverSrc = getMapAssetUrl(preset.coverFileName)
                   const creating = creatingMapId === String(preset.id)
 
                   return (
@@ -449,10 +450,10 @@ export function HomePage({
                       initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.28, delay: prefersReducedMotion ? 0 : index * 0.025, ease: motionEase }}
-                      whileHover={prefersReducedMotion ? undefined : { y: -3 }}
                       onClick={() => setSelectedMapId(preset.id)}
                       onDoubleClick={() => void createInstance(preset)}
                       aria-pressed={selected}
+                      className="map-card"
                       style={{
                         minWidth: 0,
                         minHeight: 210,
@@ -467,19 +468,34 @@ export function HomePage({
                         boxShadow: selected ? '0 0 0 1px rgba(215, 185, 119, 0.2)' : 'none',
                       }}
                     >
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          inset: 0,
-                          backgroundImage: bannerSrc
-                            ? `linear-gradient(180deg, rgba(3,7,10,0.04) 28%, rgba(3,7,10,0.92) 100%), url(${bannerSrc})`
-                            : 'linear-gradient(145deg, #202b33, #0a1015)',
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center',
-                          transition: 'transform 420ms var(--motion-ease-out), filter 220ms var(--motion-ease-out)',
-                          filter: selected ? 'saturate(1.04) brightness(1.05)' : 'saturate(0.82) brightness(0.92)',
-                        }}
-                      />
+                      <Box className="map-card__track">
+                        <Box
+                          className="map-card__cover"
+                          sx={{
+                            flex: '0 0 50%',
+                            height: '100%',
+                            backgroundImage: coverSrc
+                              ? `linear-gradient(180deg, rgba(3,7,10,0.04) 28%, rgba(3,7,10,0.92) 100%), url(${coverSrc})`
+                              : 'linear-gradient(145deg, #202b33, #0a1015)',
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            filter: selected ? 'saturate(1.04) brightness(1.05)' : 'saturate(0.82) brightness(0.92)',
+                          }}
+                        />
+                        <Box
+                          className="map-card__map"
+                          sx={{
+                            flex: '0 0 50%',
+                            height: '100%',
+                            backgroundImage: bannerSrc
+                              ? `linear-gradient(180deg, rgba(3,7,10,0.04) 28%, rgba(3,7,10,0.92) 100%), url(${bannerSrc})`
+                              : 'linear-gradient(145deg, #202b33, #0a1015)',
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            filter: selected ? 'saturate(1.04) brightness(1.05)' : 'saturate(0.88) brightness(0.94)',
+                          }}
+                        />
+                      </Box>
                       <Box
                         sx={{
                           position: 'absolute',

@@ -126,6 +126,9 @@ export function ApiSettingsDialog({ onClose, onOpenAdmin }: ApiSettingsDialogPro
             <Typography variant="caption" color="text.secondary">
               {t('settings.aboutDisclaimer')}
             </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {t('settings.aboutMapCredits')}
+            </Typography>
             <Typography variant="caption" color="text.disabled">
               {t('home.copyrightTitle')}
             </Typography>

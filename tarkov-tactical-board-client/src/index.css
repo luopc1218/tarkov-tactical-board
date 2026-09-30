@@ -67,6 +67,30 @@ button:disabled {
   transform: translateY(-2px);
 }
 
+.map-card__track {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  width: 200%;
+  transform: translateX(0);
+  transition: transform 520ms var(--motion-ease-out);
+  will-change: transform;
+}
+
+.map-card__map {
+  box-shadow: inset 1px 0 rgba(255, 255, 255, 0.34);
+}
+
+.map-card:focus-visible .map-card__track {
+  transform: translateX(-25%);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .map-card:hover .map-card__track {
+    transform: translateX(-25%);
+  }
+}
+
 .status-beacon {
   position: relative;
   display: inline-flex;

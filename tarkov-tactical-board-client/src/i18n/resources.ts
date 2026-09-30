@@ -22,6 +22,8 @@ export const resources = {
         aboutTitle: '关于本项目',
         aboutDisclaimer:
           '本项目是独立开发的非官方社区工具，与 Battlestate Games 或 Escape from Tarkov 官方不存在隶属、授权或背书关系。游戏名称、地图名称、商标及相关素材的权利归各自权利人所有。',
+        aboutMapCredits:
+          '仅内置 TarkovBox 已提供汉化版本的地图；原图由 RE3MR 基于 CC BY-NC-SA 4.0 发布，并保留图内署名。',
         updateTitle: '软件更新',
         updateHint: '桌面客户端可在此检查并安装新版本。',
         updateCheck: '检查更新',
@@ -192,6 +194,8 @@ export const resources = {
         aboutTitle: 'About This Project',
         aboutDisclaimer:
           'This independent, unofficial community project is not affiliated with, authorized by, or endorsed by Battlestate Games or Escape from Tarkov. Game names, map names, trademarks, and related assets belong to their respective owners.',
+        aboutMapCredits:
+          'Only maps localized by TarkovBox are bundled. Original maps are provided by RE3MR under CC BY-NC-SA 4.0, with in-image credits preserved.',
         updateTitle: 'Software Update',
         updateHint: 'Check for and install new desktop client versions here.',
         updateCheck: 'Check for updates',
